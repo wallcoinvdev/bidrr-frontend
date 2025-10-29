@@ -413,6 +413,8 @@ export default function HomeownerDashboard() {
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [selectedContractorReviews, setSelectedContractorReviews] = useState<any>(null)
 
+  const [showDetailsInfoModal, setShowDetailsInfoModal] = useState(false)
+
   const filteredServices = SERVICES.filter((service) => service.toLowerCase().includes(serviceSearch.toLowerCase()))
 
   const filteredEditServices = SERVICES.filter((service) =>
@@ -821,7 +823,9 @@ export default function HomeownerDashboard() {
 
       if (categoryRequiresStructureDetails(category)) {
         if (postJobForm.house_size) formData.append("house_size", postJobForm.house_size)
-        if (postJobForm.stories) formData.append("stories", postJobForm.stories)
+        if (postJobForm.stories && postJobForm.stories !== "n/a") {
+          formData.append("stories", postJobForm.stories)
+        }
         if (postJobForm.property_type) formData.append("property_type", postJobForm.property_type)
       }
 
@@ -964,7 +968,9 @@ export default function HomeownerDashboard() {
 
       if (categoryRequiresStructureDetails(category)) {
         if (editJobForm.house_size) formData.append("house_size", editJobForm.house_size)
-        if (editJobForm.stories) formData.append("stories", editJobForm.stories)
+        if (editJobForm.stories && editJobForm.stories !== "n/a") {
+          formData.append("stories", editJobForm.stories)
+        }
         if (editJobForm.property_type) formData.append("property_type", editJobForm.property_type)
       }
 
@@ -1650,18 +1656,19 @@ export default function HomeownerDashboard() {
                           <span>{mission.postal_code}</span>
                         </div>
                         {mission.details_requested_count > 0 && (
-                          <div className="flex items-center gap-2 relative group">
+                          <div className="flex items-center gap-2">
                             <span className="text-red-600 font-semibold">
                               Requests for More Details: {mission.details_requested_count}
                             </span>
-                            <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowDetailsInfoModal(true)
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                            >
                               <Info className="h-4 w-4 text-red-600" />
                             </button>
-                            <div className="absolute left-0 top-full mt-2 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                              Receiving Requests for More Details means Contractors are unable to provide a bid on your
-                              job with the details you've posted. If the number is greater than 0, please add more
-                              details to your post.
-                            </div>
                           </div>
                         )}
                       </div>
@@ -1720,18 +1727,19 @@ export default function HomeownerDashboard() {
                             <span>{mission.postal_code}</span>
                           </div>
                           {mission.details_requested_count > 0 && (
-                            <div className="flex items-center gap-2 relative group">
+                            <div className="flex items-center gap-2">
                               <span className="text-red-600 font-semibold">
                                 Requests for More Details: {mission.details_requested_count}
                               </span>
-                              <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setShowDetailsInfoModal(true)
+                                }}
+                                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                              >
                                 <Info className="h-4 w-4 text-red-600" />
                               </button>
-                              <div className="absolute left-0 top-full mt-2 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                Receiving Requests for More Details means Contractors are unable to provide a bid on
-                                your job with the details you've posted. If the number is greater than 0, please add
-                                more details to your post.
-                              </div>
                             </div>
                           )}
                         </div>
@@ -2883,6 +2891,39 @@ export default function HomeownerDashboard() {
             <div className="p-6 space-y-6">
               <ReviewsModalContent contractorId={selectedContractorReviews.contractor_id} />
             </div>
+          </div>
+        </div>
+      )}
+
+      {showDetailsInfoModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowDetailsInfoModal(false)}
+        >
+          <div className="bg-white rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Info className="h-6 w-6 text-red-600" />
+                <h3 className="text-lg font-bold text-gray-900">Requests for More Details</h3>
+              </div>
+              <button
+                onClick={() => setShowDetailsInfoModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <p className="text-gray-700 leading-relaxed">
+              Receiving Requests for More Details means Contractors are unable to provide a bid on your job with the
+              details you've posted. If the number is greater than 0, please add more details to your post to help
+              contractors provide accurate quotes.
+            </p>
+            <button
+              onClick={() => setShowDetailsInfoModal(false)}
+              className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}

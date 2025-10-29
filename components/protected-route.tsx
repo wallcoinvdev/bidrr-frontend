@@ -3,13 +3,12 @@
 import type React from "react"
 
 import { useAuth } from "@/lib/auth-context"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  // <CHANGE> Reverted role type back to homeowner for backend compatibility
-  allowedRoles?: ("homeowner" | "contractor")[]
+  allowedRoles?: ("homeowner" | "contractor" | "admin")[]
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -20,11 +19,20 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     if (!loading) {
       if (!user) {
         router.push("/login")
-      } else if (allowedRoles && !allowedRoles.includes(user.role)) {
-        router.push("/")
+      } else if (allowedRoles) {
+        const hasAccess = allowedRoles.some((role) => {
+          if (role === "admin") {
+            return user.is_admin === true
+          }
+          return user.role === role
+        })
+
+        if (!hasAccess) {
+          router.push("/")
+        }
       }
     }
-  }, [user, loading, allowedRoles, router])
+  }, [user, loading, allowedRoles])
 
   if (loading) {
     return (
@@ -34,8 +42,21 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     )
   }
 
-  if (!user || (allowedRoles && !allowedRoles.includes(user.role))) {
+  if (!user) {
     return null
+  }
+
+  if (allowedRoles) {
+    const hasAccess = allowedRoles.some((role) => {
+      if (role === "admin") {
+        return user.is_admin === true
+      }
+      return user.role === role
+    })
+
+    if (!hasAccess) {
+      return null
+    }
   }
 
   return <>{children}</>

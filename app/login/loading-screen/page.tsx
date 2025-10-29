@@ -34,7 +34,11 @@ export default function LoginLoadingScreen() {
 
     try {
       const user = JSON.parse(userStr)
-      const targetDashboard = user.role === "homeowner" ? "/dashboard/homeowner" : "/dashboard/contractor"
+      const targetDashboard = user.is_admin
+        ? "/dashboard/admin"
+        : user.role === "homeowner"
+          ? "/dashboard/homeowner"
+          : "/dashboard/contractor"
 
       const redirectTimer = setTimeout(() => {
         if (isMounted && !hasRedirected.current) {

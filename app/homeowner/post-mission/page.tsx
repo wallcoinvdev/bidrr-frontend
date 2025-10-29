@@ -32,14 +32,26 @@ export default function PostMissionPage() {
 
   useEffect(() => {
     fetchServices()
+    checkAuth()
   }, [])
+
+  const checkAuth = () => {
+    const token = localStorage.getItem("token")
+    console.log("[v0] Post Mission - Auth token present:", !!token)
+    if (!token) {
+      console.log("[v0] Post Mission - No auth token, redirecting to login")
+      setError("You must be logged in to post a mission. Redirecting to login...")
+      setTimeout(() => router.push("/login"), 2000)
+    }
+  }
 
   const fetchServices = async () => {
     try {
       const data = await apiClient.request<Service[]>("/api/services")
       setServices(data)
+      console.log("[v0] Post Mission - Fetched services:", data.length)
     } catch (err) {
-      console.error("[v0] Failed to fetch services:", err)
+      console.error("[v0] Post Mission - Failed to fetch services:", err)
     }
   }
 
@@ -63,8 +75,18 @@ export default function PostMissionPage() {
     e.preventDefault()
     setError("")
 
+    console.log("[v0] Post Mission - Form submitted")
+
+    const token = localStorage.getItem("token")
+    if (!token) {
+      setError("You must be logged in to post a mission. Please log in and try again.")
+      console.log("[v0] Post Mission - No auth token at submission")
+      return
+    }
+
     if (!validatePostalCode(postalCode)) {
       setError("Please enter a valid Canadian postal code (e.g., A1A 1A1)")
+      console.log("[v0] Post Mission - Invalid postal code:", postalCode)
       return
     }
 
@@ -87,10 +109,29 @@ export default function PostMissionPage() {
         formData.append("images", image)
       })
 
+      console.log("[v0] Post Mission - Submitting to API:", {
+        title,
+        service,
+        postal_code: postalCode,
+        priority,
+        images: images.length,
+      })
+
       await apiClient.uploadFormData("/api/missions", formData)
+
+      console.log("[v0] Post Mission - Success! Redirecting to dashboard")
       router.push("/homeowner/dashboard")
     } catch (err: any) {
-      setError(err.message || "Failed to post mission")
+      console.error("[v0] Post Mission - Error:", err)
+      const errorMessage = err.message || "Failed to post mission. Please try again."
+      setError(errorMessage)
+
+      if (err.statusCode === 401) {
+        setError("Your session has expired. Please log in again.")
+        setTimeout(() => router.push("/login"), 2000)
+      } else if (err.statusCode === 403) {
+        setError("You don't have permission to post missions. Please ensure you're logged in as a homeowner.")
+      }
     } finally {
       setLoading(false)
     }

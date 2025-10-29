@@ -2,6 +2,7 @@
 
 import { Component, type ReactNode } from "react"
 import { AlertCircle } from "lucide-react"
+import { errorLogger } from "@/lib/error-logger"
 
 interface Props {
   children: ReactNode
@@ -24,6 +25,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: any) {
     console.error("[v0] Error boundary caught:", error, errorInfo)
+
+    errorLogger.log({
+      error: error.message,
+      errorName: error.name || "ReactError",
+      stack: error.stack,
+      context: {
+        componentStack: errorInfo.componentStack,
+        errorBoundary: true,
+      },
+    })
   }
 
   render() {

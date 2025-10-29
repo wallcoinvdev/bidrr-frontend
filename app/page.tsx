@@ -24,6 +24,7 @@ import {
   Droplet,
   X,
   Menu,
+  ArrowRight,
 } from "lucide-react"
 import { SERVICES } from "@/lib/services"
 
@@ -208,12 +209,13 @@ export default function HomePage() {
                 className="flex-1 py-2 md:py-4 px-2 text-sm md:text-base text-gray-900 placeholder-gray-400 focus:outline-none"
                 autoComplete="off"
               />
-              <button
-                type="submit"
-                className="hidden md:block bg-[#328d87] hover:bg-[#2d7f7a] text-white font-semibold px-4 sm:px-8 py-2 md:py-4 transition-colors text-sm md:text-base whitespace-nowrap"
+              <Link
+                href="/verify-phone/homeowner"
+                className="bg-[#328d87] hover:bg-[#2d7f7a] text-white font-semibold transition-colors flex items-center justify-center md:px-8 px-3 py-2 md:py-4"
               >
-                Get started
-              </button>
+                <ArrowRight className="h-5 w-5 md:hidden" />
+                <span className="hidden md:inline text-sm md:text-base whitespace-nowrap">Get started</span>
+              </Link>
             </div>
 
             {showAutocomplete && filteredServices.length > 0 && (

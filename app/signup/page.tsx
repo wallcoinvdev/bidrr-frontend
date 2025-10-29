@@ -9,7 +9,7 @@ import { AlertCircle, Loader2, CheckCircle, ArrowLeft } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { SERVICES } from "@/lib/services"
 
-const GOOGLE_OAUTH_URL = "https://pinnate-candance-cachectic.ngrok-free.dev/api/users/google"
+const GOOGLE_OAUTH_URL = "https://api.homehero.app/api/users/google"
 
 export default function SignupPage() {
   const searchParams = useSearchParams()

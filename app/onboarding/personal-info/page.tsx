@@ -431,7 +431,11 @@ export default function PersonalInformation() {
         }),
       })
 
-      const targetDashboard = data.role === "homeowner" ? "/dashboard/homeowner" : "/dashboard/contractor"
+      const targetDashboard = loginResult.user?.is_admin
+        ? "/dashboard/admin"
+        : data.role === "homeowner"
+          ? "/dashboard/homeowner"
+          : "/dashboard/contractor"
       console.log("[v0] Redirecting to dashboard:", targetDashboard)
       router.push(targetDashboard)
     } catch (err) {

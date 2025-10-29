@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { apiClient, ApiError } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
 import { containsContactInfo } from "@/lib/contact-validation"
+import { ReportUserModal } from "@/components/report-user-modal"
 
 interface Conversation {
   id: number
@@ -47,6 +48,7 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false)
   const [canSendMessage, setCanSendMessage] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null) // Added error state for inline error display
+  const [showReportModal, setShowReportModal] = useState(false) // Added state for report user modal
   const { toast } = useToast()
 
   useEffect(() => {
@@ -343,7 +345,7 @@ export default function MessagesPage() {
               <button
                 onClick={handleSendMessage}
                 disabled={!messageText.trim() || sending || !canSendMessage}
-                className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity flex-shrink-0"
               >
                 <Send className="h-5 w-5" />
               </button>
@@ -536,9 +538,17 @@ export default function MessagesPage() {
                 </div>
               ) : (
                 <>
-                  <div className="p-4 border-b border-gray-200">
-                    <h2 className="text-xl font-bold text-gray-900">{selectedConversation.homeowner_name}</h2>
-                    <p className="text-sm text-gray-600">{selectedConversation.mission_title}</p>
+                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-xl font-bold text-gray-900">{selectedConversation.homeowner_name}</h2>
+                      <p className="text-sm text-gray-600">{selectedConversation.mission_title}</p>
+                    </div>
+                    <button
+                      onClick={() => setShowReportModal(true)}
+                      className="ml-4 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+                    >
+                      Report User
+                    </button>
                   </div>
 
                   {/* Messages */}
@@ -627,6 +637,18 @@ export default function MessagesPage() {
           </div>
         </div>
       </div>
+
+      {/* Report User Modal */}
+      {selectedConversation && (
+        <ReportUserModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          reportedUserId={selectedConversation.homeowner_id}
+          reportedUserName={selectedConversation.homeowner_name}
+          reportedUserRole="homeowner"
+          conversationId={selectedConversation.id}
+        />
+      )}
     </DashboardLayout>
   )
 }

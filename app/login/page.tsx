@@ -3,13 +3,13 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
 import { AlertCircle, Loader2, ArrowLeft } from "lucide-react"
 
-const GOOGLE_OAUTH_URL = "https://pinnate-candance-cachectic.ngrok-free.dev/api/users/google"
+const GOOGLE_OAUTH_URL = "https://api.homehero.app/api/users/google"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -20,10 +20,26 @@ export default function LoginPage() {
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const { login, user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const errorParam = searchParams.get("error")
+    if (errorParam === "session_expired") {
+      setError("Your session has expired. Please log in again.")
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (user && !authLoading && !isLoggingIn) {
-      const targetDashboard = user.role === "homeowner" ? "/dashboard/homeowner" : "/dashboard/contractor"
+      console.log("[v0] User data for redirect:", JSON.stringify(user, null, 2))
+
+      const targetDashboard = user.is_admin
+        ? "/dashboard/admin"
+        : user.role === "homeowner"
+          ? "/dashboard/homeowner"
+          : "/dashboard/contractor"
+
+      console.log("[v0] Redirecting to:", targetDashboard, "is_admin:", user.is_admin, "role:", user.role)
       router.push(targetDashboard)
     }
   }, [user, authLoading, isLoggingIn, router])
@@ -46,16 +62,24 @@ export default function LoginPage() {
     setIsLoggingIn(true)
 
     try {
-      await login(email, password, rememberMe)
-      const userStr = localStorage.getItem("user")
-      if (userStr) {
-        const userData = JSON.parse(userStr)
-        const targetDashboard = userData.role === "homeowner" ? "/dashboard/homeowner" : "/dashboard/contractor"
-        router.push(targetDashboard)
-      }
+      console.log("[v0] Attempting login for:", email)
+
+      const userData = await login(email, password, rememberMe)
+
+      console.log("[v0] Login response user data:", JSON.stringify(userData, null, 2))
+
+      const targetDashboard = userData.is_admin
+        ? "/dashboard/admin"
+        : userData.role === "homeowner"
+          ? "/dashboard/homeowner"
+          : "/dashboard/contractor"
+
+      console.log("[v0] Login successful, redirecting to:", targetDashboard)
+      router.push(targetDashboard)
     } catch (err: any) {
       console.error("[v0] Login error:", err)
-      setError(err.message || "Invalid email or password")
+      const errorMessage = err.message || "Invalid email or password. Please try again."
+      setError(errorMessage)
       setIsLoggingIn(false)
     } finally {
       setLoading(false)

@@ -10,6 +10,7 @@ interface User {
   role: "homeowner" | "contractor"
   phone_number?: string
   phone_verified?: boolean
+  is_admin?: boolean // Added is_admin field for admin users
   // Contractor-specific fields
   company_name?: string
   logo_url?: string
@@ -49,7 +50,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-function decodeToken(token: string): { id: number; role: "homeowner" | "contractor" } | null {
+function decodeToken(token: string): { id: number; role: "homeowner" | "contractor"; is_admin?: boolean } | null {
   try {
     const base64Url = token.split(".")[1]
     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
@@ -60,7 +61,7 @@ function decodeToken(token: string): { id: number; role: "homeowner" | "contract
         .join(""),
     )
     const payload = JSON.parse(jsonPayload)
-    return { id: payload.id, role: payload.role }
+    return { id: payload.id, role: payload.role, is_admin: payload.is_admin }
   } catch (error) {
     console.error("[v0] Failed to decode token:", error)
     return null
@@ -94,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: "",
           full_name: "",
           role: tokenData.role,
+          is_admin: tokenData.is_admin,
         }
       }
       return null

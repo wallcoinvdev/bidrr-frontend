@@ -5,6 +5,7 @@ import { Send, AlertCircle, X } from "lucide-react"
 import { useState, useEffect } from "react"
 import { apiClient, ApiError } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
+import { ReportUserModal } from "@/components/report-user-modal"
 
 interface Conversation {
   id: number
@@ -46,6 +47,7 @@ export default function MessagesPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null) // Added error state for inline error display
   const [expandedConversationId, setExpandedConversationId] = useState<number | null>(null) // Added state to track which conversation's chat is expanded on mobile
   const [showChatModal, setShowChatModal] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false) // Added state for report user modal
   const { toast } = useToast()
 
   useEffect(() => {
@@ -398,11 +400,19 @@ export default function MessagesPage() {
 
         {selectedConversation && (
           <div className="flex-1 min-w-0 bg-white rounded-xl border border-gray-200 flex flex-col">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900 truncate">
-                {selectedConversation.contractor_company || selectedConversation.contractor_name}
-              </h2>
-              <p className="text-sm text-gray-600 truncate">{selectedConversation.mission_title}</p>
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-bold text-gray-900 truncate">
+                  {selectedConversation.contractor_company || selectedConversation.contractor_name}
+                </h2>
+                <p className="text-sm text-gray-600 truncate">{selectedConversation.mission_title}</p>
+              </div>
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="ml-4 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+              >
+                Report User
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {loadingMessages ? (
@@ -469,6 +479,18 @@ export default function MessagesPage() {
           </div>
         )}
       </div>
+
+      {/* Report User Modal */}
+      {selectedConversation && (
+        <ReportUserModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          reportedUserId={selectedConversation.contractor_id}
+          reportedUserName={selectedConversation.contractor_company || selectedConversation.contractor_name}
+          reportedUserRole="contractor"
+          conversationId={selectedConversation.id}
+        />
+      )}
     </DashboardLayout>
   )
 }

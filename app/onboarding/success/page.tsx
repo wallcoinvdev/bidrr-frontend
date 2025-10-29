@@ -14,7 +14,20 @@ export default function OnboardingSuccess() {
     setTimeout(() => setIsAnimating(true), 100)
 
     const timer = setTimeout(() => {
-      const targetDashboard = data.role === "homeowner" ? "/dashboard/homeowner" : "/dashboard/contractor"
+      const userStr = localStorage.getItem("user")
+      let targetDashboard = data.role === "homeowner" ? "/dashboard/homeowner" : "/dashboard/contractor"
+
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr)
+          if (user.is_admin) {
+            targetDashboard = "/dashboard/admin"
+          }
+        } catch (e) {
+          console.error("[v0] Error parsing user data:", e)
+        }
+      }
+
       router.push(targetDashboard)
     }, 2000)
 

@@ -8,6 +8,7 @@ import Image from "next/image"
 import { ArrowLeft, Phone, AlertCircle, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
+import { apiClient } from "@/lib/api-client"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://homehero-backend-oct-26-2025-production.up.railway.app"
 
@@ -50,28 +51,17 @@ export default function HomeownerPhoneVerification() {
       const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
       const country = getCountryFromCode(countryCode)
 
-      const response = await fetch(`${API_BASE_URL}/api/users/request-verification`, {
+      console.log("[v0] Requesting verification code for homeowner:", fullPhoneNumber)
+
+      const response = await apiClient.request("/api/users/request-verification", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-        },
         body: JSON.stringify({
           phone_number: fullPhoneNumber,
           role: "homeowner",
         }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        const errorMessage = errorData.error || "Failed to send verification code"
-        if (errorMessage.toLowerCase().includes("already registered")) {
-          setError("PHONE_REGISTERED")
-        } else {
-          throw new Error(errorMessage)
-        }
-        return
-      }
+      console.log("[v0] Verification code sent successfully")
 
       sessionStorage.setItem("pending_phone_number", fullPhoneNumber)
       sessionStorage.setItem("pending_country", country)
@@ -89,14 +79,15 @@ export default function HomeownerPhoneVerification() {
       })
 
       setStep("code")
-    } catch (err) {
-      console.error("[v0] Error sending code:", err)
-      if (err instanceof TypeError && err.message === "Failed to fetch") {
-        setError(
-          `Unable to connect to backend. This is a CORS issue. Your backend needs to allow requests from: ${currentOrigin}`,
-        )
+    } catch (err: any) {
+      console.error("[v0] Error sending verification code:", err)
+
+      if (err.message?.toLowerCase().includes("already registered")) {
+        setError("PHONE_REGISTERED")
+      } else if (err.message?.toLowerCase().includes("cors")) {
+        setError(`CORS Error: ${err.message}`)
       } else {
-        setError(err instanceof Error ? err.message : "Failed to send code. Please try again.")
+        setError(err.message || "Failed to send verification code. Please try again.")
       }
     } finally {
       setIsLoading(false)
@@ -344,25 +335,7 @@ export default function HomeownerPhoneVerification() {
                 </div>
               )}
 
-              {error && error.includes("CORS") && (
-                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-amber-900 mb-2">Backend CORS Configuration Needed</p>
-                      <p className="text-xs text-amber-800 mb-2">{error}</p>
-                      <div className="bg-amber-100 p-2 rounded text-xs font-mono text-amber-900 break-all">
-                        {currentOrigin}
-                      </div>
-                      <p className="text-xs text-amber-700 mt-2">
-                        Add this origin to your backend's CORS allowedOrigins array and restart your server.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {error && !error.includes("CORS") && error !== "PHONE_REGISTERED" && (
+              {error && error !== "PHONE_REGISTERED" && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-sm text-red-600 text-center">{error}</p>
                 </div>
