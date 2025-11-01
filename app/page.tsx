@@ -1,7 +1,6 @@
 "use client"
 
 import React from "react"
-
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -27,6 +26,7 @@ import {
   ArrowRight,
 } from "lucide-react"
 import { SERVICES } from "@/lib/services"
+import { SiteFooter } from "@/components/site-footer"
 
 export default function HomePage() {
   const router = useRouter()
@@ -110,7 +110,7 @@ export default function HomePage() {
         <header className="border-b border-[#1a4f54]">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <Link href="/" className="flex items-center">
-              <img src="/images/logo-white.png" alt="homeHero" className="h-8" />
+              <img src="/images/logo-white.png" alt="Bidrr" className="h-8" />
             </Link>
             <nav className="hidden md:flex items-center gap-8">
               <Link href="#services" className="text-white/90 hover:text-white transition-colors">
@@ -172,7 +172,7 @@ export default function HomePage() {
                   </Link>
                   <Link
                     href="/verify-phone/contractor"
-                    className="bg-[#e2bb12] hover:bg-white/10 text-white font-semibold px-6 py-3 rounded-full transition-colors text-center"
+                    className="bg-[#e2bb12] hover:bg-white/10 text-white font-semibold px-6 md:px-8 py-3 md:py-4 rounded-full transition-colors text-center"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Join as Contractor
@@ -392,7 +392,7 @@ export default function HomePage() {
                   ))}
                 </div>
                 <p className="text-white/90 mb-4 md:mb-6 text-sm md:text-base">
-                  HomeHero has helped me grow my business significantly. The quality of leads is excellent.
+                  Bidrr has helped me grow my business significantly. The quality of leads is excellent.
                 </p>
                 <div>
                   <div className="font-semibold text-white">Mike T.</div>
@@ -447,27 +447,7 @@ export default function HomePage() {
         </section>
 
         {/* Footer */}
-        <footer className="bg-[#03353a] py-8 md:py-12">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
-              <Link href="/" className="flex items-center">
-                <img src="/images/logo-white.png" alt="homeHero" className="h-8" />
-              </Link>
-              <nav className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
-                <Link href="/privacy" className="text-white/70 hover:text-white transition-colors">
-                  Privacy
-                </Link>
-                <Link href="/terms" className="text-white/70 hover:text-white transition-colors">
-                  Terms of Service
-                </Link>
-                <Link href="/help" className="text-white/70 hover:text-white transition-colors">
-                  Help
-                </Link>
-              </nav>
-              <div className="text-white/60 text-sm text-center">© 2025 HomeHero. All rights reserved.</div>
-            </div>
-          </div>
-        </footer>
+        <SiteFooter />
       </div>
     </div>
   )

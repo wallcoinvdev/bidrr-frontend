@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth-context"
 import { ServicesSelector } from "@/components/services-selector"
 import { getRegionsForCountry, getPostalCodeLabel, getRegionLabel, getPostalCodePlaceholder } from "@/lib/country-data"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.homehero.app"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 
 const formatPostalCode = (value: string, country: string): string => {
   const cleaned = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase()

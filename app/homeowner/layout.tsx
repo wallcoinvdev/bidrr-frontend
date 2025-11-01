@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/lib/auth-context"
 import Link from "next/link"
@@ -9,6 +8,7 @@ import { usePathname } from "next/navigation"
 import { WrenchIcon } from "@/components/icons"
 import { Home, Plus, FolderOpen, User, LogOut, Menu, X } from "lucide-react"
 import { useState } from "react"
+import { SiteFooter } from "@/components/site-footer"
 
 export default function HomeownerLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
@@ -24,7 +24,7 @@ export default function HomeownerLayout({ children }: { children: React.ReactNod
 
   return (
     <ProtectedRoute allowedRoles={["homeowner"]}>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         {/* Header */}
         <header className="border-b border-border bg-card sticky top-0 z-50">
           <div className="container mx-auto px-4">
@@ -33,7 +33,7 @@ export default function HomeownerLayout({ children }: { children: React.ReactNod
                 <Link href="/homeowner/dashboard" className="flex items-center gap-2">
                   <WrenchIcon className="h-7 w-7" style={{ color: "#142c57" }} />
                   <span className="text-xl font-bold" style={{ color: "#142c57" }}>
-                    HomeHero
+                    Bidrr
                   </span>
                 </Link>
 
@@ -119,7 +119,9 @@ export default function HomeownerLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">{children}</main>
+        <main className="container mx-auto px-4 py-8 flex-1">{children}</main>
+
+        <SiteFooter />
       </div>
     </ProtectedRoute>
   )

@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, MessageSquare, Settings, LogOut, FileText, Star, Menu, X } from "lucide-react"
+import { Home, MessageSquare, Settings, LogOut, FileText, Star, Menu, X, AlertTriangle } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect, useRef } from "react"
 import { apiClient } from "@/lib/api-client"
@@ -24,7 +24,7 @@ interface NotificationCounts {
 export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { logout, user } = useAuth()
+  const { logout, user, isImpersonating, exitImpersonation } = useAuth()
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
   const [imageLoadError, setImageLoadError] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -92,8 +92,16 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
     fetchNotificationCounts()
     const interval = setInterval(fetchNotificationCounts, 30000)
 
+    const handleNotificationUpdate = () => {
+      console.log("[v0] Notification update event received, refreshing counts")
+      fetchNotificationCounts()
+    }
+
+    window.addEventListener("notificationUpdated", handleNotificationUpdate)
+
     return () => {
       clearInterval(interval)
+      window.removeEventListener("notificationUpdated", handleNotificationUpdate)
     }
   }, [userRole])
 
@@ -173,105 +181,125 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {isImpersonating && (
+        <div className="bg-yellow-400 text-gray-900 px-4 py-3 flex items-center justify-between gap-4 z-50 shadow-md">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+            <span className="text-sm font-semibold">Admin Mode: Viewing as {user?.full_name || user?.email}</span>
+          </div>
+          <button
+            onClick={exitImpersonation}
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors flex-shrink-0 shadow-sm"
+          >
+            Exit to Admin Panel
+          </button>
+        </div>
       )}
 
-      <aside
-        className={`
+      <div className="flex flex-1">
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
+        )}
+
+        <aside
+          className={`
           fixed md:static inset-y-0 left-0 z-50
           w-64 bg-[#0D3D42] border-r border-[#d8e2fb]/10 flex flex-col
           transform transition-transform duration-300 ease-in-out
           ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
           md:translate-x-0
+          ${isImpersonating ? "top-[52px] md:top-[52px]" : "top-0"}
         `}
-      >
-        <div className="p-6 border-b border-[#d8e2fb]/10 flex items-center justify-between">
-          <div className="flex items-center">
-            <Image src="/images/logo-white.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
-          </div>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-white/70 hover:text-white">
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-            const badgeCount = getBadgeCount(item.badge)
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive ? "bg-[#328d87] text-white" : "text-[#d8e2fb]/70 hover:bg-[#0D3D42]/50 hover:text-[#d8e2fb]"
-                }`}
-              >
-                <Icon className="h-5 w-5" />
-                <span className="font-medium flex-1">{item.label}</span>
-                {badgeCount > 0 && (
-                  <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
-                    {badgeCount}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-[#d8e2fb]/10">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#d8e2fb]/70 hover:bg-[#0D3D42]/50 hover:text-[#d8e2fb] transition-colors w-full"
-          >
-            <LogOut className="h-5 w-5" />
-            <span className="font-medium">Logout</span>
-          </button>
-        </div>
-      </aside>
-
-      <main className="flex-1 overflow-auto w-full">
-        <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
-          <div className="flex items-center justify-between md:justify-end gap-3">
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="md:hidden text-gray-700 hover:bg-gray-100 p-2 rounded-lg transition-colors"
-            >
-              <Menu className="h-6 w-6" />
+        >
+          <div className="p-6 border-b border-[#d8e2fb]/10 flex items-center justify-between">
+            <div className="flex items-center">
+              <Image src="/images/logo-white.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
+            </div>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-white/70 hover:text-white">
+              <X className="h-6 w-6" />
             </button>
+          </div>
 
-            <div className="flex items-center gap-3">
-              <FeedbackModal />
+          <nav className="flex-1 p-4 space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              const isActive = pathname === item.href
+              const badgeCount = getBadgeCount(item.badge)
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-[#328d87] text-white"
+                      : "text-[#d8e2fb]/70 hover:bg-[#0D3D42]/50 hover:text-[#d8e2fb]"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="font-medium flex-1">{item.label}</span>
+                  {badgeCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                      {badgeCount}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
+          </nav>
+
+          <div className="p-4 border-t border-[#d8e2fb]/10">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#d8e2fb]/70 hover:bg-[#0D3D42]/50 hover:text-[#d8e2fb] transition-colors w-full"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="font-medium">Logout</span>
+            </button>
+          </div>
+        </aside>
+
+        <main className="flex-1 overflow-auto w-full">
+          <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
+            <div className="flex items-center justify-between md:justify-end gap-3">
               <button
-                onClick={handleLogout}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden text-gray-700 hover:bg-gray-100 p-2 rounded-lg transition-colors"
               >
-                <LogOut className="h-4 w-4" />
-                <span className="text-sm font-medium">Log out</span>
+                <Menu className="h-6 w-6" />
               </button>
-              <button
-                onClick={handleProfileClick}
-                className="w-10 h-10 rounded-full bg-[#328d87] flex items-center justify-center text-white hover:opacity-90 transition-opacity overflow-hidden"
-              >
-                {profilePhoto && !imageLoadError ? (
-                  <img
-                    src={profilePhoto || "/placeholder.svg"}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                    onError={() => setImageLoadError(true)}
-                  />
-                ) : (
-                  <span className="text-sm font-semibold">{getUserInitials()}</span>
-                )}
-              </button>
+
+              <div className="flex items-center gap-3">
+                <FeedbackModal />
+                <button
+                  onClick={handleLogout}
+                  className="hidden sm:flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="text-sm font-medium">Log out</span>
+                </button>
+                <button
+                  onClick={handleProfileClick}
+                  className="w-10 h-10 rounded-full bg-[#328d87] flex items-center justify-center text-white hover:opacity-90 transition-opacity overflow-hidden"
+                >
+                  {profilePhoto && !imageLoadError ? (
+                    <img
+                      src={profilePhoto || "/placeholder.svg"}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={() => setImageLoadError(true)}
+                    />
+                  ) : (
+                    <span className="text-sm font-semibold">{getUserInitials()}</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="container mx-auto px-4 md:px-6 py-6 md:py-8 max-w-7xl">{children}</div>
-      </main>
+          <div className="container mx-auto px-4 md:px-6 py-6 md:py-8 max-w-7xl">{children}</div>
+        </main>
+      </div>
     </div>
   )
 }

@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { apiClient } from "@/lib/api-client"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://homehero-backend-oct-26-2025-production.up.railway.app"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 
 export default function ContractorPhoneVerification() {
   const router = useRouter()
@@ -284,7 +284,7 @@ export default function ContractorPhoneVerification() {
                   </p>
                   <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     <p className="text-gray-700">
-                      <strong>Email:</strong> support@homehero.app
+                      <strong>Email:</strong> support@bidrr.ca
                     </p>
                   </div>
                 </section>

@@ -37,6 +37,7 @@ interface User {
   city?: string
   province?: string
   postal_code?: string
+  impersonating_admin_id?: number
 }
 
 interface AuthContextType {
@@ -46,11 +47,16 @@ interface AuthContextType {
   logout: () => void
   setUser: (user: User | null) => void
   refreshUser: () => Promise<void>
+  impersonateUser: (userId: number) => Promise<void>
+  exitImpersonation: () => void
+  isImpersonating: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-function decodeToken(token: string): { id: number; role: "homeowner" | "contractor"; is_admin?: boolean } | null {
+function decodeToken(
+  token: string,
+): { id: number; role: "homeowner" | "contractor"; is_admin?: boolean; impersonating_admin_id?: number } | null {
   try {
     const base64Url = token.split(".")[1]
     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
@@ -61,7 +67,12 @@ function decodeToken(token: string): { id: number; role: "homeowner" | "contract
         .join(""),
     )
     const payload = JSON.parse(jsonPayload)
-    return { id: payload.id, role: payload.role, is_admin: payload.is_admin }
+    return {
+      id: payload.id,
+      role: payload.role,
+      is_admin: payload.is_admin,
+      impersonating_admin_id: payload.impersonating_admin_id,
+    }
   } catch (error) {
     console.error("[v0] Failed to decode token:", error)
     return null
@@ -72,12 +83,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const isImpersonating = !!user?.impersonating_admin_id
+
   const fetchUserProfile = async (token: string): Promise<User | null> => {
     try {
       const userData = await apiClient.request<User>("/api/users/profile", {
         method: "GET",
         requiresAuth: true,
       })
+
+      const tokenData = decodeToken(token)
+      if (tokenData?.impersonating_admin_id) {
+        userData.impersonating_admin_id = tokenData.impersonating_admin_id
+      }
+
       return userData
     } catch (error: any) {
       console.error("[v0] Failed to fetch user profile:", error)
@@ -87,7 +106,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("user")
         return null
       }
-      // For other errors, try to decode token as fallback
       const tokenData = decodeToken(token)
       if (tokenData) {
         return {
@@ -96,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           full_name: "",
           role: tokenData.role,
           is_admin: tokenData.is_admin,
+          impersonating_admin_id: tokenData.impersonating_admin_id,
         }
       }
       return null
@@ -110,12 +129,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userData) {
       setUser(userData)
       localStorage.setItem("user", JSON.stringify(userData))
+    } else {
+      localStorage.removeItem("token")
+      localStorage.removeItem("refresh_token")
+      localStorage.removeItem("user")
+      setUser(null)
+    }
+
+    setLoading(false)
+  }
+
+  const impersonateUser = async (userId: number) => {
+    try {
+      console.log("[v0] Admin impersonating user:", userId)
+
+      // Store original admin token before impersonating
+      const originalToken = localStorage.getItem("token")
+      if (originalToken) {
+        localStorage.setItem("admin_token", originalToken)
+      }
+
+      // Call backend to get impersonation token
+      const response = await apiClient.request<{ token: string; user: User }>(`/api/admin/impersonate/${userId}`, {
+        method: "POST",
+        requiresAuth: true,
+      })
+
+      // Set new impersonation token
+      localStorage.setItem("token", response.token)
+      localStorage.setItem("user", JSON.stringify(response.user))
+      setUser(response.user)
+
+      // Redirect to appropriate dashboard
+      const targetDashboard = response.user.role === "homeowner" ? "/dashboard/homeowner" : "/dashboard/contractor"
+
+      window.location.href = targetDashboard
+    } catch (error: any) {
+      console.error("[v0] Impersonation failed:", error)
+      alert("Failed to switch to user account: " + (error.message || "Unknown error"))
+    }
+  }
+
+  const exitImpersonation = () => {
+    console.log("[v0] Exiting impersonation")
+
+    // Restore original admin token
+    const adminToken = localStorage.getItem("admin_token")
+    if (adminToken) {
+      localStorage.setItem("token", adminToken)
+      localStorage.removeItem("admin_token")
+
+      // Redirect back to admin panel
+      window.location.href = "/dashboard/admin/users"
+    } else {
+      console.error("[v0] No admin token found to restore")
+      logout()
     }
   }
 
   useEffect(() => {
     const initAuth = async () => {
-      // Check for token in URL (OAuth redirect)
       const urlParams = new URLSearchParams(window.location.search)
       const tokenFromUrl = urlParams.get("token")
 
@@ -177,11 +250,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    localStorage.removeItem("admin_token")
     window.location.href = "/logout"
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, setUser, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        logout,
+        setUser,
+        refreshUser,
+        impersonateUser,
+        exitImpersonation,
+        isImpersonating,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

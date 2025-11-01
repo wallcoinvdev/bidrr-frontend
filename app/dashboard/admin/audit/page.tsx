@@ -16,7 +16,7 @@ interface AuditLog {
   action: string
   resource_type: string
   resource_id?: number
-  details?: string
+  details?: any // Changed from string to any to handle both string and object
   ip_address: string
   timestamp: string
 }
@@ -80,6 +80,30 @@ export default function AdminAuditPage() {
     if (action.includes("create")) return <Badge variant="default">{action}</Badge>
     if (action.includes("update")) return <Badge variant="secondary">{action}</Badge>
     return <Badge variant="outline">{action}</Badge>
+  }
+
+  const renderDetails = (details: any) => {
+    if (!details) return null
+
+    // If it's already a string, return it
+    if (typeof details === "string") {
+      try {
+        // Try to parse if it's a JSON string
+        const parsed = JSON.parse(details)
+        return JSON.stringify(parsed, null, 2)
+      } catch {
+        // If parsing fails, it's a regular string
+        return details
+      }
+    }
+
+    // If it's an object, stringify it
+    if (typeof details === "object") {
+      return JSON.stringify(details, null, 2)
+    }
+
+    // Fallback to string conversion
+    return String(details)
   }
 
   if (loading) {
@@ -146,7 +170,11 @@ export default function AdminAuditPage() {
                           <span className="font-medium">{log.admin_name}</span>
                           <span className="text-muted-foreground"> ({log.admin_email})</span>
                         </p>
-                        {log.details && <p className="text-sm text-muted-foreground">{log.details}</p>}
+                        {log.details && (
+                          <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-mono bg-muted p-2 rounded mt-1">
+                            {renderDetails(log.details)}
+                          </pre>
+                        )}
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span>{new Date(log.timestamp).toLocaleString()}</span>
                           <span>•</span>

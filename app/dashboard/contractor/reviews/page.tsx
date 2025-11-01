@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Star, X } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.homehero.app"
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 
 function GoogleReviewsModal({ isOpen, onClose, reviews }: { isOpen: boolean; onClose: () => void; reviews: any[] }) {
   if (!isOpen) return null

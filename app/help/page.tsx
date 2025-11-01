@@ -1,25 +1,56 @@
+"use client"
+
 import Link from "next/link"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, ArrowLeft } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
 
 export default function HelpPage() {
+  const { user } = useAuth()
+  const router = useRouter()
+
+  const handleBackToDashboard = () => {
+    if (user?.role === "admin") {
+      router.push("/dashboard/admin")
+    } else if (user?.role === "contractor") {
+      router.push("/contractor/dashboard")
+    } else if (user?.role === "homeowner") {
+      router.push("/homeowner/dashboard")
+    } else {
+      router.back()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center">
-            <img src="/images/logo-teal-dark.png" alt="homeHero" className="h-8" />
+            <img src="/images/logo-dark-teal.png" alt="Bidrr" className="h-8" />
           </Link>
           <nav className="flex items-center gap-6">
-            <Link href="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              className="bg-[#328d87] hover:bg-[#2d7f7a] text-white font-semibold px-6 py-2 rounded-full transition-colors"
-            >
-              Sign up
-            </Link>
+            {user ? (
+              <button
+                onClick={handleBackToDashboard}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </button>
+            ) : (
+              <>
+                <Link href="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="bg-[#328d87] hover:bg-[#2d7f7a] text-white font-semibold px-6 py-2 rounded-full transition-colors"
+                >
+                  Sign up
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -28,7 +59,7 @@ export default function HelpPage() {
       <section className="bg-gradient-to-br from-[#0d3d42] to-[#328d87] py-16">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">How can we help you?</h1>
-          <p className="text-xl text-white/90 mb-8">Find answers to common questions about using HomeHero</p>
+          <p className="text-xl text-white/90 mb-8">Find answers to common questions about using Bidrr</p>
         </div>
       </section>
 
@@ -37,7 +68,7 @@ export default function HelpPage() {
         {/* Quick Links */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
           <a
-            href="#homeowners"
+            href="#customers"
             className="bg-white border-2 border-gray-200 rounded-lg p-8 hover:border-[#328d87] transition-colors group"
           >
             <h3 className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-[#328d87] transition-colors">
@@ -56,8 +87,8 @@ export default function HelpPage() {
           </a>
         </div>
 
-        {/* Homeowners Section */}
-        <section id="homeowners" className="mb-16">
+        {/* Customers Section */}
+        <section id="customers" className="mb-16">
           <h2 className="text-3xl font-bold text-gray-900 mb-8 pb-4 border-b-2 border-[#328d87]">For Customers</h2>
 
           <div className="space-y-6">
@@ -109,9 +140,9 @@ export default function HelpPage() {
               </summary>
               <div className="mt-4 text-gray-700 leading-relaxed">
                 <p>
-                  Yes! Posting jobs on HomeHero is completely free for customers. There are no hidden fees, no
-                  subscription costs, and no charges for receiving bids. You only pay the contractor directly for the
-                  work they perform.
+                  Yes! Posting jobs on Bidrr is completely free for customers. There are no hidden fees, no subscription
+                  costs, and no charges for receiving bids. You only pay the contractor directly for the work they
+                  perform.
                 </p>
               </div>
             </details>
@@ -262,13 +293,13 @@ export default function HelpPage() {
           <div className="space-y-6">
             <details className="bg-gray-50 rounded-lg p-6 border border-gray-200 group">
               <summary className="font-semibold text-lg text-gray-900 cursor-pointer flex items-center justify-between">
-                Is HomeHero available in my area?
+                Is Bidrr available in my area?
                 <ChevronDown className="h-5 w-5 text-gray-500 group-open:rotate-180 transition-transform" />
               </summary>
               <div className="mt-4 text-gray-700 leading-relaxed">
                 <p>
-                  HomeHero is currently available across the United States, Canada, U.K., New Zealand and Australia.
-                  When you post a job or create a contractor account, you'll be matched with professionals in your local
+                  Bidrr is currently available across the United States, Canada, U.K., New Zealand and Australia. When
+                  you post a job or create a contractor account, you'll be matched with professionals in your local
                   area. We're continuously expanding to new regions.
                 </p>
               </div>
@@ -276,7 +307,7 @@ export default function HelpPage() {
 
             <details className="bg-gray-50 rounded-lg p-6 border border-gray-200 group">
               <summary className="font-semibold text-lg text-gray-900 cursor-pointer flex items-center justify-between">
-                How does HomeHero verify contractors?
+                How does Bidrr verify contractors?
                 <ChevronDown className="h-5 w-5 text-gray-500 group-open:rotate-180 transition-transform" />
               </summary>
               <div className="mt-4 text-gray-700 leading-relaxed">
@@ -316,7 +347,7 @@ export default function HelpPage() {
           <p className="text-xl text-white/90 mb-8">Our support team is here to assist you</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href="mailto:support@homehero.app"
+              href="mailto:support@bidrr.ca"
               className="inline-block bg-white hover:bg-gray-100 text-[#0d3d42] font-semibold px-8 py-4 rounded-full transition-colors"
             >
               Email Support
@@ -330,20 +361,20 @@ export default function HelpPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <Link href="/" className="flex items-center">
-              <img src="/images/logo-white.png" alt="homeHero" className="h-8" />
+              <img src="/images/logo-white.png" alt="Bidrr" className="h-8" />
             </Link>
             <nav className="flex items-center gap-8">
               <Link href="/privacy" className="text-white/70 hover:text-white transition-colors">
                 Privacy
               </Link>
               <Link href="/terms" className="text-white/70 hover:text-white transition-colors">
-                Terms
+                Terms of Service
               </Link>
               <Link href="/help" className="text-white font-semibold">
                 Help
               </Link>
             </nav>
-            <div className="text-white/60 text-sm">© 2025 HomeHero. All rights reserved.</div>
+            <div className="text-white/60 text-sm">© 2025 Bidrr. All rights reserved.</div>
           </div>
         </div>
       </footer>

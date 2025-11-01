@@ -3,10 +3,11 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Check, ArrowLeft } from "lucide-react"
+import { SiteFooter } from "@/components/site-footer"
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-[#0D3D42]">
+    <div className="min-h-screen bg-[#0D3D42] flex flex-col">
       <header className="relative z-50 border-b border-[#d8e2fb]/10 bg-[#0D3D42]/95 backdrop-blur-sm sticky top-0">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
           <div className="flex items-center justify-between h-16">
@@ -24,7 +25,7 @@ export default function PricingPage() {
         </div>
       </header>
 
-      <main className="py-20 sm:py-28 lg:py-32">
+      <main className="py-20 sm:py-28 lg:py-32 flex-1">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
           <div className="text-center mb-16">
             <div className="inline-block px-4 py-2 bg-[#e2bb12]/20 border border-[#e2bb12]/30 rounded-full mb-6">
@@ -166,27 +167,7 @@ export default function PricingPage() {
         </div>
       </main>
 
-      <footer className="border-t border-[#d8e2fb]/10 bg-[#0D3D42] py-12">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center">
-              <Image src="/images/logo-white.png" alt="HomeHero" width={120} height={30} className="h-7 w-auto" />
-            </div>
-            <div className="flex items-center gap-8">
-              <Link href="#" className="text-sm text-[#d8e2fb]/70 hover:text-[#d8e2fb] transition-colors">
-                Privacy
-              </Link>
-              <Link href="#" className="text-sm text-[#d8e2fb]/70 hover:text-[#d8e2fb] transition-colors">
-                Terms
-              </Link>
-              <Link href="#" className="text-sm text-[#d8e2fb]/70 hover:text-[#d8e2fb] transition-colors">
-                Help
-              </Link>
-            </div>
-            <p className="text-sm text-[#d8e2fb]/60">© 2025 HomeHero. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

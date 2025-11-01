@@ -14,6 +14,7 @@ interface ReportUserModalProps {
   reportedUserName: string
   reportedUserRole: "homeowner" | "contractor"
   conversationId?: number
+  onReportSuccess?: (userName: string, category: string) => void
 }
 
 export function ReportUserModal({
@@ -23,11 +24,23 @@ export function ReportUserModal({
   reportedUserName,
   reportedUserRole,
   conversationId,
+  onReportSuccess,
 }: ReportUserModalProps) {
   const [reason, setReason] = useState("")
   const [category, setCategory] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const { toast } = useToast()
+
+  const formatCategory = (cat: string) => {
+    const categoryMap: Record<string, string> = {
+      spam: "Spam or unwanted messages",
+      harassment: "Harassment or abusive behavior",
+      scam: "Scam or fraudulent activity",
+      inappropriate: "Inappropriate content",
+      other: "Other violations",
+    }
+    return categoryMap[cat] || cat
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,14 +74,18 @@ export function ReportUserModal({
         requiresAuth: true,
       })
 
-      toast({
-        title: "Report submitted",
-        description: "Thank you for your report. Our team will review it shortly.",
-      })
+      console.log("[v0] Report submitted successfully")
 
-      onClose()
+      console.log("[v0] onReportSuccess exists:", !!onReportSuccess)
+      if (onReportSuccess) {
+        console.log("[v0] Calling onReportSuccess callback")
+        onReportSuccess(reportedUserName, formatCategory(category))
+      }
+
+      // Clear form and close modal after callback
       setReason("")
       setCategory("")
+      onClose()
     } catch (error) {
       console.error("[v0] Error submitting report:", error)
       toast({
@@ -115,7 +132,6 @@ export function ReportUserModal({
               <option value="harassment">Harassment or abusive behavior</option>
               <option value="scam">Scam or fraudulent activity</option>
               <option value="inappropriate">Inappropriate content</option>
-              <option value="unprofessional">Unprofessional conduct</option>
               <option value="other">Other</option>
             </select>
           </div>

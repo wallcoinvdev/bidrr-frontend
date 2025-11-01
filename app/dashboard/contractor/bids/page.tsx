@@ -1,7 +1,7 @@
 "use client"
 
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Calendar, MapPin, DollarSign, X, Loader2, AlertCircle, Info, Clock, Users } from "lucide-react"
+import { Calendar, MapPin, DollarSign, X, Loader2, AlertCircle, Info, Clock, Users, Shield } from "lucide-react"
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
 import Image from "next/image"
@@ -474,8 +474,17 @@ export default function MyBidsPage() {
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">Posted By</h3>
                   <div className="space-y-2">
                     {selectedMission.homeowner_first_name && (
-                      <p className="text-gray-700">
-                        <span className="font-medium">Name:</span> {selectedMission.homeowner_first_name}
+                      <p className="text-gray-700 flex items-center gap-2">
+                        <span className="font-medium">Name:</span>
+                        <span className="flex items-center gap-1.5">
+                          {selectedMission.homeowner_first_name}
+                          <span className="relative group">
+                            <Shield className="h-4 w-4 text-blue-600 fill-blue-600" />
+                            <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                              Verified by Phone
+                            </span>
+                          </span>
+                        </span>
                       </p>
                     )}
                     {selectedMission.homeowner_postal_code && (

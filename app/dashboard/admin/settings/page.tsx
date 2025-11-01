@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Settings, Bell, Flag, Shield, Eye, EyeOff } from "lucide-react"
+import { Settings, Bell, Flag, Shield, Eye, EyeOff, Check } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
 
@@ -47,6 +47,7 @@ export default function AdminSettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false) // Added state to show success indicator
   const { toast } = useToast()
 
   useEffect(() => {
@@ -57,7 +58,18 @@ export default function AdminSettingsPage() {
     try {
       setLoading(true)
       const response = await apiClient.get<{ settings: SystemSettings }>("/api/admin/settings")
-      setSettings(response.settings)
+      setSettings({
+        maintenance_mode: response.settings.maintenance_mode ?? false,
+        maintenance_message:
+          response.settings.maintenance_message ?? "We're currently performing maintenance. Please check back soon.",
+        allow_new_signups: response.settings.allow_new_signups ?? true,
+        require_email_verification: response.settings.require_email_verification ?? false,
+        require_contractor_verification: response.settings.require_contractor_verification ?? true,
+        max_bids_per_job: response.settings.max_bids_per_job ?? 10,
+        announcement_enabled: response.settings.announcement_enabled ?? false,
+        announcement_message: response.settings.announcement_message ?? "",
+        announcement_type: response.settings.announcement_type ?? "info",
+      })
     } catch (error) {
       toast({
         title: "Error",
@@ -72,10 +84,28 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true)
-      await apiClient.put("/api/admin/settings", settings)
+      const settingsToSave = [
+        { key: "maintenance_mode", value: settings.maintenance_mode.toString() },
+        { key: "maintenance_message", value: settings.maintenance_message },
+        { key: "allow_new_signups", value: settings.allow_new_signups.toString() },
+        { key: "require_email_verification", value: settings.require_email_verification.toString() },
+        { key: "require_contractor_verification", value: settings.require_contractor_verification.toString() },
+        { key: "max_bids_per_job", value: settings.max_bids_per_job.toString() },
+        { key: "announcement_enabled", value: settings.announcement_enabled.toString() },
+        { key: "announcement_message", value: settings.announcement_message },
+        { key: "announcement_type", value: settings.announcement_type },
+      ]
+
+      // Save each setting individually
+      await Promise.all(settingsToSave.map((setting) => apiClient.put("/api/admin/settings", setting)))
+
+      setShowSuccess(true)
+      setTimeout(() => setShowSuccess(false), 3000)
+
       toast({
-        title: "Success",
-        description: "Settings saved successfully",
+        title: "✓ Settings Saved",
+        description: "All system settings have been updated successfully.",
+        variant: "default",
       })
     } catch (error) {
       toast({
@@ -143,9 +173,17 @@ export default function AdminSettingsPage() {
           <h1 className="text-3xl font-bold">System Settings</h1>
           <p className="text-muted-foreground">Configure platform settings and feature flags</p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {showSuccess && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg animate-in fade-in slide-in-from-right-5">
+              <Check className="h-5 w-5 text-green-600" />
+              <span className="text-sm font-medium text-green-900">Settings saved successfully!</span>
+            </div>
+          )}
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="general">

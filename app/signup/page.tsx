@@ -9,7 +9,7 @@ import { AlertCircle, Loader2, CheckCircle, ArrowLeft } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { SERVICES } from "@/lib/services"
 
-const GOOGLE_OAUTH_URL = "https://api.homehero.app/api/users/google"
+const GOOGLE_OAUTH_URL = "https://api.bidrr.ca/api/users/google"
 
 export default function SignupPage() {
   const searchParams = useSearchParams()
@@ -159,7 +159,7 @@ export default function SignupPage() {
             <div className="container mx-auto px-4 py-4">
               <div className="flex items-center justify-between">
                 <Link href="/" className="flex items-center">
-                  <Image src="/images/logo-white.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
+                  <Image src="/images/logo-white.png" alt="Bidrr" width={140} height={35} className="h-8 w-auto" />
                 </Link>
                 <Link
                   href="/"
@@ -175,8 +175,8 @@ export default function SignupPage() {
           <div className="flex-1 flex items-center justify-center px-4 py-12">
             <div className="w-full max-w-2xl">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold text-[#d8e2fb] mb-2">Join HomeHero</h2>
-                <p className="text-[#d8e2fb]/70">Choose how you want to use HomeHero</p>
+                <h2 className="text-3xl font-bold text-[#d8e2fb] mb-2">Join Bidrr</h2>
+                <p className="text-[#d8e2fb]/70">Choose how you want to use Bidrr</p>
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
@@ -230,7 +230,7 @@ export default function SignupPage() {
             <div className="container mx-auto px-4 py-4">
               <div className="flex items-center justify-between">
                 <Link href="/" className="flex items-center">
-                  <Image src="/images/logo-white.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
+                  <Image src="/images/logo-white.png" alt="Bidrr" width={140} height={35} className="h-8 w-auto" />
                 </Link>
                 <Link
                   href="/"
@@ -310,7 +310,7 @@ export default function SignupPage() {
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <Link href="/" className="flex items-center">
-                <Image src="/images/logo-white.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
+                <Image src="/images/logo-white.png" alt="Bidrr" width={140} height={35} className="h-8 w-auto" />
               </Link>
               <Link
                 href="/"

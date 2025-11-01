@@ -9,7 +9,7 @@ import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
 import { AlertCircle, Loader2, ArrowLeft } from "lucide-react"
 
-const GOOGLE_OAUTH_URL = "https://api.homehero.app/api/users/google"
+const GOOGLE_OAUTH_URL = "https://api.bidrr.ca/api/users/google"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -17,7 +17,6 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [isLoggingIn, setIsLoggingIn] = useState(false)
   const { login, user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -30,21 +29,17 @@ export default function LoginPage() {
   }, [searchParams])
 
   useEffect(() => {
-    if (user && !authLoading && !isLoggingIn) {
-      console.log("[v0] User data for redirect:", JSON.stringify(user, null, 2))
-
+    if (user && !authLoading && !loading) {
       const targetDashboard = user.is_admin
         ? "/dashboard/admin"
         : user.role === "homeowner"
           ? "/dashboard/homeowner"
           : "/dashboard/contractor"
-
-      console.log("[v0] Redirecting to:", targetDashboard, "is_admin:", user.is_admin, "role:", user.role)
-      router.push(targetDashboard)
+      router.replace(targetDashboard)
     }
-  }, [user, authLoading, isLoggingIn, router])
+  }, [user, authLoading, loading, router])
 
-  if (authLoading || (user && !isLoggingIn)) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-[#0D3D42] flex items-center justify-center">
         <div className="text-white text-center">
@@ -55,18 +50,17 @@ export default function LoginPage() {
     )
   }
 
+  if (user) {
+    return null
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
-    setIsLoggingIn(true)
 
     try {
-      console.log("[v0] Attempting login for:", email)
-
       const userData = await login(email, password, rememberMe)
-
-      console.log("[v0] Login response user data:", JSON.stringify(userData, null, 2))
 
       const targetDashboard = userData.is_admin
         ? "/dashboard/admin"
@@ -74,13 +68,11 @@ export default function LoginPage() {
           ? "/dashboard/homeowner"
           : "/dashboard/contractor"
 
-      console.log("[v0] Login successful, redirecting to:", targetDashboard)
-      router.push(targetDashboard)
+      router.replace(targetDashboard)
     } catch (err: any) {
       console.error("[v0] Login error:", err)
       const errorMessage = err.message || "Invalid email or password. Please try again."
       setError(errorMessage)
-      setIsLoggingIn(false)
     } finally {
       setLoading(false)
     }

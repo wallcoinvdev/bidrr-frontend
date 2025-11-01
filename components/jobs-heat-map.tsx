@@ -12,10 +12,122 @@ interface Job {
   status: string
   city: string
   region: string
+  homeowner_name: string
+  homeowner_email: string
+  homeowner_phone?: string
+  homeowner_photo?: string
+  homeowner_phone_verified?: boolean
+  job_details: string
+  priority: string
+  bid_count: number
+  created_at: string
 }
 
 interface JobsHeatMapProps {
   jobs: Job[]
+}
+
+function groupJobsByLocation(jobs: Job[]): Map<string, Job[]> {
+  const grouped = new Map<string, Job[]>()
+  const tolerance = 0.0001 // ~11 meters tolerance for grouping
+
+  jobs.forEach((job) => {
+    let foundGroup = false
+
+    // Check if this job belongs to an existing group
+    for (const [key, groupJobs] of grouped.entries()) {
+      const [lat, lng] = key.split(",").map(Number)
+      if (Math.abs(lat - job.latitude) < tolerance && Math.abs(lng - job.longitude) < tolerance) {
+        groupJobs.push(job)
+        foundGroup = true
+        break
+      }
+    }
+
+    // Create new group if no match found
+    if (!foundGroup) {
+      const key = `${job.latitude},${job.longitude}`
+      grouped.set(key, [job])
+    }
+  })
+
+  return grouped
+}
+
+function createMultiJobPopup(jobs: Job[]): string {
+  // Sort jobs by most recent first
+  const sortedJobs = [...jobs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  const jobsHtml = sortedJobs
+    .map(
+      (job) => `
+    <div style="border-bottom: 1px solid #e5e7eb; padding: 12px 0; margin-bottom: 12px;">
+      <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 8px;">
+        <div style="flex-shrink: 0;">
+          ${
+            job.homeowner_photo
+              ? `<img src="${job.homeowner_photo}" alt="${job.homeowner_name}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;" />`
+              : `<div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 16px;">
+                  ${job.homeowner_name.charAt(0).toUpperCase()}
+                </div>`
+          }
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <strong style="font-size: 14px; color: #111827;">${job.homeowner_name}</strong>
+            ${
+              job.homeowner_phone_verified
+                ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="flex-shrink: 0;">
+                    <title>Verified by Phone</title>
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  </svg>`
+                : ""
+            }
+          </div>
+          <div style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">${job.homeowner_email}</div>
+          ${job.homeowner_phone ? `<div style="font-size: 12px; color: #6b7280;">${job.homeowner_phone}</div>` : ""}
+        </div>
+      </div>
+      
+      <div style="margin-top: 8px;">
+        <strong style="font-size: 15px; color: #111827; display: block; margin-bottom: 4px;">${job.title}</strong>
+        <div style="color: #6b7280; font-size: 13px; margin-bottom: 4px;">
+          <strong>Service:</strong> ${job.service}
+        </div>
+        <div style="color: #6b7280; font-size: 13px; margin-bottom: 4px;">
+          <strong>Status:</strong> <span style="color: ${job.status === "open" ? "#10b981" : "#6b7280"};">${job.status}</span>
+        </div>
+        <div style="color: #6b7280; font-size: 13px; margin-bottom: 4px;">
+          <strong>Priority:</strong> ${job.priority}
+        </div>
+        <div style="color: #6b7280; font-size: 13px; margin-bottom: 4px;">
+          <strong>Bids:</strong> ${job.bid_count}
+        </div>
+        <div style="font-size: 11px; color: #9ca3af; margin-top: 6px;">
+          Posted: ${new Date(job.created_at).toLocaleDateString()}
+        </div>
+      </div>
+    </div>
+  `,
+    )
+    .join("")
+
+  return `
+    <div style="min-width: 300px; max-width: 350px; font-family: system-ui, -apple-system, sans-serif;">
+      <div style="border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px;">
+        <strong style="font-size: 16px; color: #111827;">
+          ${jobs.length} Job${jobs.length > 1 ? "s" : ""} at this Location
+        </strong>
+        <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
+          📍 ${jobs[0].city}, ${jobs[0].region}
+        </div>
+      </div>
+      
+      <div style="max-height: 400px; overflow-y: auto; padding-right: 8px;">
+        ${jobsHtml}
+      </div>
+    </div>
+  `
 }
 
 export function JobsHeatMap({ jobs }: JobsHeatMapProps) {
@@ -86,17 +198,46 @@ export function JobsHeatMap({ jobs }: JobsHeatMapProps) {
         })
         heatLayer.addTo(map)
 
-        // Add markers for each job
-        validJobs.forEach((job) => {
-          const marker = L.marker([job.latitude, job.longitude])
-          marker.bindPopup(`
-            <div style="min-width: 200px;">
-              <strong>${job.title}</strong><br/>
-              <span style="color: #666;">${job.service}</span><br/>
-              <span style="font-size: 12px;">${job.city}, ${job.region}</span><br/>
-              <span style="font-size: 12px; color: #888;">Status: ${job.status}</span>
-            </div>
-          `)
+        const groupedJobs = groupJobsByLocation(validJobs)
+
+        groupedJobs.forEach((jobsAtLocation, locationKey) => {
+          const [lat, lng] = locationKey.split(",").map(Number)
+
+          let icon = L.icon({
+            iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+            iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+            shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41],
+          })
+
+          if (jobsAtLocation.length > 1) {
+            const svgIcon = `
+              <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 9.4 12.5 28.5 12.5 28.5S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0z" fill="#3b82f6"/>
+                <circle cx="12.5" cy="12.5" r="8" fill="white"/>
+                <text x="12.5" y="17" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#3b82f6">${jobsAtLocation.length}</text>
+              </svg>
+            `
+            icon = L.divIcon({
+              html: svgIcon,
+              className: "",
+              iconSize: [25, 41],
+              iconAnchor: [12, 41],
+              popupAnchor: [1, -34],
+            })
+          }
+
+          const marker = L.marker([lat, lng], { icon })
+
+          const popupContent = createMultiJobPopup(jobsAtLocation)
+          marker.bindPopup(popupContent, {
+            maxWidth: 400,
+            className: "custom-popup",
+          })
+
           marker.addTo(map)
         })
 
@@ -163,7 +304,7 @@ export function JobsHeatMap({ jobs }: JobsHeatMapProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div ref={mapRef} className="h-[400px] w-full rounded-lg overflow-hidden border" />
+        <div ref={mapRef} className="h-[400px] w-full rounded-lg overflow-hidden border relative z-0" />
       </CardContent>
     </Card>
   )

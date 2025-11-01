@@ -1,7 +1,7 @@
 "use client"
 
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Send, AlertCircle, X } from "lucide-react"
+import { Send, AlertCircle, X, Trash2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { apiClient, ApiError } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
@@ -48,6 +48,8 @@ export default function MessagesPage() {
   const [expandedConversationId, setExpandedConversationId] = useState<number | null>(null) // Added state to track which conversation's chat is expanded on mobile
   const [showChatModal, setShowChatModal] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false) // Added state for report user modal
+  const [deletingConversation, setDeletingConversation] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -103,12 +105,12 @@ export default function MessagesPage() {
       setMessages(data)
 
       const conversation = conversations.find((c) => c.id === conversationId)
-      if (conversation && conversation.unread_count > 0) {
-        console.log("[v0] Conversation has unread messages, marking as read")
-        await markConversationAsRead(conversationId)
-      } else {
-        console.log("[v0] Conversation already read, skipping mark as read")
-      }
+      console.log("[v0] Found conversation:", conversation)
+      console.log("[v0] Unread count:", conversation?.unread_count, "Type:", typeof conversation?.unread_count)
+
+      // Always call mark as read when viewing a conversation
+      console.log("[v0] Calling markConversationAsRead for conversation:", conversationId)
+      await markConversationAsRead(conversationId)
     } catch (error) {
       console.error("[v0] Error fetching messages:", error)
       setMessages([])
@@ -190,6 +192,37 @@ export default function MessagesPage() {
     }
   }
 
+  const handleDeleteConversation = async () => {
+    if (!selectedConversation || deletingConversation) return
+
+    try {
+      setDeletingConversation(true)
+      await apiClient.request(`/api/conversations/${selectedConversation.id}`, {
+        method: "DELETE",
+        requiresAuth: true,
+      })
+
+      setConversations((prev) => prev.filter((conv) => conv.id !== selectedConversation.id))
+      setSelectedConversation(null)
+      setShowChatModal(false)
+      setShowDeleteDialog(false)
+
+      toast({
+        title: "Conversation deleted",
+        description: "The conversation has been removed from your view.",
+      })
+    } catch (error) {
+      console.error("[v0] Error deleting conversation:", error)
+      toast({
+        title: "Feature not available",
+        description: "The delete conversation feature needs to be added to the backend. Please contact support.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingConversation(false)
+    }
+  }
+
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp)
     const now = new Date()
@@ -204,11 +237,19 @@ export default function MessagesPage() {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
   }
 
+  const handleReportSuccess = (userName: string, category: string) => {
+    toast({
+      title: "Report Submitted",
+      description: `You have reported ${userName} for ${category.toLowerCase()}. Your report has been sent to our admin team for review.`,
+      duration: 6000,
+      className: "bg-red-50 border-red-200 border",
+    })
+  }
+
   return (
     <DashboardLayout userRole="homeowner">
       {showChatModal && selectedConversation && (
         <div className="fixed inset-0 bg-white z-50 flex flex-col md:hidden">
-          {/* Modal Header */}
           <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-bold text-gray-900 truncate">
@@ -216,15 +257,23 @@ export default function MessagesPage() {
               </h2>
               <p className="text-sm text-gray-600 truncate">{selectedConversation.mission_title}</p>
             </div>
-            <button
-              onClick={() => setShowChatModal(false)}
-              className="ml-4 p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-            >
-              <X className="h-6 w-6 text-gray-600" />
-            </button>
+            <div className="flex items-center gap-2 ml-4">
+              <button
+                onClick={() => setShowDeleteDialog(true)}
+                className="p-2 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                title="Delete conversation"
+              >
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </button>
+              <button
+                onClick={() => setShowChatModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+              >
+                <X className="h-6 w-6 text-gray-600" />
+              </button>
+            </div>
           </div>
 
-          {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
             {loadingMessages ? (
               <div className="text-center text-gray-500">Loading messages...</div>
@@ -254,7 +303,6 @@ export default function MessagesPage() {
             )}
           </div>
 
-          {/* Message Input Area */}
           <div className="p-4 border-t border-gray-200 bg-white">
             {errorMessage && (
               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
@@ -350,7 +398,7 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Desktop view - unchanged */}
+      {/* Desktop view */}
       <div className="hidden md:flex gap-6 h-[calc(100vh-12rem)]">
         <div className="w-80 bg-white rounded-xl border border-gray-200 flex flex-col flex-shrink-0">
           <div className="p-4 border-b border-gray-200">
@@ -402,17 +450,26 @@ export default function MessagesPage() {
           <div className="flex-1 min-w-0 bg-white rounded-xl border border-gray-200 flex flex-col">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold text-gray-900 truncate">
+                <h2 className="text-lg font-bold text-gray-900 truncate">
                   {selectedConversation.contractor_company || selectedConversation.contractor_name}
                 </h2>
                 <p className="text-sm text-gray-600 truncate">{selectedConversation.mission_title}</p>
               </div>
-              <button
-                onClick={() => setShowReportModal(true)}
-                className="ml-4 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
-              >
-                Report User
-              </button>
+              <div className="flex items-center gap-2 ml-4">
+                <button
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium flex items-center gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+                >
+                  Report User
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {loadingMessages ? (
@@ -480,6 +537,34 @@ export default function MessagesPage() {
         )}
       </div>
 
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && selectedConversation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Conversation?</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              This will remove the conversation from your view only. The contractor will still be able to see it. This
+              action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConversation}
+                disabled={deletingConversation}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {deletingConversation ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Report User Modal */}
       {selectedConversation && (
         <ReportUserModal
@@ -489,6 +574,7 @@ export default function MessagesPage() {
           reportedUserName={selectedConversation.contractor_company || selectedConversation.contractor_name}
           reportedUserRole="contractor"
           conversationId={selectedConversation.id}
+          onReportSuccess={handleReportSuccess}
         />
       )}
     </DashboardLayout>

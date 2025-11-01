@@ -1,20 +1,22 @@
 "use client"
 
-import { Users, Search, Ban, CheckCircle, Loader2, AlertCircle, Shield } from "lucide-react"
+import { Users, Search, Ban, CheckCircle, Loader2, AlertCircle, Shield, UserCog } from "lucide-react"
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
+import { useAuth } from "@/lib/auth-context"
 
 interface User {
   id: number
   email: string
-  full_name: string
-  phone: string
+  name: string
+  phone_number: string
   city: string
   region: string
   role: string
   created_at: string
   is_banned: boolean
-  is_verified: boolean
+  phone_verified: boolean
+  is_admin: boolean
 }
 
 export default function AdminUsers() {
@@ -24,6 +26,9 @@ export default function AdminUsers() {
   const [error, setError] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
+  const { impersonateUser } = useAuth()
+  const [showImpersonateDialog, setShowImpersonateDialog] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<{ id: number; name: string } | null>(null)
 
   useEffect(() => {
     fetchUsers()
@@ -40,7 +45,6 @@ export default function AdminUsers() {
       const data = await apiClient.request<{ users: User[] }>("/api/admin/users", { requiresAuth: true })
       setUsers(data.users)
     } catch (error: any) {
-      console.error("[v0] Error fetching users:", error)
       setError(error.message || "Failed to load users")
     } finally {
       setLoading(false)
@@ -58,9 +62,9 @@ export default function AdminUsers() {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(
         (user) =>
-          user.full_name.toLowerCase().includes(query) ||
+          user.name.toLowerCase().includes(query) ||
           user.email.toLowerCase().includes(query) ||
-          user.phone.includes(query) ||
+          user.phone_number.includes(query) ||
           user.id.toString().includes(query),
       )
     }
@@ -70,11 +74,7 @@ export default function AdminUsers() {
 
   const toggleBanUser = async (userId: number, currentBanStatus: boolean) => {
     try {
-      await apiClient.request(`/api/admin/users/${userId}/ban`, {
-        method: "POST",
-        body: { is_banned: !currentBanStatus },
-        requiresAuth: true,
-      })
+      await apiClient.post(`/api/admin/users/${userId}/ban`, { is_banned: !currentBanStatus })
       fetchUsers()
     } catch (error: any) {
       console.error("[v0] Error toggling ban status:", error)
@@ -84,16 +84,29 @@ export default function AdminUsers() {
 
   const toggleVerifyUser = async (userId: number, currentVerifyStatus: boolean) => {
     try {
-      await apiClient.request(`/api/admin/users/${userId}/verify`, {
-        method: "POST",
-        body: { is_verified: !currentVerifyStatus },
-        requiresAuth: true,
-      })
+      await apiClient.post(`/api/admin/users/${userId}/verify`, { is_verified: !currentVerifyStatus })
       fetchUsers()
     } catch (error: any) {
       console.error("[v0] Error toggling verify status:", error)
       alert("Failed to update verification status")
     }
+  }
+
+  const handleSwitchToUser = async (userId: number, userName: string) => {
+    setSelectedUser({ id: userId, name: userName })
+    setShowImpersonateDialog(true)
+  }
+
+  const confirmImpersonation = async () => {
+    if (selectedUser) {
+      setShowImpersonateDialog(false)
+      await impersonateUser(selectedUser.id)
+    }
+  }
+
+  const cancelImpersonation = () => {
+    setShowImpersonateDialog(false)
+    setSelectedUser(null)
   }
 
   return (
@@ -182,45 +195,45 @@ export default function AdminUsers() {
                 {filteredUsers.map((user) => (
                   <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4 text-sm text-gray-900">#{user.id}</td>
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900">{user.full_name}</td>
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        {user.name}
+                        {user.phone_verified && (
+                          <div className="relative group">
+                            <Shield className="h-4 w-4 text-blue-600" />
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                              Verified by Phone
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-4 text-sm text-gray-600">{user.email}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{user.phone}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{user.phone_number}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">
                       {user.city && user.region ? `${user.city}, ${user.region}` : "N/A"}
                     </td>
                     <td className="py-3 px-4">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          user.role === "homeowner" ? "bg-green-100 text-green-700" : "bg-purple-100 text-purple-700"
+                          user.is_admin
+                            ? "bg-red-100 text-red-700"
+                            : user.role === "homeowner"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-purple-100 text-purple-700"
                         }`}
                       >
-                        {user.role}
+                        {user.is_admin ? "admin" : user.role}
                       </span>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        {user.is_verified && (
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 flex items-center gap-1">
-                            <Shield className="h-3 w-3" />
-                            Verified
-                          </span>
-                        )}
-                        {user.is_banned && (
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 flex items-center gap-1">
-                            <Ban className="h-3 w-3" />
-                            Banned
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() => toggleVerifyUser(user.id, user.is_verified)}
+                          onClick={() => toggleVerifyUser(user.id, user.phone_verified)}
                           className={`p-1 rounded hover:bg-gray-100 ${
-                            user.is_verified ? "text-blue-600" : "text-gray-400"
+                            user.phone_verified ? "text-blue-600" : "text-gray-400"
                           }`}
-                          title={user.is_verified ? "Remove verification" : "Verify user"}
+                          title={user.phone_verified ? "Remove phone verification" : "Verify phone"}
                         >
                           <CheckCircle className="h-5 w-5" />
                         </button>
@@ -231,12 +244,47 @@ export default function AdminUsers() {
                         >
                           <Ban className="h-5 w-5" />
                         </button>
+                        {!user.is_admin && (
+                          <button
+                            onClick={() => handleSwitchToUser(user.id, user.name)}
+                            className="p-1 rounded hover:bg-gray-100 text-[#328d87]"
+                            title="Switch to this user's account"
+                          >
+                            <UserCog className="h-5 w-5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {showImpersonateDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Switch to User Account</h3>
+            <p className="text-gray-600 mb-6">
+              Switch to <strong>{selectedUser?.name}</strong>'s account? You will be able to exit back to the admin
+              panel at any time.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelImpersonation}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmImpersonation}
+                className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:bg-[#2a7570] transition-colors"
+              >
+                Switch to Account
+              </button>
+            </div>
           </div>
         </div>
       )}

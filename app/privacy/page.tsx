@@ -1,24 +1,56 @@
+"use client"
+
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 export default function PrivacyPage() {
+  const { user } = useAuth()
+  const router = useRouter()
+
+  const handleBackToDashboard = () => {
+    if (user?.role === "admin") {
+      router.push("/dashboard/admin")
+    } else if (user?.role === "contractor") {
+      router.push("/contractor/dashboard")
+    } else if (user?.role === "homeowner") {
+      router.push("/homeowner/dashboard")
+    } else {
+      router.back()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center">
-            <img src="/images/logo-teal-dark.png" alt="homeHero" className="h-8" />
+            <img src="/images/logo-dark-teal.png" alt="Bidrr" className="h-8" />
           </Link>
           <nav className="flex items-center gap-6">
-            <Link href="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              className="bg-[#328d87] hover:bg-[#2d7f7a] text-white font-semibold px-6 py-2 rounded-full transition-colors"
-            >
-              Sign up
-            </Link>
+            {user ? (
+              <button
+                onClick={handleBackToDashboard}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </button>
+            ) : (
+              <>
+                <Link href="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="bg-[#328d87] hover:bg-[#2d7f7a] text-white font-semibold px-6 py-2 rounded-full transition-colors"
+                >
+                  Sign up
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -32,11 +64,11 @@ export default function PrivacyPage() {
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Introduction</h2>
             <p className="text-gray-700 leading-relaxed mb-4">
-              At HomeHero, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose,
-              and safeguard your information when you use our platform to connect homeowners with service professionals.
+              At Bidrr, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and
+              safeguard your information when you use our platform to connect homeowners with service professionals.
             </p>
             <p className="text-gray-700 leading-relaxed">
-              By using HomeHero, you agree to the collection and use of information in accordance with this policy.
+              By using Bidrr, you agree to the collection and use of information in accordance with this policy.
             </p>
           </section>
 
@@ -113,7 +145,7 @@ export default function PrivacyPage() {
               <li>Request a copy of your data</li>
             </ul>
             <p className="text-gray-700 leading-relaxed">
-              To exercise these rights, please contact us at support@homehero.app
+              To exercise these rights, please contact us at support@bidrr.ca
             </p>
           </section>
 
@@ -129,8 +161,8 @@ export default function PrivacyPage() {
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Children's Privacy</h2>
             <p className="text-gray-700 leading-relaxed">
-              HomeHero is not intended for users under the age of 18. We do not knowingly collect personal information
-              from children. If you believe we have collected information from a child, please contact us immediately.
+              Bidrr is not intended for users under the age of 18. We do not knowingly collect personal information from
+              children. If you believe we have collected information from a child, please contact us immediately.
             </p>
           </section>
 
@@ -138,7 +170,7 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Changes to This Policy</h2>
             <p className="text-gray-700 leading-relaxed">
               We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new
-              policy on this page and updating the "Last updated" date. Your continued use of HomeHero after changes
+              policy on this page and updating the "Last updated" date. Your continued use of Bidrr after changes
               constitutes acceptance of the updated policy.
             </p>
           </section>
@@ -150,7 +182,7 @@ export default function PrivacyPage() {
             </p>
             <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
               <p className="text-gray-700">
-                <strong>Email:</strong> support@homehero.app
+                <strong>Email:</strong> support@bidrr.ca
               </p>
             </div>
           </section>
@@ -162,20 +194,20 @@ export default function PrivacyPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <Link href="/" className="flex items-center">
-              <img src="/images/logo-white.png" alt="homeHero" className="h-8" />
+              <img src="/images/logo-white.png" alt="Bidrr" className="h-8" />
             </Link>
             <nav className="flex items-center gap-8">
               <Link href="/privacy" className="text-white font-semibold">
                 Privacy
               </Link>
               <Link href="/terms" className="text-white/70 hover:text-white transition-colors">
-                Terms
+                Terms of Service
               </Link>
               <Link href="/help" className="text-white/70 hover:text-white transition-colors">
                 Help
               </Link>
             </nav>
-            <div className="text-white/60 text-sm">© 2025 HomeHero. All rights reserved.</div>
+            <div className="text-white/60 text-sm">© 2025 Bidrr. All rights reserved.</div>
           </div>
         </div>
       </footer>

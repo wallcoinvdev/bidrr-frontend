@@ -43,11 +43,12 @@ export function FeedbackModal() {
     setIsSubmitting(true)
 
     try {
+      const fullMessage = `${subject.trim()}\n\n${message.trim()}`
+
       await apiClient.request("/api/feedback", {
         method: "POST",
         body: JSON.stringify({
-          subject: subject.trim(),
-          message: message.trim(),
+          message: fullMessage,
         }),
         requiresAuth: true,
       })
@@ -56,17 +57,22 @@ export function FeedbackModal() {
       setSubject("")
       setMessage("")
 
-      // Close modal after showing success message
       setTimeout(() => {
         setShowSuccess(false)
         setOpen(false)
-      }, 2500)
+        toast({
+          title: "Thank you for your feedback!",
+          description: "Your feedback has been sent to our team. We appreciate you helping us improve HomeHero.",
+          duration: 5000,
+        })
+      }, 2000)
     } catch (error: any) {
       console.error("[v0] Error submitting feedback:", error)
       toast({
-        title: "Failed to send feedback",
-        description: error.message || "Please try again later.",
+        title: "Unable to send feedback",
+        description: "There was a problem submitting your feedback. Please try again later.",
         variant: "destructive",
+        duration: 4000,
       })
     } finally {
       setIsSubmitting(false)

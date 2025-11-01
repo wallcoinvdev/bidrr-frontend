@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.homehero.app"
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 
 console.log("[v0] API Client initialized with BASE_URL:", BASE_URL)
 

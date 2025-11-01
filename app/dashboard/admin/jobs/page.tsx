@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Flag, Eye, Trash2 } from "lucide-react"
+import { Search, Flag, Eye, Trash2, X } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
 import dynamic from "next/dynamic"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 
 const JobsHeatMap = dynamic(() => import("@/components/jobs-heat-map").then((mod) => mod.JobsHeatMap), {
   ssr: false,
@@ -55,6 +57,13 @@ export default function AdminJobsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
+  const [showFlagModal, setShowFlagModal] = useState(false)
+  const [flagJobId, setFlagJobId] = useState<number | null>(null)
+  const [flagReason, setFlagReason] = useState("")
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteJobId, setDeleteJobId] = useState<number | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -119,15 +128,30 @@ export default function AdminJobsPage() {
   }
 
   const handleFlagJob = async (jobId: number) => {
-    try {
-      const reason = prompt("Enter reason for flagging this job:")
-      if (!reason) return
+    setFlagJobId(jobId)
+    setFlagReason("")
+    setShowFlagModal(true)
+  }
 
-      await apiClient.post(`/api/admin/jobs/${jobId}/flag`, { reason })
+  const submitFlagJob = async () => {
+    if (!flagJobId || !flagReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a reason for flagging",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await apiClient.post(`/api/admin/jobs/${flagJobId}/flag`, { reason: flagReason })
       toast({
         title: "Success",
         description: "Job flagged for review",
       })
+      setShowFlagModal(false)
+      setFlagJobId(null)
+      setFlagReason("")
       fetchJobs()
     } catch (error) {
       toast({
@@ -138,18 +162,40 @@ export default function AdminJobsPage() {
     }
   }
 
-  const handleDeleteJob = async (jobId: number) => {
-    if (!confirm("Are you sure you want to delete this job? This action cannot be undone.")) {
-      return
+  const handleUnflagJob = async (jobId: number) => {
+    try {
+      await apiClient.post(`/api/admin/jobs/${jobId}/unflag`)
+      toast({
+        title: "Success",
+        description: "Job unflagged successfully",
+      })
+      fetchJobs()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to unflag job",
+        variant: "destructive",
+      })
     }
+  }
+
+  const handleDeleteJob = async (jobId: number) => {
+    setDeleteJobId(jobId)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteJob = async () => {
+    if (!deleteJobId) return
 
     try {
-      await apiClient.delete(`/api/admin/jobs/${jobId}`)
+      await apiClient.delete(`/api/admin/jobs/${deleteJobId}`)
       toast({
         title: "Success",
         description: "Job deleted successfully",
       })
-      fetchJobs()
+      setShowDeleteModal(false)
+      setJobs((prevJobs) => prevJobs.filter((job) => job.id !== deleteJobId))
+      setDeleteJobId(null)
     } catch (error) {
       toast({
         title: "Error",
@@ -157,6 +203,11 @@ export default function AdminJobsPage() {
         variant: "destructive",
       })
     }
+  }
+
+  const handleViewJob = (job: Job) => {
+    setSelectedJob(job)
+    setShowViewModal(true)
   }
 
   const getStatusBadge = (status: string) => {
@@ -280,7 +331,7 @@ export default function AdminJobsPage() {
                             )}
                           </div>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={() => handleViewJob(job)}>
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
@@ -288,6 +339,12 @@ export default function AdminJobsPage() {
                               <Button variant="outline" size="sm" onClick={() => handleFlagJob(job.id)}>
                                 <Flag className="h-4 w-4 mr-1" />
                                 Flag
+                              </Button>
+                            )}
+                            {job.is_flagged && (
+                              <Button variant="outline" size="sm" onClick={() => handleUnflagJob(job.id)}>
+                                <Flag className="h-4 w-4 mr-1" />
+                                Unflag
                               </Button>
                             )}
                             <Button variant="destructive" size="sm" onClick={() => handleDeleteJob(job.id)}>
@@ -305,6 +362,144 @@ export default function AdminJobsPage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {showFlagModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Flag Job for Review</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowFlagModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription>Provide a reason for flagging this job</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="flagReason">Reason</Label>
+                <Textarea
+                  id="flagReason"
+                  value={flagReason}
+                  onChange={(e) => setFlagReason(e.target.value)}
+                  placeholder="Enter reason for flagging (e.g., inappropriate content, spam, etc.)"
+                  rows={4}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setShowFlagModal(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={submitFlagJob} disabled={!flagReason.trim()}>
+                  Flag Job
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showViewModal && selectedJob && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>{selectedJob.title}</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowViewModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription>Job ID: #{selectedJob.id}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Service</Label>
+                  <p className="font-medium">{selectedJob.service}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div className="mt-1">{getStatusBadge(selectedJob.status)}</div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Priority</Label>
+                  <p className="font-medium capitalize">{selectedJob.priority}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Bids Received</Label>
+                  <p className="font-medium">{selectedJob.bid_count}</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground">Job Description</Label>
+                <p className="mt-1">{selectedJob.job_details}</p>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground">Location</Label>
+                <p className="mt-1">
+                  {selectedJob.address}
+                  <br />
+                  {selectedJob.city}, {selectedJob.region} {selectedJob.postal_code}
+                  <br />
+                  {selectedJob.country}
+                </p>
+              </div>
+
+              <div className="border-t pt-4">
+                <Label className="text-muted-foreground">Homeowner Information</Label>
+                <div className="mt-2 space-y-1">
+                  <p>
+                    <strong>Name:</strong> {selectedJob.homeowner_name}
+                  </p>
+                  <p>
+                    <strong>Email:</strong> {selectedJob.homeowner_email}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <Label className="text-muted-foreground">Posted Date</Label>
+                <p className="mt-1">{new Date(selectedJob.created_at).toLocaleString()}</p>
+              </div>
+
+              {selectedJob.is_flagged && selectedJob.flag_reason && (
+                <div className="border-t pt-4">
+                  <Label className="text-destructive">Flagged</Label>
+                  <p className="mt-1 text-destructive">{selectedJob.flag_reason}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Delete Job</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription>Are you sure you want to delete this job? This action cannot be undone.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={confirmDeleteJob}>
+                  Delete Job
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
