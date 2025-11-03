@@ -10,7 +10,8 @@ import { apiClient } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
 
 interface Feedback {
-  feedback_id: number
+  id?: number
+  feedback_id?: number
   user_id: number
   user_name: string
   user_email: string
@@ -25,6 +26,9 @@ export default function AdminFeedbackPage() {
   const [feedback, setFeedback] = useState<Feedback[]>([])
   const [statusFilter, setStatusFilter] = useState<string>("pending")
   const [loading, setLoading] = useState(true)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [feedbackToDelete, setFeedbackToDelete] = useState<number | undefined>(undefined)
+  const [deleting, setDeleting] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -35,8 +39,10 @@ export default function AdminFeedbackPage() {
     try {
       setLoading(true)
       const response = await apiClient.get<{ feedback: Feedback[] }>("/api/admin/feedback")
+      console.log("[v0] Feedback response:", response)
       setFeedback(response.feedback)
     } catch (error) {
+      console.error("[v0] Error fetching feedback:", error)
       toast({
         title: "Error",
         description: "Failed to fetch feedback",
@@ -47,15 +53,29 @@ export default function AdminFeedbackPage() {
     }
   }
 
-  const handleResolve = async (feedbackId: number) => {
+  const handleResolve = async (feedbackId: number | undefined) => {
+    console.log("[v0] handleResolve called with feedbackId:", feedbackId)
+
+    if (!feedbackId) {
+      toast({
+        title: "Error",
+        description: "Invalid feedback ID",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
-      await apiClient.post(`/api/admin/feedback/${feedbackId}/resolve`)
+      await apiClient.put(`/api/admin/feedback/${feedbackId}`, {
+        status: "resolved",
+      })
       toast({
         title: "Success",
         description: "Feedback marked as resolved",
       })
       fetchFeedback()
     } catch (error) {
+      console.error("[v0] Error resolving feedback:", error)
       toast({
         title: "Error",
         description: "Failed to resolve feedback",
@@ -64,24 +84,41 @@ export default function AdminFeedbackPage() {
     }
   }
 
-  const handleDelete = async (feedbackId: number) => {
-    if (!confirm("Are you sure you want to delete this feedback?")) {
+  const handleDeleteClick = (feedbackId: number | undefined) => {
+    if (!feedbackId) {
+      toast({
+        title: "Error",
+        description: "Invalid feedback ID",
+        variant: "destructive",
+      })
       return
     }
+    setFeedbackToDelete(feedbackId)
+    setShowDeleteDialog(true)
+  }
+
+  const handleDelete = async () => {
+    if (!feedbackToDelete) return
 
     try {
-      await apiClient.delete(`/api/admin/feedback/${feedbackId}`)
+      setDeleting(true)
+      await apiClient.delete(`/api/admin/feedback/${feedbackToDelete}`)
       toast({
         title: "Success",
         description: "Feedback deleted successfully",
       })
       fetchFeedback()
+      setShowDeleteDialog(false)
+      setFeedbackToDelete(undefined)
     } catch (error) {
+      console.error("[v0] Error deleting feedback:", error)
       toast({
         title: "Error",
         description: "Failed to delete feedback",
         variant: "destructive",
       })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -130,48 +167,80 @@ export default function AdminFeedbackPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredFeedback.map((item) => (
-                    <Card key={item.feedback_id}>
-                      <CardContent className="pt-6">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold">{item.user_name}</h3>
-                              <Badge variant={item.status === "resolved" ? "outline" : "default"}>{item.status}</Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">{item.user_email}</p>
-                            <p className="text-sm mt-2">{item.message}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Submitted: {new Date(item.created_at).toLocaleString()}
-                            </p>
-                            {item.resolved_at && (
+                  {filteredFeedback.map((item) => {
+                    const itemId = item.id || item.feedback_id
+
+                    return (
+                      <Card key={itemId}>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold">{item.user_name}</h3>
+                                <Badge variant={item.status === "resolved" ? "outline" : "default"}>
+                                  {item.status}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{item.user_email}</p>
+                              <p className="text-sm mt-2">{item.message}</p>
                               <p className="text-xs text-muted-foreground">
-                                Resolved: {new Date(item.resolved_at).toLocaleString()}
+                                Submitted: {new Date(item.created_at).toLocaleString()}
                               </p>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            {item.status === "pending" && (
-                              <Button variant="outline" size="sm" onClick={() => handleResolve(item.feedback_id)}>
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Resolve
+                              {item.resolved_at && (
+                                <p className="text-xs text-muted-foreground">
+                                  Resolved: {new Date(item.resolved_at).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              {item.status === "pending" && (
+                                <Button variant="outline" size="sm" onClick={() => handleResolve(itemId)}>
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Resolve
+                                </Button>
+                              )}
+                              <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(itemId)}>
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
                               </Button>
-                            )}
-                            <Button variant="destructive" size="sm" onClick={() => handleDelete(item.feedback_id)}>
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
+                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
                 </div>
               )}
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
+
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Feedback?</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this feedback? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteDialog(false)
+                  setFeedbackToDelete(undefined)
+                }}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                {deleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

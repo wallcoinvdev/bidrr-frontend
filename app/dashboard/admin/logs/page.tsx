@@ -81,17 +81,17 @@ export default function AdminLogs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Error Logs</h1>
           <p className="text-gray-600 mt-2">Monitor and track application errors (frontend and backend)</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
           <button
             onClick={exportLogs}
             disabled={logs.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="h-4 w-4" />
             Export
@@ -99,7 +99,7 @@ export default function AdminLogs() {
           <button
             onClick={() => setShowClearConfirm(true)}
             disabled={logs.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Trash2 className="h-4 w-4" />
             Clear All
@@ -192,7 +192,7 @@ export default function AdminLogs() {
 
                   <p className="text-sm font-medium text-gray-900 mb-2">{log.error}</p>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-600">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-xs text-gray-600">
                     <div>
                       <span className="font-medium">Time:</span> {new Date(log.timestamp).toLocaleString()}
                     </div>

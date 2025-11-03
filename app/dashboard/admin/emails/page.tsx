@@ -23,16 +23,16 @@ const emailTemplates: EmailTemplate[] = [
     name: "Welcome Email - Homeowner",
     description: "Sent when a new homeowner signs up",
     category: "welcome",
-    subject: "Welcome to HomeHero!",
-    preview: "Welcome to HomeHero! We're excited to help you find the perfect contractor...",
+    subject: "Welcome to Bidrr!",
+    preview: "Welcome to Bidrr! We're excited to help you find the perfect contractor...",
   },
   {
     id: "welcome-contractor",
     name: "Welcome Email - Contractor",
     description: "Sent when a new contractor signs up",
     category: "welcome",
-    subject: "Welcome to HomeHero - Start Bidding Today!",
-    preview: "Welcome to HomeHero! Start browsing jobs and submitting bids...",
+    subject: "Welcome to Bidrr - Start Bidding Today!",
+    preview: "Welcome to Bidrr! Start browsing jobs and submitting bids...",
   },
   {
     id: "job-posted",
@@ -79,7 +79,7 @@ const emailTemplates: EmailTemplate[] = [
     name: "Re-engagement Campaign",
     description: "Re-engage inactive users",
     category: "marketing",
-    subject: "We Miss You! Come Back to HomeHero",
+    subject: "We Miss You! Come Back to Bidrr",
     preview: "It's been a while since we've seen you. Here's what's new...",
   },
   {
@@ -87,7 +87,7 @@ const emailTemplates: EmailTemplate[] = [
     name: "Monthly Newsletter",
     description: "Monthly platform updates and tips",
     category: "marketing",
-    subject: "HomeHero Monthly Newsletter",
+    subject: "Bidrr Monthly Newsletter",
     preview: "This month's platform updates, success stories, and tips...",
   },
   {
@@ -141,7 +141,7 @@ export default function AdminEmailsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Templates</CardTitle>
@@ -194,7 +194,7 @@ export default function AdminEmailsPage() {
         </CardHeader>
         <CardContent>
           <Tabs value={categoryFilter} onValueChange={setCategoryFilter}>
-            <TabsList>
+            <TabsList className="w-full justify-start overflow-x-auto">
               <TabsTrigger value="all">All Templates</TabsTrigger>
               <TabsTrigger value="welcome">Welcome</TabsTrigger>
               <TabsTrigger value="notification">Notifications</TabsTrigger>
@@ -203,14 +203,14 @@ export default function AdminEmailsPage() {
             </TabsList>
 
             <TabsContent value={categoryFilter} className="space-y-4 mt-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                 {filteredTemplates.map((template) => (
                   <Card key={template.id}>
                     <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <CardTitle className="text-base">{template.name}</CardTitle>
-                          <CardDescription className="text-sm">{template.description}</CardDescription>
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
+                        <div className="space-y-1 flex-1">
+                          <CardTitle className="text-base break-words">{template.name}</CardTitle>
+                          <CardDescription className="text-sm break-words">{template.description}</CardDescription>
                         </div>
                         {getCategoryBadge(template.category)}
                       </div>
@@ -218,17 +218,17 @@ export default function AdminEmailsPage() {
                     <CardContent className="space-y-4">
                       <div>
                         <p className="text-sm font-medium mb-1">Subject:</p>
-                        <p className="text-sm text-muted-foreground">{template.subject}</p>
+                        <p className="text-sm text-muted-foreground break-words">{template.subject}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium mb-1">Preview:</p>
                         <p className="text-sm text-muted-foreground line-clamp-2">{template.preview}</p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex-1 bg-transparent"
+                          className="flex-1 bg-transparent w-full sm:w-auto"
                           onClick={() => handleSendTest(template)}
                         >
                           <Send className="h-4 w-4 mr-1" />
@@ -237,7 +237,7 @@ export default function AdminEmailsPage() {
                         <Button
                           variant="default"
                           size="sm"
-                          className="flex-1"
+                          className="flex-1 w-full sm:w-auto"
                           onClick={() => handleCreateCampaign(template)}
                         >
                           <Mail className="h-4 w-4 mr-1" />

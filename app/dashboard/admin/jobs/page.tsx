@@ -150,9 +150,11 @@ export default function AdminJobsPage() {
         description: "Job flagged for review",
       })
       setShowFlagModal(false)
+      setJobs((prevJobs) =>
+        prevJobs.map((job) => (job.id === flagJobId ? { ...job, is_flagged: true, flag_reason: flagReason } : job)),
+      )
       setFlagJobId(null)
       setFlagReason("")
-      fetchJobs()
     } catch (error) {
       toast({
         title: "Error",
@@ -169,7 +171,9 @@ export default function AdminJobsPage() {
         title: "Success",
         description: "Job unflagged successfully",
       })
-      fetchJobs()
+      setJobs((prevJobs) =>
+        prevJobs.map((job) => (job.id === jobId ? { ...job, is_flagged: false, flag_reason: undefined } : job)),
+      )
     } catch (error) {
       toast({
         title: "Error",
@@ -295,10 +299,10 @@ export default function AdminJobsPage() {
                   {filteredJobs.map((job) => (
                     <Card key={job.id} className={job.is_flagged ? "border-destructive" : ""}>
                       <CardContent className="pt-6">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-lg">{job.title}</h3>
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                          <div className="flex-1 space-y-2 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-semibold text-lg break-words">{job.title}</h3>
                               {getStatusBadge(job.status)}
                               {job.is_flagged && (
                                 <Badge variant="destructive">
@@ -307,47 +311,67 @@ export default function AdminJobsPage() {
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground line-clamp-2">{job.job_details}</p>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>Service: {job.service}</span>
-                              <span>•</span>
-                              <span>
+                            <p className="text-sm text-muted-foreground line-clamp-2 break-words">{job.job_details}</p>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                              <span className="break-words">Service: {job.service}</span>
+                              <span className="hidden sm:inline">•</span>
+                              <span className="break-words">
                                 Location: {job.city}, {job.region}
                               </span>
-                              <span>•</span>
+                              <span className="hidden sm:inline">•</span>
                               <span>{job.bid_count} bids</span>
-                              <span>•</span>
-                              <span>Posted by: {job.homeowner_name}</span>
+                              <span className="hidden sm:inline">•</span>
+                              <span className="break-words">Posted by: {job.homeowner_name}</span>
                             </div>
                             <p className="text-xs text-muted-foreground">
                               Posted: {new Date(job.created_at).toLocaleDateString()}
                             </p>
                             {job.is_flagged && job.flag_reason && (
                               <div className="mt-2 p-2 bg-destructive/10 rounded-md">
-                                <p className="text-sm text-destructive">
+                                <p className="text-sm text-destructive break-words">
                                   <strong>Flag Reason:</strong> {job.flag_reason}
                                 </p>
                               </div>
                             )}
                           </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleViewJob(job)}>
+                          <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewJob(job)}
+                              className="w-full sm:w-auto"
+                            >
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
                             {!job.is_flagged && (
-                              <Button variant="outline" size="sm" onClick={() => handleFlagJob(job.id)}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleFlagJob(job.id)}
+                                className="w-full sm:w-auto"
+                              >
                                 <Flag className="h-4 w-4 mr-1" />
                                 Flag
                               </Button>
                             )}
                             {job.is_flagged && (
-                              <Button variant="outline" size="sm" onClick={() => handleUnflagJob(job.id)}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUnflagJob(job.id)}
+                                className="w-full sm:w-auto"
+                              >
                                 <Flag className="h-4 w-4 mr-1" />
                                 Unflag
                               </Button>
                             )}
-                            <Button variant="destructive" size="sm" onClick={() => handleDeleteJob(job.id)}>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteJob(job.id)}
+                              className="w-full sm:w-auto"
+                            >
                               <Trash2 className="h-4 w-4 mr-1" />
                               Delete
                             </Button>

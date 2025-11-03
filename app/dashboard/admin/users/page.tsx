@@ -1,9 +1,10 @@
 "use client"
 
-import { Users, Search, Ban, CheckCircle, Loader2, AlertCircle, Shield, UserCog } from "lucide-react"
+import { Users, Search, Ban, CheckCircle, Loader2, AlertCircle, UserCog } from "lucide-react"
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
+import { VerifiedBadge } from "@/components/verified-badge"
 
 interface User {
   id: number
@@ -17,6 +18,8 @@ interface User {
   is_banned: boolean
   phone_verified: boolean
   is_admin: boolean
+  company_name?: string
+  is_verified?: boolean
 }
 
 export default function AdminUsers() {
@@ -198,15 +201,12 @@ export default function AdminUsers() {
                     <td className="py-3 px-4 text-sm font-medium text-gray-900">
                       <div className="flex items-center gap-2">
                         {user.name}
-                        {user.phone_verified && (
-                          <div className="relative group">
-                            <Shield className="h-4 w-4 text-blue-600" />
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                              Verified by Phone
-                            </div>
-                          </div>
-                        )}
+                        {user.phone_verified && <VerifiedBadge type="phone" size="sm" />}
+                        {user.role === "contractor" && user.is_verified && <VerifiedBadge type="google" size="sm" />}
                       </div>
+                      {user.role === "contractor" && user.company_name && (
+                        <div className="text-xs text-gray-500 mt-1">{user.company_name}</div>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">{user.email}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{user.phone_number}</td>
@@ -228,15 +228,17 @@ export default function AdminUsers() {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => toggleVerifyUser(user.id, user.phone_verified)}
-                          className={`p-1 rounded hover:bg-gray-100 ${
-                            user.phone_verified ? "text-blue-600" : "text-gray-400"
-                          }`}
-                          title={user.phone_verified ? "Remove phone verification" : "Verify phone"}
-                        >
-                          <CheckCircle className="h-5 w-5" />
-                        </button>
+                        {user.role === "contractor" && (
+                          <button
+                            onClick={() => toggleVerifyUser(user.id, user.is_verified || false)}
+                            className={`p-1 rounded hover:bg-gray-100 ${
+                              user.is_verified ? "text-green-600" : "text-gray-400"
+                            }`}
+                            title={user.is_verified ? "Remove Google verification" : "Verify with Google"}
+                          >
+                            <CheckCircle className="h-5 w-5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => toggleBanUser(user.id, user.is_banned)}
                           className={`p-1 rounded hover:bg-gray-100 ${user.is_banned ? "text-red-600" : "text-gray-400"}`}

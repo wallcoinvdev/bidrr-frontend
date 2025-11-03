@@ -3,6 +3,7 @@
 import { AlertCircle, CheckCircle, Clock, Loader2, XCircle } from "lucide-react"
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
+import { useToast } from "@/hooks/use-toast"
 
 interface Report {
   report_id: number
@@ -14,10 +15,13 @@ interface Report {
   reporter_id: number
   reporter_first_name: string
   reporter_last_name: string
+  reporter_role: string
+  reporter_business_name: string | null
   reported_user_id: number
   reported_first_name: string
   reported_last_name: string
   reported_user_role: string
+  reported_business_name: string | null
 }
 
 export default function AdminReports() {
@@ -25,6 +29,7 @@ export default function AdminReports() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [filter, setFilter] = useState<string>("all")
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchReports()
@@ -47,16 +52,22 @@ export default function AdminReports() {
 
   const updateReportStatus = async (reportId: number, newStatus: string) => {
     try {
-      await apiClient.request(`/api/reports/${reportId}`, {
-        method: "PATCH",
-        body: { status: newStatus },
-        requiresAuth: true,
+      await apiClient.patch(`/api/reports/${reportId}`, { status: newStatus }, { requiresAuth: true })
+      toast({
+        title: "Success",
+        description: "Report status updated successfully",
       })
-      // Refresh reports after update
       fetchReports()
     } catch (error: any) {
       console.error("[v0] Error updating report:", error)
-      alert("Failed to update report status")
+      toast({
+        title: "Error",
+        description:
+          error.message?.includes("CORS") || error.message?.includes("Failed to fetch")
+            ? "Backend endpoint not configured. The PATCH /api/reports/:id endpoint needs to be added to the backend server."
+            : error.message || "Failed to update report status. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -107,7 +118,7 @@ export default function AdminReports() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">User Reports</h1>
           <p className="text-gray-600 mt-2">
@@ -118,7 +129,7 @@ export default function AdminReports() {
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="all">All Reports</option>
           <option value="pending">Pending</option>
@@ -171,15 +182,30 @@ export default function AdminReports() {
                 {reports.map((report) => (
                   <tr key={report.report_id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4 text-sm text-gray-900">#{report.report_id}</td>
-                    <td className="py-3 px-4 text-sm text-gray-900">
-                      {report.reporter_first_name} {report.reporter_last_name}
+                    <td className="py-3 px-4">
+                      <div>
+                        <p className="text-sm text-gray-900">
+                          {report.reporter_first_name} {report.reporter_last_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {report.reporter_role === "homeowner" ? "Customer" : "Contractor"}
+                        </p>
+                        {report.reporter_role === "contractor" && report.reporter_business_name && (
+                          <p className="text-xs text-gray-600 font-medium">{report.reporter_business_name}</p>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <div>
                         <p className="text-sm text-gray-900">
                           {report.reported_first_name} {report.reported_last_name}
                         </p>
-                        <p className="text-xs text-gray-500">{report.reported_user_role}</p>
+                        <p className="text-xs text-gray-500">
+                          {report.reported_user_role === "homeowner" ? "Customer" : "Contractor"}
+                        </p>
+                        {report.reported_user_role === "contractor" && report.reported_business_name && (
+                          <p className="text-xs text-gray-600 font-medium">{report.reported_business_name}</p>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 px-4">

@@ -228,11 +228,15 @@ export default function AdminMessagesPage() {
     if (!selectedConversation || deletingConversation) return
 
     try {
+      console.log("[v0] Starting delete for conversation:", selectedConversation.id)
       setDeletingConversation(true)
+
+      console.log("[v0] Making DELETE request to:", `/api/conversations/${selectedConversation.id}`)
       await apiClient.request(`/api/conversations/${selectedConversation.id}`, {
         method: "DELETE",
         requiresAuth: true,
       })
+      console.log("[v0] DELETE request successful")
 
       // Remove conversation from local state
       setConversations((prev) => prev.filter((conv) => conv.id !== selectedConversation.id))
@@ -240,6 +244,7 @@ export default function AdminMessagesPage() {
       setShowMobileChat(false)
       setShowDeleteDialog(false)
 
+      console.log("[v0] Conversation deleted successfully from local state")
       toast({
         title: "Conversation deleted",
         description: "The conversation has been removed from your view.",

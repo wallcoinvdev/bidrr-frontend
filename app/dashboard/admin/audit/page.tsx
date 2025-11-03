@@ -18,7 +18,7 @@ interface AuditLog {
   resource_id?: number
   details?: any // Changed from string to any to handle both string and object
   ip_address: string
-  timestamp: string
+  created_at: string // Changed from timestamp to created_at to match database column
 }
 
 export default function AdminAuditPage() {
@@ -106,6 +106,21 @@ export default function AdminAuditPage() {
     return String(details)
   }
 
+  const formatTimestamp = (timestamp: string | null | undefined): string => {
+    if (!timestamp) return "Unknown date"
+
+    try {
+      const date = new Date(timestamp)
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return "Invalid date"
+      }
+      return date.toLocaleString()
+    } catch (error) {
+      return "Invalid date"
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -150,35 +165,35 @@ export default function AdminAuditPage() {
               {filteredLogs.map((log) => (
                 <Card key={log.log_id}>
                   <CardContent className="pt-6">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
                         {getActionIcon(log.action)}
                       </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 w-full space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           {getActionBadge(log.action)}
                           <span className="text-sm text-muted-foreground">on</span>
                           <Badge variant="outline">{log.resource_type}</Badge>
                           {log.resource_id && (
                             <>
                               <span className="text-sm text-muted-foreground">ID:</span>
-                              <span className="text-sm font-mono">{log.resource_id}</span>
+                              <span className="text-sm font-mono break-all">{log.resource_id}</span>
                             </>
                           )}
                         </div>
-                        <p className="text-sm">
+                        <p className="text-sm break-words">
                           <span className="font-medium">{log.admin_name}</span>
                           <span className="text-muted-foreground"> ({log.admin_email})</span>
                         </p>
                         {log.details && (
-                          <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-mono bg-muted p-2 rounded mt-1">
+                          <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-mono bg-muted p-2 rounded mt-1 overflow-x-auto">
                             {renderDetails(log.details)}
                           </pre>
                         )}
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span>{new Date(log.timestamp).toLocaleString()}</span>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span className="break-all">{formatTimestamp(log.created_at)}</span>
                           <span>•</span>
-                          <span>IP: {log.ip_address}</span>
+                          <span className="break-all">IP: {log.ip_address}</span>
                         </div>
                       </div>
                     </div>

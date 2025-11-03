@@ -23,7 +23,6 @@ import {
 import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
-import { SiteFooter } from "@/components/site-footer"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -285,7 +284,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
             </div>
             <div className="container mx-auto px-4 md:px-6 py-6 md:py-8 max-w-7xl flex-1">{children}</div>
-            <SiteFooter />
           </main>
         </div>
       </div>

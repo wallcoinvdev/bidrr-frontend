@@ -5,6 +5,8 @@ import "./globals.css"
 import { Providers } from "./providers"
 import { Toaster } from "@/components/ui/toaster"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { MaintenanceBanner } from "@/components/maintenance-banner"
+import { AnnouncementBanner } from "@/components/announcement-banner"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -35,6 +37,8 @@ export default function RootLayout({
     <html lang="en" className={`${montserrat.variable} ${lora.variable} antialiased`}>
       <body>
         <ErrorBoundary>
+          <MaintenanceBanner />
+          <AnnouncementBanner />
           <Providers>{children}</Providers>
         </ErrorBoundary>
         <Toaster />

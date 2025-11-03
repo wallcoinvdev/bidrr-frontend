@@ -120,6 +120,15 @@ class ApiClient {
     })
   }
 
+  async patch<T>(endpoint: string, body?: any, options: Omit<RequestOptions, "method" | "body"> = {}): Promise<T> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: "PATCH",
+      body: body ? JSON.stringify(body) : undefined,
+      requiresAuth: options.requiresAuth ?? true,
+    })
+  }
+
   async delete<T>(endpoint: string, options: Omit<RequestOptions, "method"> = {}): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: "DELETE", requiresAuth: options.requiresAuth ?? true })
   }

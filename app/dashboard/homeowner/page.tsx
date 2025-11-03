@@ -3,21 +3,7 @@
 import type React from "react"
 
 import { DashboardLayout } from "@/components/dashboard-layout"
-import {
-  Briefcase,
-  MapPin,
-  Plus,
-  X,
-  Edit,
-  Search,
-  Upload,
-  Eye,
-  Calendar,
-  Star,
-  Info,
-  ChevronDown,
-  Shield,
-} from "lucide-react"
+import { Briefcase, MapPin, Plus, X, Edit, Search, Upload, Eye, Calendar, Star, Info, ChevronDown } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
@@ -30,6 +16,7 @@ import {
   SERVICE_CATEGORIES,
 } from "@/lib/service-categories"
 import { toast } from "@/components/ui/use-toast" // Assuming toast is from shadcn/ui or similar
+import { VerifiedBadge } from "@/components/verified-badge"
 
 // Define Mission type for better type safety (assuming this is used internally)
 interface Mission {
@@ -93,6 +80,8 @@ interface BidWithReviews extends Record<string, any> {
   google_review_count?: number // Google review count
   google_reviews?: any[] // Array of Google reviews
   estimated_duration?: string
+  is_verified?: boolean
+  google_places_id?: string
 }
 
 function getRelativeTime(dateString: string): string {
@@ -2522,12 +2511,8 @@ export default function HomeownerDashboard() {
                                 <h3 className="text-base md:text-xl font-bold text-gray-900">
                                   {bid.company_name || bid.contractor_name || "Contractor"}
                                 </h3>
-                                <span className="relative group">
-                                  <Shield className="h-4 w-4 md:h-5 md:w-5 text-blue-600 fill-blue-600 flex-shrink-0" />
-                                  <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                    Verified by Phone
-                                  </span>
-                                </span>
+                                {(bid.is_verified || bid.google_places_id) && <VerifiedBadge type="google" size="md" />}
+                                <VerifiedBadge type="phone" size="md" />
                               </div>
                               <div className="flex items-center gap-2">
                                 {isAccepted && (

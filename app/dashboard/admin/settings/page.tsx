@@ -57,18 +57,25 @@ export default function AdminSettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.get<{ settings: SystemSettings }>("/api/admin/settings")
+      const response = await apiClient.get<{ settings: Array<{ key: string; value: string }> }>("/api/admin/settings")
+
+      // Convert array to object: [{ key: "maintenance_mode", value: "true" }] -> { maintenance_mode: "true" }
+      const settingsObj: Record<string, string> = {}
+      response.settings.forEach((setting) => {
+        settingsObj[setting.key] = setting.value
+      })
+
       setSettings({
-        maintenance_mode: response.settings.maintenance_mode ?? false,
+        maintenance_mode: settingsObj.maintenance_mode === "true",
         maintenance_message:
-          response.settings.maintenance_message ?? "We're currently performing maintenance. Please check back soon.",
-        allow_new_signups: response.settings.allow_new_signups ?? true,
-        require_email_verification: response.settings.require_email_verification ?? false,
-        require_contractor_verification: response.settings.require_contractor_verification ?? true,
-        max_bids_per_job: response.settings.max_bids_per_job ?? 10,
-        announcement_enabled: response.settings.announcement_enabled ?? false,
-        announcement_message: response.settings.announcement_message ?? "",
-        announcement_type: response.settings.announcement_type ?? "info",
+          settingsObj.maintenance_message ?? "We're currently performing maintenance. Please check back soon.",
+        allow_new_signups: settingsObj.allow_new_signups === "true",
+        require_email_verification: settingsObj.require_email_verification === "true",
+        require_contractor_verification: settingsObj.require_contractor_verification === "true",
+        max_bids_per_job: Number.parseInt(settingsObj.max_bids_per_job) || 10,
+        announcement_enabled: settingsObj.announcement_enabled === "true",
+        announcement_message: settingsObj.announcement_message ?? "",
+        announcement_type: (settingsObj.announcement_type as "info" | "warning" | "error") ?? "info",
       })
     } catch (error) {
       toast({
@@ -168,7 +175,7 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">System Settings</h1>
           <p className="text-muted-foreground">Configure platform settings and feature flags</p>
@@ -180,27 +187,27 @@ export default function AdminSettingsPage() {
               <span className="text-sm font-medium text-green-900">Settings saved successfully!</span>
             </div>
           )}
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
             {saving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </div>
 
       <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general">
+        <TabsList className="w-full overflow-x-auto flex-nowrap justify-start">
+          <TabsTrigger value="general" className="flex-shrink-0">
             <Settings className="h-4 w-4 mr-2" />
             General
           </TabsTrigger>
-          <TabsTrigger value="announcements">
+          <TabsTrigger value="announcements" className="flex-shrink-0">
             <Bell className="h-4 w-4 mr-2" />
             Announcements
           </TabsTrigger>
-          <TabsTrigger value="features">
+          <TabsTrigger value="features" className="flex-shrink-0">
             <Flag className="h-4 w-4 mr-2" />
             Feature Flags
           </TabsTrigger>
-          <TabsTrigger value="security">
+          <TabsTrigger value="security" className="flex-shrink-0">
             <Shield className="h-4 w-4 mr-2" />
             Security
           </TabsTrigger>
@@ -340,7 +347,9 @@ export default function AdminSettingsPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Require Contractor Verification</Label>
-                  <p className="text-sm text-muted-foreground">Contractors must be verified to bid on jobs</p>
+                  <p className="text-sm text-muted-foreground">
+                    Contractors must be verified (with Google or manually by Admin) to bid on jobs
+                  </p>
                 </div>
                 <Switch
                   checked={settings.require_contractor_verification}
