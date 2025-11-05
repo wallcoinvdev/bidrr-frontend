@@ -16,7 +16,7 @@ export default function ContractorPhoneVerification() {
   const router = useRouter()
   const { data, updateData } = useOnboarding()
 
-  const [countryCode, setCountryCode] = useState(data.countryCode || "+1-US")
+  const [countryCode, setCountryCode] = useState(data.countryCode || "+1-CA")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [verificationCode, setVerificationCode] = useState("")
   const [acceptedTerms, setAcceptedTerms] = useState(false)
@@ -38,7 +38,7 @@ export default function ContractorPhoneVerification() {
 
   const getCountryFromCode = (fullCode: string): string => {
     const country = fullCode.split("-")[1]
-    return country || "US"
+    return country || "CA"
   }
 
   const handleSendCode = async (e: React.FormEvent) => {
@@ -375,11 +375,11 @@ export default function ContractorPhoneVerification() {
                         onChange={(e) => setCountryCode(e.target.value)}
                         className="w-20 sm:w-28 px-1 sm:px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e2bb12] focus:border-transparent outline-none transition-all bg-white text-sm cursor-pointer"
                       >
-                        <option value="+1-US">🇺🇸 +1</option>
-                        <option value="+44-GB">🇬🇧 +44</option>
+                        {/* <option value="+1-US">🇺🇸 +1</option> */}
+                        {/* <option value="+44-GB">🇬🇧 +44</option> */}
                         <option value="+1-CA">🇨🇦 +1</option>
-                        <option value="+61-AU">🇦🇺 +61</option>
-                        <option value="+64-NZ">🇳🇿 +64</option>
+                        {/* <option value="+61-AU">🇦🇺 +61</option> */}
+                        {/* <option value="+64-NZ">🇳🇿 +64</option> */}
                       </select>
                       <input
                         type="tel"

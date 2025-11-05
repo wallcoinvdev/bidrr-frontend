@@ -56,7 +56,7 @@ export function ServicesSelector({ selectedServices, onChange }: ServicesSelecto
     <div className="space-y-3" ref={containerRef}>
       <div className="relative">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#d8e2fb]/60" />
           <input
             ref={inputRef}
             type="text"
@@ -68,7 +68,7 @@ export function ServicesSelector({ selectedServices, onChange }: ServicesSelecto
             onFocus={() => setShowSuggestions(true)}
             onKeyDown={handleKeyDown}
             placeholder="Search and add services..."
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e2bb12] focus:border-transparent outline-none transition-all"
+            className="w-full pl-10 pr-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none transition-all text-[#d8e2fb] placeholder:text-[#d8e2fb]/50"
           />
         </div>
 
@@ -95,13 +95,13 @@ export function ServicesSelector({ selectedServices, onChange }: ServicesSelecto
           {selectedServices.map((service) => (
             <div
               key={service}
-              className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#e2bb12]/10 border border-[#e2bb12]/30 rounded-full text-sm font-medium text-[#03353a]"
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#328d87]/20 border border-[#328d87]/40 rounded-full text-sm font-medium text-[#d8e2fb]"
             >
               {service}
               <button
                 type="button"
                 onClick={() => removeService(service)}
-                className="hover:bg-[#e2bb12]/20 rounded-full p-0.5 transition-colors"
+                className="hover:bg-[#328d87]/30 rounded-full p-0.5 transition-colors"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -111,7 +111,7 @@ export function ServicesSelector({ selectedServices, onChange }: ServicesSelecto
       )}
 
       {selectedServices.length === 0 && (
-        <p className="text-xs text-gray-500">Start typing to search and add services</p>
+        <p className="text-xs text-[#d8e2fb]/60">Start typing to search and add services</p>
       )}
     </div>
   )

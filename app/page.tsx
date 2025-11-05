@@ -128,7 +128,7 @@ export default function HomePage() {
                 Log in
               </Link>
               <Link
-                href="/verify-phone/contractor"
+                href="/signup?role=contractor"
                 className="bg-[#e2bb12] hover:bg-[#d4ad11] text-[#0d3d42] font-semibold px-6 py-2 rounded-full transition-colors"
               >
                 Join as Contractor
@@ -171,7 +171,7 @@ export default function HomePage() {
                     Log in
                   </Link>
                   <Link
-                    href="/verify-phone/contractor"
+                    href="/signup?role=contractor"
                     className="bg-[#e2bb12] hover:bg-white/10 text-white font-semibold px-6 md:px-8 py-3 md:py-4 rounded-full transition-colors text-center"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -206,14 +206,14 @@ export default function HomePage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchQuery.trim().length > 0 && setShowAutocomplete(true)}
-                className="flex-1 py-2 md:py-4 px-2 text-sm md:text-base text-gray-900 placeholder-gray-400 focus:outline-none"
+                className="flex-1 py-2 md:py-4 px-2 text-[16px] leading-5 md:text-lg text-gray-900 placeholder-gray-400 focus:outline-none"
                 autoComplete="off"
               />
               <Link
-                href="/verify-phone/homeowner"
-                className="bg-[#328d87] hover:bg-[#2d7f7a] text-white font-semibold transition-colors flex items-center justify-center md:px-8 px-3 py-2 md:py-4"
+                href="/signup"
+                className="bg-[#328d87] hover:bg-[#2d7f7a] text-white font-semibold transition-colors flex items-center justify-center -ml-4 md:ml-0 px-3 md:px-8 py-2 md:py-4"
               >
-                <ArrowRight className="h-5 w-5 md:hidden" />
+                <ArrowRight className="h-5 w-5 md:hidden -ml-2" />
                 <span className="hidden md:inline text-sm md:text-base whitespace-nowrap">Get started</span>
               </Link>
             </div>
@@ -431,13 +431,13 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
               <Link
-                href="/verify-phone/homeowner"
+                href="/signup"
                 className="inline-block bg-white hover:bg-gray-100 text-[#328d87] font-semibold px-6 md:px-8 py-3 md:py-4 rounded-full transition-colors text-base md:text-lg"
               >
                 Post a job for free
               </Link>
               <Link
-                href="/verify-phone/contractor"
+                href="/signup?role=contractor"
                 className="inline-block border-2 border-white hover:bg-white/10 text-white font-semibold px-6 md:px-8 py-3 md:py-4 rounded-full transition-colors text-base md:text-lg"
               >
                 Join as Contractor

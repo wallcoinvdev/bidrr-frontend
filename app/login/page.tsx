@@ -60,6 +60,9 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("[v0] Login form submitted")
+    console.log("[v0] Email:", email)
+    console.log("[v0] Remember me:", rememberMe)
     setError("")
     setLoading(true)
 
@@ -73,22 +76,31 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Login failed")
+        throw new Error(data.error || "Invalid email or password")
       }
 
+      console.log("[v0] Login API response:", data)
+
+      // Check if 2FA is required (admin users)
       if (data.requires_2fa) {
-        setShow2FA(true)
+        console.log("[v0] 2FA required, showing 2FA form")
         setTempToken(data.temp_token)
         setPhoneNumber(data.phone_number)
+        setShow2FA(true)
         setLoading(false)
         return
       }
 
+      // Non-admin login - store token and user data
+      console.log("[v0] Login successful, storing token and user data")
       localStorage.setItem("token", data.token)
       if (data.refresh_token) {
         localStorage.setItem("refresh_token", data.refresh_token)
       }
       localStorage.setItem("user", JSON.stringify(data.user))
+
+      // Update AuthContext
+      setUser(data.user)
 
       const targetDashboard = data.user.is_admin
         ? "/dashboard/admin"
@@ -96,8 +108,10 @@ export default function LoginPage() {
           ? "/dashboard/homeowner"
           : "/dashboard/contractor"
 
+      console.log("[v0] Redirecting to:", targetDashboard)
       router.replace(targetDashboard)
     } catch (err: any) {
+      console.error("[v0] Login error:", err)
       let errorMessage = err.message || "Invalid email or password. Please try again."
 
       if (errorMessage.includes("Too many login attempts")) {
@@ -106,7 +120,6 @@ export default function LoginPage() {
       }
 
       setError(errorMessage)
-    } finally {
       setLoading(false)
     }
   }

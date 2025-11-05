@@ -440,7 +440,7 @@ export default function ContractorProfile() {
                       </div>
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-900 mb-2">Visit Google Maps</h4>
-                        <p className="text-gray-600 text-sm">
+                        <p className="text-gray-600 text-sm mb-3">
                           Open your web browser and navigate to{" "}
                           <a
                             href="https://maps.google.com"
@@ -451,6 +451,16 @@ export default function ContractorProfile() {
                             maps.google.com
                           </a>
                         </p>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
+                          <p className="text-sm text-amber-900 font-semibold mb-1">
+                            📱 Important for Mobile & Tablet Users:
+                          </p>
+                          <p className="text-sm text-amber-800">
+                            You MUST use your web browser (Safari, Chrome, Firefox, etc.), NOT the Google Maps app. If
+                            the Maps app opens automatically, select "Open in Browser" or manually paste the link into
+                            your browser. URLs from the Maps app (maps.app.goo.gl/...) will NOT work.
+                          </p>
+                        </div>
                       </div>
                     </div>
 

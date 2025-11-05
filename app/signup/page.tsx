@@ -5,11 +5,25 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { AlertCircle, Loader2, CheckCircle, ArrowLeft } from "lucide-react"
+import { AlertCircle, Loader2, CheckCircle, ArrowLeft, Briefcase, Home } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { SERVICES } from "@/lib/services"
+import { ServicesSelector } from "@/components/services-selector"
 
-const GOOGLE_OAUTH_URL = "https://api.bidrr.ca/api/users/google"
+const CANADIAN_PROVINCES = [
+  { code: "AB", name: "Alberta" },
+  { code: "BC", name: "British Columbia" },
+  { code: "MB", name: "Manitoba" },
+  { code: "NB", name: "New Brunswick" },
+  { code: "NL", name: "Newfoundland and Labrador" },
+  { code: "NT", name: "Northwest Territories" },
+  { code: "NS", name: "Nova Scotia" },
+  { code: "NU", name: "Nunavut" },
+  { code: "ON", name: "Ontario" },
+  { code: "PE", name: "Prince Edward Island" },
+  { code: "QC", name: "Quebec" },
+  { code: "SK", name: "Saskatchewan" },
+  { code: "YT", name: "Yukon" },
+]
 
 export default function SignupPage() {
   const searchParams = useSearchParams()
@@ -17,18 +31,25 @@ export default function SignupPage() {
 
   const [step, setStep] = useState<"role" | "details" | "verify">("role")
   const [role, setRole] = useState<"homeowner" | "contractor">(
-    (searchParams.get("role") as "homeowner" | "contractor") || "",
+    (searchParams.get("role") as "homeowner" | "contractor") || ""
   )
 
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
+  const [countryCode, setCountryCode] = useState("+1")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [postalCode, setPostalCode] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
+  const [address, setAddress] = useState("")
+  const [city, setCity] = useState("")
+  const [region, setRegion] = useState("")
+
   const [companyName, setCompanyName] = useState("")
   const [businessAddress, setBusinessAddress] = useState("")
+  const [businessCity, setBusinessCity] = useState("")
+  const [businessRegion, setBusinessRegion] = useState("")
   const [radiusKm, setRadiusKm] = useState("50")
   const [services, setServices] = useState<string[]>([])
 
@@ -50,16 +71,13 @@ export default function SignupPage() {
   }
 
   const validatePhoneNumber = (phone: string) => {
-    const e164Regex = /^\+1\d{10}$/
-    return e164Regex.test(phone)
+    const tenDigitRegex = /^\d{10}$/
+    return tenDigitRegex.test(phone)
   }
 
   const handleRoleSelect = (selectedRole: "homeowner" | "contractor") => {
-    if (selectedRole === "homeowner") {
-      router.push("/verify-phone/homeowner")
-    } else if (selectedRole === "contractor") {
-      router.push("/verify-phone/contractor")
-    }
+    setRole(selectedRole)
+    router.push(`/signup?role=${selectedRole}`)
   }
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -71,13 +89,18 @@ export default function SignupPage() {
       return
     }
 
+    if (!validatePhoneNumber(phoneNumber)) {
+      setError("Please enter a valid 10-digit phone number")
+      return
+    }
+
     if (!validatePostalCode(postalCode)) {
       setError("Please enter a valid Canadian postal code (e.g., A1A 1A1)")
       return
     }
 
-    if (!validatePhoneNumber(phoneNumber)) {
-      setError("Please enter a valid phone number in E.164 format (e.g., +11234567890)")
+    if (role === "homeowner" && (!address || !city || !region)) {
+      setError("Please enter your complete address")
       return
     }
 
@@ -86,23 +109,37 @@ export default function SignupPage() {
       return
     }
 
+    if (role === "contractor" && (!businessCity || !businessRegion)) {
+      setError("Please enter city and select province")
+      return
+    }
+
     setLoading(true)
 
     try {
+      const fullPhoneNumber = `${countryCode}${phoneNumber}`
+
       const payload: any = {
         full_name: fullName,
         email,
-        phone_number: phoneNumber,
+        phone_number: fullPhoneNumber,
         postal_code: postalCode,
         password,
         role,
+        country: "CA",
       }
 
       if (role === "contractor") {
         payload.company_name = companyName
         payload.business_address = businessAddress
+        payload.city = businessCity
+        payload.region = businessRegion
         payload.radius_km = Number.parseInt(radiusKm)
         payload.services = services
+      } else {
+        payload.address = address
+        payload.city = city
+        payload.region = region
       }
 
       const response = await apiClient.request<{ user: any }>("/api/users/signup", {
@@ -125,10 +162,12 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
+      const fullPhoneNumber = `${countryCode}${phoneNumber}`
+
       await apiClient.request("/api/users/verify-phone", {
         method: "POST",
         body: JSON.stringify({
-          phone_number: phoneNumber,
+          phone_number: fullPhoneNumber,
           verification_code: verificationCode,
         }),
       })
@@ -139,10 +178,6 @@ export default function SignupPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const toggleService = (serviceId: string) => {
-    setServices((prev) => (prev.includes(serviceId) ? prev.filter((s) => s !== serviceId) : [...prev, serviceId]))
   }
 
   if (step === "role") {
@@ -252,7 +287,11 @@ export default function SignupPage() {
                   </div>
                   <h2 className="text-2xl font-bold text-[#d8e2fb] mb-2">Verify Your Phone</h2>
                   <p className="text-[#d8e2fb]/70">
-                    We sent a verification code to <span className="font-medium text-[#d8e2fb]">{phoneNumber}</span>
+                    We sent a verification code to{" "}
+                    <span className="font-medium text-[#d8e2fb]">
+                      {countryCode}
+                      {phoneNumber}
+                    </span>
                   </p>
                 </div>
 
@@ -327,12 +366,29 @@ export default function SignupPage() {
           <div className="w-full max-w-2xl">
             <div className="bg-[#03353a] border border-[#d8e2fb]/20 rounded-lg p-8 shadow-lg">
               <div className="mb-6">
-                <button onClick={() => setStep("role")} className="text-[#e2bb12] hover:underline text-sm mb-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = "/signup"
+                  }}
+                  className="text-[#e2bb12] hover:underline text-sm mb-4"
+                >
                   ← Change role
                 </button>
-                <h2 className="text-2xl font-bold text-[#d8e2fb] mb-2">
-                  Create your {role === "homeowner" ? "Customer" : "Contractor"} account
-                </h2>
+                <div className="flex items-center gap-3 mb-3">
+                  {role === "contractor" ? (
+                    <div className="h-12 w-12 bg-[#328d87]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Briefcase className="h-6 w-6 text-[#328d87]" />
+                    </div>
+                  ) : (
+                    <div className="h-12 w-12 bg-[#328d87]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Home className="h-6 w-6 text-[#328d87]" />
+                    </div>
+                  )}
+                  <h2 className="text-3xl font-bold text-[#d8e2fb]">
+                    {role === "homeowner" ? "Customer Account" : "Contractor Account"}
+                  </h2>
+                </div>
                 <p className="text-[#d8e2fb]/70">Fill in your details to get started</p>
               </div>
 
@@ -376,38 +432,35 @@ export default function SignupPage() {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-[#d8e2fb] mb-2">
-                      Phone Number *
-                    </label>
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-[#d8e2fb] mb-2">
+                    Phone Number *
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="w-32 px-3 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                    >
+                      <option value="+1">🇨🇦 +1</option>
+                    </select>
                     <input
                       id="phone"
                       type="tel"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "")
+                        if (value.length <= 10) {
+                          setPhoneNumber(value)
+                        }
+                      }}
                       required
-                      className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
-                      placeholder="+11234567890"
+                      className="flex-1 px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                      placeholder="1234567890"
+                      maxLength={10}
                     />
-                    <p className="text-xs text-[#d8e2fb]/60 mt-1">Format: +1XXXXXXXXXX</p>
                   </div>
-
-                  <div>
-                    <label htmlFor="postal" className="block text-sm font-medium text-[#d8e2fb] mb-2">
-                      Postal Code *
-                    </label>
-                    <input
-                      id="postal"
-                      type="text"
-                      value={postalCode}
-                      onChange={(e) => setPostalCode(e.target.value.toUpperCase())}
-                      required
-                      className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
-                      placeholder="A1A 1A1"
-                    />
-                    <p className="text-xs text-[#d8e2fb]/60 mt-1">Format: A1A 1A1</p>
-                  </div>
+                  <p className="text-xs text-[#d8e2fb]/60 mt-1">Enter 10-digit phone number</p>
                 </div>
 
                 {role === "contractor" && (
@@ -431,15 +484,66 @@ export default function SignupPage() {
                       <label htmlFor="address" className="block text-sm font-medium text-[#d8e2fb] mb-2">
                         Business Address *
                       </label>
-                      <textarea
+                      <input
                         id="address"
+                        type="text"
                         value={businessAddress}
                         onChange={(e) => setBusinessAddress(e.target.value)}
                         required
-                        rows={2}
-                        className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb] resize-none"
-                        placeholder="789 Build Ave, City, Province"
+                        className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                        placeholder="123 Main Street"
                       />
+                    </div>
+
+                    <div>
+                      <label htmlFor="city" className="block text-sm font-medium text-[#d8e2fb] mb-2">
+                        City *
+                      </label>
+                      <input
+                        id="city"
+                        type="text"
+                        value={businessCity}
+                        onChange={(e) => setBusinessCity(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                        placeholder="Toronto"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="province" className="block text-sm font-medium text-[#d8e2fb] mb-2">
+                        Province *
+                      </label>
+                      <select
+                        id="province"
+                        value={businessRegion}
+                        onChange={(e) => setBusinessRegion(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                      >
+                        <option value="">Select a province</option>
+                        {CANADIAN_PROVINCES.map((province) => (
+                          <option key={province.code} value={province.code}>
+                            {province.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="postal" className="block text-sm font-medium text-[#d8e2fb] mb-2">
+                        Postal Code *
+                      </label>
+                      <input
+                        id="postal"
+                        type="text"
+                        value={postalCode}
+                        onChange={(e) => setPostalCode(e.target.value.toUpperCase())}
+                        required
+                        className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                        placeholder="A1A 1A1"
+                      />
+                      <p className="text-xs text-[#d8e2fb]/60 mt-1">Format: A1A 1A1</p>
                     </div>
 
                     <div>
@@ -459,19 +563,77 @@ export default function SignupPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-[#d8e2fb] mb-2">Services Offered *</label>
-                      <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto p-4 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg">
-                        {SERVICES.map((service) => (
-                          <label key={service} className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={services.includes(service)}
-                              onChange={() => toggleService(service)}
-                              className="h-4 w-4 text-[#328d87] border-[#d8e2fb]/20 rounded focus:ring-2 focus:ring-[#328d87]"
-                            />
-                            <span className="text-sm text-[#d8e2fb]">{service}</span>
-                          </label>
+                      <ServicesSelector selectedServices={services} onChange={setServices} />
+                    </div>
+                  </>
+                )}
+
+                {role === "homeowner" && (
+                  <>
+                    <div>
+                      <label htmlFor="address" className="block text-sm font-medium text-[#d8e2fb] mb-2">
+                        Address *
+                      </label>
+                      <input
+                        id="address"
+                        type="text"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                        placeholder="123 Main Street"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="homeowner-city" className="block text-sm font-medium text-[#d8e2fb] mb-2">
+                        City *
+                      </label>
+                      <input
+                        id="homeowner-city"
+                        type="text"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                        placeholder="Toronto"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="homeowner-province" className="block text-sm font-medium text-[#d8e2fb] mb-2">
+                        Province *
+                      </label>
+                      <select
+                        id="homeowner-province"
+                        value={region}
+                        onChange={(e) => setRegion(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                      >
+                        <option value="">Select a province</option>
+                        {CANADIAN_PROVINCES.map((province) => (
+                          <option key={province.code} value={province.code}>
+                            {province.name}
+                          </option>
                         ))}
-                      </div>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="postal" className="block text-sm font-medium text-[#d8e2fb] mb-2">
+                        Postal Code *
+                      </label>
+                      <input
+                        id="postal"
+                        type="text"
+                        value={postalCode}
+                        onChange={(e) => setPostalCode(e.target.value.toUpperCase())}
+                        required
+                        className="w-full px-4 py-3 bg-[#0D3D42] border border-[#d8e2fb]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] text-[#d8e2fb]"
+                        placeholder="A1A 1A1"
+                      />
+                      <p className="text-xs text-[#d8e2fb]/60 mt-1">Format: A1A 1A1</p>
                     </div>
                   </>
                 )}
@@ -531,6 +693,6 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
-    </div>
+    )
   )
 }
