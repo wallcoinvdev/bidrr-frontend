@@ -189,10 +189,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
+      console.log("[v0] ========== AUTH CONTEXT INIT START ==========")
+      console.log("[v0] Current URL:", window.location.href)
+      console.log("[v0] Current pathname:", window.location.pathname)
+      console.log("[v0] localStorage.token:", localStorage.getItem("token"))
+      console.log("[v0] localStorage.user:", localStorage.getItem("user"))
+      console.log("[v0] localStorage.refresh_token:", localStorage.getItem("refresh_token"))
+      console.log("[v0] Timestamp:", new Date().toISOString())
+
       const urlParams = new URLSearchParams(window.location.search)
       const tokenFromUrl = urlParams.get("token")
 
       if (tokenFromUrl) {
+        console.log("[v0] ✅ Token found in URL, saving to localStorage")
         localStorage.setItem("token", tokenFromUrl)
         window.history.replaceState({}, "", window.location.pathname)
       }
@@ -200,18 +209,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = localStorage.getItem("token")
 
       if (!token) {
+        console.log("[v0] ❌ No token found in localStorage")
+        console.log("[v0] Clearing any remaining auth data")
         localStorage.removeItem("user")
         localStorage.removeItem("refresh_token")
         setUser(null)
         setLoading(false)
+        console.log("[v0] ========== AUTH INIT COMPLETE (NO TOKEN) ==========")
         return
       }
 
+      console.log("[v0] ✅ Token found, length:", token.length)
+      console.log("[v0] Token preview (first 20 chars):", token.substring(0, 20))
+      console.log("[v0] Fetching user profile...")
+
+      const fetchStartTime = Date.now()
       const userData = await fetchUserProfile(token)
+      const fetchEndTime = Date.now()
+
+      console.log("[v0] Profile fetch took:", fetchEndTime - fetchStartTime, "ms")
+
       if (userData) {
+        console.log("[v0] ✅ User profile fetched successfully")
+        console.log("[v0] User ID:", userData.id)
+        console.log("[v0] User email:", userData.email)
+        console.log("[v0] User role:", userData.role)
         setUser(userData)
         localStorage.setItem("user", JSON.stringify(userData))
       } else {
+        console.log("[v0] ❌ Failed to fetch user profile")
+        console.log("[v0] This triggers automatic logout")
+        console.log("[v0] Clearing all auth data")
         localStorage.removeItem("token")
         localStorage.removeItem("refresh_token")
         localStorage.removeItem("user")
@@ -219,6 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setLoading(false)
+      console.log("[v0] ========== AUTH INIT COMPLETE ==========")
     }
 
     initAuth()

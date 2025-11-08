@@ -17,12 +17,18 @@ import {
   X,
   Briefcase,
   HelpCircle,
+  BadgeCheck,
+  AlertTriangle,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { ServicesSelector } from "@/components/services-selector"
+import { useRouter } from "next/navigation" // Import useRouter
+import { useToast } from "@/hooks/use-toast" // Import useToast
 
-export default function ContractorProfile() {
+export default function ContractorProfilePage() {
+  const router = useRouter()
+  const { toast } = useToast()
   const { user, refreshUser } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -37,9 +43,19 @@ export default function ContractorProfile() {
   const [previewTitle, setPreviewTitle] = useState<string>("")
   const [showGoogleInstructions, setShowGoogleInstructions] = useState(false)
 
+  const [phoneCountryCode, setPhoneCountryCode] = useState("+1")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [verificationCode, setVerificationCode] = useState("")
+  const [isCodeSent, setIsCodeSent] = useState(false)
+  const [isSendingCode, setIsSendingCode] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [verificationError, setVerificationError] = useState<string | null>(null) // Renamed from phoneError to verificationError
+  const [verificationSuccess, setVerificationSuccess] = useState<string | null>(null)
+
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
+  const [phoneVerified, setPhoneVerified] = useState(false) // Added state for phone verification status
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
   const [region, setRegion] = useState("")
@@ -69,13 +85,25 @@ export default function ContractorProfile() {
         })
 
         console.log("[v0] Profile data received:", profile)
-        console.log("[v0] Services from profile:", profile.services)
-        console.log("[v0] Services type:", typeof profile.services)
-        console.log("[v0] Services is array:", Array.isArray(profile.services))
+        console.log("[v0] Full name from backend:", profile.full_name)
+        console.log("[v0] Name from backend:", profile.name)
+        console.log("[v0] Phone verified from backend:", profile.phone_verified)
 
-        setFullName(profile.name || "")
+        const nameToUse = profile.full_name || profile.name || ""
+        console.log("[v0] Setting full name to:", nameToUse)
+        setFullName(nameToUse)
+
         setEmail(profile.email || "")
         setPhone(profile.phone_number || "")
+
+        const isVerified = profile.phone_verified || false
+        console.log("[v0] Setting phone verified to:", isVerified)
+        setPhoneVerified(isVerified)
+
+        if (profile.phone_number) {
+          setPhoneNumber(profile.phone_number.replace("+1", ""))
+        }
+
         setAddress(profile.address || "")
         setCity(profile.city || "")
         setRegion(profile.region || "")
@@ -107,7 +135,26 @@ export default function ContractorProfile() {
 
   const handleConnectGoogle = async () => {
     if (!googleBusinessUrl) {
-      setError("Please enter a Google Business URL")
+      toast({
+        title: "URL Required",
+        description: "Please enter a Google Business URL",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const isValidGoogleUrl =
+      googleBusinessUrl.includes("google.com/maps") ||
+      googleBusinessUrl.includes("maps.app.goo.gl") ||
+      googleBusinessUrl.includes("place_id=")
+
+    if (!isValidGoogleUrl) {
+      toast({
+        title: "Invalid URL Format",
+        description:
+          "Please use a Google Maps URL with a place_id. Right-click your business on Google Maps and select 'Share' to get the correct link.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -129,16 +176,36 @@ export default function ContractorProfile() {
       console.log("[v0] Google Business connection successful:", response)
 
       await refreshUser()
+      toast({
+        title: "Connected Successfully",
+        description: "Google Business connected! Reviews will be synced shortly.",
+      })
       setSuccess("Google Business connected! Reviews will be synced shortly.")
     } catch (err) {
       console.error("[v0] Google Business connection error:", err)
-      console.error("[v0] Error details:", {
-        message: err instanceof Error ? err.message : String(err),
-        url: googleBusinessUrl,
-        fieldName: "google_business_url",
-      })
 
-      setError(err instanceof Error ? `Failed to connect: ${err.message}` : "Failed to connect Google Business")
+      const errorMessage = err instanceof Error ? err.message : String(err)
+
+      if (errorMessage.includes("Could not find business") || errorMessage.includes("Invalid")) {
+        toast({
+          title: "Unable to Connect",
+          description:
+            "We couldn't find your business with this URL. This may happen if your business doesn't have a public address listed.",
+          variant: "destructive",
+          action: {
+            label: "How to find URL",
+            onClick: () => setShowGoogleInstructions(true),
+          },
+        })
+        setError("Unable to locate your business. Please check the URL and try again.")
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: errorMessage,
+          variant: "destructive",
+        })
+        setError(`Failed to connect: ${errorMessage}`)
+      }
     } finally {
       setIsConnectingGoogle(false)
     }
@@ -154,7 +221,8 @@ export default function ContractorProfile() {
       await apiClient.request("/api/users/profile", {
         method: "PUT",
         body: JSON.stringify({
-          name: fullName,
+          name: fullName, // Keeping this for backward compatibility, but `full_name` is preferred on backend
+          full_name: fullName, // Using full_name for clarity
           email,
           address,
           city,
@@ -369,6 +437,102 @@ export default function ContractorProfile() {
     }
   }
 
+  const handleSendCode = async () => {
+    setIsSendingCode(true)
+    setVerificationError(null) // Changed from setPhoneError to setVerificationError to match state name
+    setVerificationSuccess(null)
+
+    const fullPhoneNumber = `${phoneCountryCode}${phoneNumber}`
+
+    console.log("[v0] Sending verification code request:")
+    console.log("[v0] Phone country code:", phoneCountryCode)
+    console.log("[v0] Phone number:", phoneNumber)
+    console.log("[v0] Full phone number:", fullPhoneNumber)
+    console.log("[v0] Role:", "contractor")
+
+    if (phoneNumber.length < 10) {
+      setVerificationError("Please enter a valid phone number") // Changed from setPhoneError to setVerificationError
+      setIsSendingCode(false)
+      return
+    }
+
+    try {
+      const response = await apiClient.request("/api/users/request-verification", {
+        method: "POST",
+        body: JSON.stringify({
+          phone_number: fullPhoneNumber,
+          role: "contractor", // Add role to help backend distinguish between new signups and profile updates
+        }),
+        requiresAuth: true,
+      })
+
+      console.log("[v0] Verification code sent successfully:", response)
+      setIsCodeSent(true)
+      setVerificationSuccess("Verification code sent! Check your phone.") // Changed from setPhoneSuccess to setVerificationSuccess
+    } catch (err: any) {
+      console.error("[v0] Error sending verification code:", err)
+      const errorMessage = err.message || "Failed to send verification code"
+
+      if (errorMessage.toLowerCase().includes("already registered")) {
+        setVerificationError("This phone number is already in use. If this is your number, try logging in again.") // Changed from setPhoneError to setVerificationError
+      } else if (errorMessage.toLowerCase().includes("invalid") && errorMessage.toLowerCase().includes("phone")) {
+        setVerificationError(
+          "This phone number cannot receive verification codes. Please use a different number or contact support.",
+        ) // Changed from setPhoneError to setVerificationError
+      } else {
+        setVerificationError(errorMessage) // Changed from setPhoneError to setVerificationError
+      }
+
+      toast({
+        title: "Verification Failed",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSendingCode(false)
+    }
+  }
+
+  const handleVerifyCode = async () => {
+    setIsVerifying(true)
+    setVerificationError(null)
+    setVerificationSuccess(null)
+
+    const fullPhoneNumber = `${phoneCountryCode}${phoneNumber}`
+
+    console.log("[v0] Verifying code:")
+    console.log("[v0] Phone country code:", phoneCountryCode)
+    console.log("[v0] Phone number:", phoneNumber)
+    console.log("[v0] Full phone number:", fullPhoneNumber)
+    console.log("[v0] Verification code:", verificationCode)
+    console.log("[v0] Code length:", verificationCode.length)
+
+    try {
+      const response = await apiClient.request<any>("/api/users/verify-phone", {
+        method: "POST",
+        body: JSON.stringify({
+          code: verificationCode,
+          phone_number: fullPhoneNumber,
+        }),
+        requiresAuth: true,
+      })
+
+      console.log("[v0] Phone verified successfully:", response)
+      setVerificationSuccess("Phone number verified successfully!")
+      setIsCodeSent(false)
+      setVerificationCode("")
+      setPhoneVerified(true)
+      setPhone(fullPhoneNumber)
+
+      await refreshUser()
+    } catch (err: any) {
+      console.error("[v0] Error verifying code:", err)
+      setVerificationError(err.message || "Invalid verification code")
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
   return (
     <DashboardLayout userRole="contractor">
       <div className="max-w-4xl">
@@ -570,7 +734,7 @@ export default function ContractorProfile() {
                       type="button"
                       onClick={() => logoInputRef.current?.click()}
                       disabled={isUploadingLogo}
-                      className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+                      className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
                       <Upload className="h-4 w-4" />
                       {isUploadingLogo ? "Uploading..." : "Upload Logo"}
@@ -632,7 +796,7 @@ export default function ContractorProfile() {
                       type="button"
                       onClick={() => agentPhotoInputRef.current?.click()}
                       disabled={isUploadingAgentPhoto}
-                      className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+                      className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
                       <Upload className="h-4 w-4" />
                       {isUploadingAgentPhoto ? "Uploading..." : "Upload Photo"}
@@ -688,7 +852,7 @@ export default function ContractorProfile() {
                   </button>
                 </div>
                 <input
-                  type="url"
+                  type="text"
                   id="googleBusinessUrl"
                   value={googleBusinessUrl}
                   onChange={(e) => setGoogleBusinessUrl(e.target.value)}
@@ -717,6 +881,164 @@ export default function ContractorProfile() {
                 {isConnectingGoogle ? "Connecting..." : "Connect Google Business"}
               </button>
             </div>
+          </div>
+
+          {/* Phone Verification */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  Phone Verification
+                  <BadgeCheck className="h-6 w-6 text-[#328d87]" />
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Verify your phone number to build trust and increase your response rate
+                </p>
+              </div>
+            </div>
+
+            {phoneVerified ? (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={phoneCountryCode}
+                      disabled
+                      className="w-24 md:w-28 flex-shrink-0 px-2 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed text-sm"
+                    >
+                      <option value="+1">🇨🇦 +1</option>
+                    </select>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      disabled
+                      className="flex-1 max-w-xs min-w-0 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <BadgeCheck className="h-5 w-5" />
+                    <span className="font-medium">You are verified!</span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-900 mb-2">Benefits of Verification</h3>
+                  <ul className="space-y-2 text-sm text-blue-800">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 mt-0.5">✓</span>
+                      <span>Verified badge displayed on your profile</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 mt-0.5">✓</span>
+                      <span>Increased trust and credibility with homeowners</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 mt-0.5">✓</span>
+                      <span>Higher response rate on job postings</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 mt-0.5">✓</span>
+                      <span>Priority support from our team</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={phoneCountryCode}
+                      onChange={(e) => setPhoneCountryCode(e.target.value)}
+                      className="w-24 md:w-28 flex-shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm"
+                    >
+                      <option value="+1">🇨🇦 +1</option>
+                    </select>
+                    <input
+                      type="tel"
+                      placeholder="5551234567"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                      maxLength={10}
+                      className="flex-1 max-w-xs min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={isSendingCode || phoneNumber.length < 10}
+                    className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {isSendingCode ? "Sending..." : "Send Code"}
+                  </button>
+
+                  {isCodeSent && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter 6-digit code"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className="flex-1 max-w-[200px] min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyCode}
+                        disabled={isVerifying || verificationCode.length !== 6}
+                        className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isVerifying ? "Verifying..." : "Verify"}
+                      </button>
+                    </div>
+                  )}
+
+                  {verificationError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-600">{verificationError}</p>
+                    </div>
+                  )}
+
+                  {verificationSuccess && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-sm text-green-600">{verificationSuccess}</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <AlertTriangle className="h-5 w-5" />
+                    <span className="font-medium">Phone not verified</span>
+                  </div>
+
+                  <p className="text-xs text-gray-500">
+                    We'll send a 6-digit verification code to your phone via SMS. Standard message rates may apply.
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-900 mb-2">Benefits of Verification</h3>
+                  <ul className="space-y-2 text-sm text-blue-800">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 mt-0.5">✓</span>
+                      <span>Verified badge displayed on your profile</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 mt-0.5">✓</span>
+                      <span>Increased trust and credibility with homeowners</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 mt-0.5">✓</span>
+                      <span>Higher response rate on job postings</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 mt-0.5">✓</span>
+                      <span>Priority support from our team</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Personal Information */}

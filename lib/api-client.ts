@@ -145,21 +145,25 @@ class ApiClient {
       const token = this.getAuthToken()
       if (token) {
         headers["Authorization"] = `Bearer ${token}`
-        console.log("[v0] Added Authorization header to request:", endpoint)
+        console.log("[v0] ✅ Authorization header added for:", endpoint)
       } else {
-        console.log("[v0] No token available for authenticated request:", endpoint)
+        console.log("[v0] ⚠️ No token available for authenticated request:", endpoint)
       }
     }
 
     try {
       const currentOrigin = typeof window !== "undefined" ? window.location.origin : "unknown"
-      console.log("[v0] Making API request:", {
-        url: `${this.baseUrl}${endpoint}`,
-        method: fetchOptions.method || "GET",
-        headers: Object.keys(headers),
-        hasBody: !!fetchOptions.body,
-        origin: currentOrigin,
-      })
+      const requestStartTime = Date.now()
+
+      console.log("[v0] ========== API REQUEST START ==========")
+      console.log("[v0] Endpoint:", endpoint)
+      console.log("[v0] Method:", fetchOptions.method || "GET")
+      console.log("[v0] Full URL:", `${this.baseUrl}${endpoint}`)
+      console.log("[v0] Headers:", Object.keys(headers))
+      console.log("[v0] Has body:", !!fetchOptions.body)
+      console.log("[v0] Requires auth:", requiresAuth)
+      console.log("[v0] Origin:", currentOrigin)
+      console.log("[v0] Timestamp:", new Date().toISOString())
 
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...fetchOptions,
@@ -168,38 +172,34 @@ class ApiClient {
         credentials: "omit",
       })
 
-      console.log("[v0] API response received:", {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries()),
-      })
+      const requestEndTime = Date.now()
+      const requestDuration = requestEndTime - requestStartTime
 
-      if (response.status === 403 && requiresAuth) {
-        const errorData = await response.json().catch(() => ({}))
-        if (errorData.error?.includes("token") || errorData.error?.includes("expired")) {
-          console.log("[v0] Token is invalid or expired, redirecting to login")
-          errorLogger.log({
-            error: "Session expired",
-            errorName: "AuthenticationError",
-            endpoint,
-            statusCode: 403,
-            userId: this.getUserIdFromToken(),
-          })
-          if (typeof window !== "undefined") {
-            localStorage.removeItem("token")
-            localStorage.removeItem("refresh_token")
-            localStorage.removeItem("user")
-            window.location.href = "/login?error=session_expired"
-          }
-          throw new Error("Session expired. Please log in again.")
-        }
-      }
+      console.log("[v0] ========== API RESPONSE RECEIVED ==========")
+      console.log("[v0] Endpoint:", endpoint)
+      console.log("[v0] Status:", response.status, response.statusText)
+      console.log("[v0] OK:", response.ok)
+      console.log("[v0] Request duration:", requestDuration, "ms")
+      console.log("[v0] Response headers:", Object.fromEntries(response.headers.entries()))
 
-      // Handle 401 - try to refresh token
       if (response.status === 401 && requiresAuth) {
+        console.log("[v0] ========== 401 UNAUTHORIZED DETECTED ==========")
+        console.log("[v0] ❌ This is the 'account deletion' trigger")
+        console.log("[v0] Endpoint that returned 401:", endpoint)
+        console.log("[v0] Current token exists:", !!this.getAuthToken())
+        console.log("[v0] Current token (first 30 chars):", this.getAuthToken()?.substring(0, 30))
+        console.log("[v0] Current refresh_token exists:", !!localStorage.getItem("refresh_token"))
+        console.log("[v0] Attempting token refresh...")
+
+        const refreshStartTime = Date.now()
         const newToken = await this.refreshToken()
+        const refreshEndTime = Date.now()
+
         if (newToken) {
+          console.log("[v0] ✅ Token refresh successful (took", refreshEndTime - refreshStartTime, "ms)")
+          console.log("[v0] New token (first 30 chars):", newToken.substring(0, 30))
+          console.log("[v0] Retrying original request...")
+
           headers["Authorization"] = `Bearer ${newToken}`
           const retryResponse = await fetch(`${this.baseUrl}${endpoint}`, {
             ...fetchOptions,
@@ -208,13 +208,26 @@ class ApiClient {
             credentials: "omit",
           })
 
+          console.log("[v0] Retry response status:", retryResponse.status)
+
           if (!retryResponse.ok) {
+            console.log("[v0] ❌ Retry also failed after token refresh")
+            console.log("[v0] Both original and retry request failed")
             throw new Error(`HTTP error! status: ${retryResponse.status}`)
           }
 
+          console.log("[v0] ✅ Retry succeeded after token refresh")
+          console.log("[v0] ========== 401 RECOVERY SUCCESSFUL ==========")
           return await retryResponse.json()
         } else {
-          // Redirect to login
+          console.log("[v0] ❌ Token refresh FAILED")
+          console.log("[v0] No refresh_token available or refresh endpoint failed")
+          console.log("[v0] ========== AUTOMATIC LOGOUT TRIGGERED ==========")
+          console.log("[v0] This is where 'account deletion' happens")
+          console.log("[v0] Clearing localStorage and redirecting to login")
+          console.log("[v0] User will think their account was deleted")
+          console.log("[v0] ===================================================")
+
           if (typeof window !== "undefined") {
             localStorage.removeItem("token")
             localStorage.removeItem("refresh_token")
@@ -228,20 +241,19 @@ class ApiClient {
       const contentType = response.headers.get("content-type")
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text()
-        console.log("[v0] Non-JSON response received:", text.substring(0, 200))
+        console.log("[v0] ⚠️ Non-JSON response received:", text.substring(0, 200))
         throw new Error(`Server returned non-JSON response. Status: ${response.status}`)
       }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.log("[v0] Backend error response:", {
-          status: response.status,
-          statusText: response.statusText,
-          endpoint,
-          method: fetchOptions.method || "GET",
-          errorData,
-          requestBody: fetchOptions.body,
-        })
+        console.log("[v0] ========== API ERROR ==========")
+        console.log("[v0] Status:", response.status)
+        console.log("[v0] Endpoint:", endpoint)
+        console.log("[v0] Method:", fetchOptions.method || "GET")
+        console.log("[v0] Error data:", JSON.stringify(errorData, null, 2))
+        console.log("[v0] Request body:", fetchOptions.body)
+        console.log("[v0] ====================================")
 
         const errorMessage = errorData.error || errorData.message || `HTTP error! status: ${response.status}`
 
@@ -258,17 +270,21 @@ class ApiClient {
         throw new ApiError(errorMessage, response.status, errorData)
       }
 
-      return await response.json()
+      const result = await response.json()
+      console.log("[v0] ✅ API request successful")
+      console.log("[v0] ========== API REQUEST COMPLETE ==========")
+      return result
     } catch (error: any) {
       const currentOrigin = typeof window !== "undefined" ? window.location.origin : "unknown"
-      console.error("[v0] API request failed:", {
-        error: error.message,
-        name: error.name,
-        endpoint,
-        baseUrl: this.baseUrl,
-        fullUrl: `${this.baseUrl}${endpoint}`,
-        origin: currentOrigin,
-      })
+      console.error("[v0] ========== API REQUEST FAILED ==========")
+      console.error("[v0] Error:", error.message)
+      console.error("[v0] Error type:", error.name)
+      console.error("[v0] Endpoint:", endpoint)
+      console.error("[v0] Base URL:", this.baseUrl)
+      console.error("[v0] Full URL:", `${this.baseUrl}${endpoint}`)
+      console.error("[v0] Origin:", currentOrigin)
+      console.error("[v0] Stack:", error.stack)
+      console.error("[v0] ===========================================")
 
       if (!(error instanceof ApiError)) {
         errorLogger.log({
@@ -283,9 +299,8 @@ class ApiClient {
 
       if (error.message === "Failed to fetch") {
         throw new Error(
-          `CORS Error: Unable to connect to ${this.baseUrl} from ${currentOrigin}. ` +
-            `The backend CORS configuration may not include this domain. ` +
-            `Please ensure the backend allows requests from: ${currentOrigin}`,
+          `Network error: Unable to reach ${this.baseUrl} from ${currentOrigin}. ` +
+            `This could be a CORS issue, network connectivity problem, or the backend is not running.`,
         )
       }
 

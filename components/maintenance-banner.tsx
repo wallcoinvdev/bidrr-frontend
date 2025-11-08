@@ -21,7 +21,7 @@ export function MaintenanceBanner() {
   useEffect(() => {
     checkUserRole()
     fetchSettings()
-  }, [pathname])
+  }, []) // Only run once on mount
 
   const fetchSettings = async () => {
     try {
@@ -38,7 +38,8 @@ export function MaintenanceBanner() {
         maintenance_message: maintenanceMessage,
       })
     } catch (error: any) {
-      // Silently fail - banner won't show if settings can't be fetched
+      console.log("[v0] Maintenance banner: Failed to fetch settings, silently continuing")
+      // This prevents the error from appearing in production
     }
   }
 

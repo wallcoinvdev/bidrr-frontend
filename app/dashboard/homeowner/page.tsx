@@ -15,7 +15,8 @@ import {
   getCategoryFields,
   SERVICE_CATEGORIES,
 } from "@/lib/service-categories"
-import { toast } from "@/components/ui/use-toast" // Assuming toast is from shadcn/ui or similar
+import { useToast } from "@/hooks/use-toast"
+import { errorLogger } from "@/lib/error-logger"
 import { VerifiedBadge } from "@/components/verified-badge"
 
 // Define Mission type for better type safety (assuming this is used internally)
@@ -443,6 +444,8 @@ export default function HomeownerDashboard() {
     return mapping[timeline] || "medium"
   }
 
+  const { toast } = useToast()
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login")
@@ -851,6 +854,12 @@ export default function HomeownerDashboard() {
       })
 
       await apiClient.uploadFormData("/api/missions", formData)
+
+      toast({
+        title: "Job posted successfully",
+        description: "Contractors in your area will be notified",
+      })
+
       setShowPostJobModal(false)
       // Reset form
       setPostJobForm({
@@ -885,16 +894,38 @@ export default function HomeownerDashboard() {
       fetchMissions()
     } catch (error: any) {
       console.error("Error posting job:", error)
-      const errorMessage = error?.message || "Failed to post job. Please try again."
-      console.log("[v0] Backend error details:", error)
 
-      if (error?.message?.includes("500")) {
-        alert(
-          "Server error: The backend encountered an issue processing your request. Please contact support if this persists.",
-        )
-      } else {
-        alert(errorMessage)
-      }
+      const errorMessage = error?.message || "Failed to post job. Please try again."
+      const errorDetails = error?.errorData?.details || error?.errorData || {}
+
+      console.log("[v0] Backend error details:", errorDetails)
+
+      toast({
+        title: "Failed to post job",
+        description: errorMessage,
+        variant: "destructive",
+      })
+
+      errorLogger.log({
+        error: errorMessage,
+        errorName: error?.name || "JobPostingError",
+        endpoint: "/api/missions",
+        statusCode: error?.statusCode,
+        stack: error?.stack,
+        userId: user?.id,
+        userEmail: user?.email,
+        context: {
+          formData: {
+            title: postJobForm.title,
+            service: postJobForm.service,
+            address: postJobForm.address,
+            city: postJobForm.city,
+            completion_timeline: postJobForm.completion_timeline,
+          },
+          errorDetails,
+          action: "post_job",
+        },
+      })
     } finally {
       setUploading(false)
     }
@@ -918,6 +949,7 @@ export default function HomeownerDashboard() {
 
       formData.append("title", editJobForm.title)
       formData.append("service", editJobForm.service)
+      formData.append("full_name", user?.name || "")
       if (editJobForm.job_details.trim()) {
         formData.append("job_details", editJobForm.job_details)
       }

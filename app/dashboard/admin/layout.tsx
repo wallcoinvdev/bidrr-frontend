@@ -23,6 +23,7 @@ import {
 import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
+import { VerifiedBadge } from "@/components/verified-badge"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -270,13 +271,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </button>
 
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleLogout}
-                    className="hidden sm:flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span className="text-sm font-medium">Log out</span>
-                  </button>
+                  {user && user.phone_verified && (
+                    <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center gap-1.5">
+                        <VerifiedBadge type="phone" size="sm" showTooltip={false} />
+                        <span className="text-xs text-gray-600">Phone verified</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-white">
                     <span className="text-sm font-semibold">{getUserInitials()}</span>
                   </div>

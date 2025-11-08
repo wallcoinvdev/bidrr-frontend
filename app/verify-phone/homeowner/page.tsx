@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Phone, AlertCircle, X } from "lucide-react"
+import { ArrowLeft, BadgeCheck, AlertCircle, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { apiClient } from "@/lib/api-client"
@@ -17,14 +17,56 @@ export default function HomeownerPhoneVerification() {
   const { data, updateData } = useOnboarding()
 
   const [countryCode, setCountryCode] = useState(data.countryCode || "+1-CA")
-  const [phoneNumber, setPhoneNumber] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState(data.phone?.replace(/^\+1/, "") || "")
   const [verificationCode, setVerificationCode] = useState("")
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [step, setStep] = useState<"phone" | "code">("phone")
   const [isLoading, setIsLoading] = useState(false)
+  const [isSkipping, setIsSkipping] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentOrigin, setCurrentOrigin] = useState<string>("")
   const [showTermsModal, setShowTermsModal] = useState(false)
+
+  useEffect(() => {
+    console.log("[v0] ========== HOMEOWNER VERIFICATION PAGE LOADED ==========")
+    console.log("[v0] Timestamp:", new Date().toISOString())
+    console.log("[v0] User Role: HOMEOWNER")
+    console.log("[v0] Current URL:", typeof window !== "undefined" ? window.location.href : "N/A")
+
+    // Check localStorage state
+    if (typeof window !== "undefined") {
+      setCurrentOrigin(window.location.origin)
+      const existingToken = localStorage.getItem("token")
+      const existingUser = localStorage.getItem("user")
+
+      console.log("[v0] localStorage state on page load:")
+      console.log("[v0] - Token exists:", existingToken ? "YES" : "NO")
+      console.log("[v0] - User exists:", existingUser ? "YES" : "NO")
+
+      if (existingToken) {
+        console.log("[v0] ⚠️ WARNING: User already has token, why are they on verification page?")
+        console.log("[v0] Token preview:", existingToken.substring(0, 20) + "...")
+      }
+    }
+
+    // Check sessionStorage for onboarding data
+    const formData = sessionStorage.getItem("onboarding_form_data")
+    console.log("[v0] Onboarding form data in sessionStorage:", formData ? "YES" : "NO")
+    if (formData) {
+      try {
+        const parsed = JSON.parse(formData)
+        console.log("[v0] Form data email:", parsed.email || "NOT PROVIDED")
+        console.log("[v0] Form data phone:", parsed.phone_number || "NOT PROVIDED")
+        console.log("[v0] Form data role:", parsed.role || "NOT PROVIDED")
+      } catch (e) {
+        console.error("[v0] Error parsing form data:", e)
+      }
+    } else {
+      console.log("[v0] ⚠️ WARNING: No onboarding form data found - user may have skipped onboarding")
+    }
+
+    console.log("[v0] ============================================================")
+  }, [])
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -51,7 +93,16 @@ export default function HomeownerPhoneVerification() {
       const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
       const country = getCountryFromCode(countryCode)
 
-      console.log("[v0] Requesting verification code for homeowner:", fullPhoneNumber)
+      if (phoneNumber.length < 10) {
+        setError("Please enter a valid 10-digit phone number")
+        setIsLoading(false)
+        return
+      }
+
+      console.log("[v0] ========== HOMEOWNER: REQUESTING VERIFICATION CODE ==========")
+      console.log("[v0] Phone number:", fullPhoneNumber)
+      console.log("[v0] Role: homeowner")
+      console.log("[v0] Timestamp:", new Date().toISOString())
 
       const response = await apiClient.request("/api/users/request-verification", {
         method: "POST",
@@ -61,7 +112,8 @@ export default function HomeownerPhoneVerification() {
         }),
       })
 
-      console.log("[v0] Verification code sent successfully")
+      console.log("[v0] ✅ Verification code sent successfully")
+      console.log("[v0] Response:", response)
 
       sessionStorage.setItem("pending_phone_number", fullPhoneNumber)
       sessionStorage.setItem("pending_country", country)
@@ -80,14 +132,19 @@ export default function HomeownerPhoneVerification() {
 
       setStep("code")
     } catch (err: any) {
-      console.error("[v0] Error sending verification code:", err)
+      console.error("[v0] ❌ Error sending verification code:", err)
+      console.error("[v0] Error details:", {
+        message: err.message,
+        stack: err.stack,
+        timestamp: new Date().toISOString(),
+      })
 
       if (err.message?.toLowerCase().includes("already registered")) {
         setError("PHONE_REGISTERED")
-      } else if (err.message?.toLowerCase().includes("cors")) {
-        setError(`CORS Error: ${err.message}`)
       } else {
-        setError(err.message || "Failed to send verification code. Please try again.")
+        setError(
+          "Unable to send verification code to this number. This could be due to an invalid phone number or SMS service restrictions. Please try a different number or click 'Skip for now' to continue without verification.",
+        )
       }
     } finally {
       setIsLoading(false)
@@ -109,33 +166,332 @@ export default function HomeownerPhoneVerification() {
       const actualCountryCode = getCountryCodeOnly(countryCode)
       const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
 
-      sessionStorage.setItem("verification_code", verificationCode)
-      sessionStorage.setItem("verified_phone_number", fullPhoneNumber)
-      sessionStorage.setItem("phone_verified", "true")
+      const savedFormData = sessionStorage.getItem("onboarding_form_data")
+      if (!savedFormData) {
+        throw new Error("Form data not found. Please complete the personal information form first.")
+      }
+
+      const formData = JSON.parse(savedFormData)
+
+      console.log("[v0] ========== HOMEOWNER: ACCOUNT CREATION WITH VERIFICATION ==========")
+      console.log("[v0] Step 1: Verifying phone code")
+      console.log("[v0] Phone:", fullPhoneNumber)
+      console.log("[v0] Code length:", verificationCode.length)
+      console.log("[v0] Timestamp:", new Date().toISOString())
+
+      const verifyResponse = await fetch(`${API_BASE_URL}/api/users/verify-phone`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify({
+          phone_number: fullPhoneNumber,
+          role: "homeowner",
+          verification_code: verificationCode,
+          form_data: formData,
+        }),
+      })
+
+      if (!verifyResponse.ok) {
+        const verifyError = await verifyResponse.json()
+        console.error("[v0] ❌ Phone verification failed:", verifyError)
+        throw new Error(verifyError.error || "Phone verification failed")
+      }
+
+      const verifyResult = await verifyResponse.json()
+      console.log("[v0] ✅ Phone verified successfully")
+
+      if (verifyResult.token) {
+        sessionStorage.setItem("verification_token", verifyResult.token)
+        console.log("[v0] Verification token stored in sessionStorage")
+      }
+
+      console.log("[v0] Step 2: Creating homeowner account")
+      console.log("[v0] Email:", formData.email)
+      console.log("[v0] Full name:", formData.full_name)
+      console.log("[v0] Phone:", fullPhoneNumber)
+
+      const signupPayload: any = {
+        phone_number: fullPhoneNumber,
+        password: formData.password,
+        role: "homeowner",
+        full_name: formData.full_name,
+        email: formData.email,
+        address: formData.address,
+        city: formData.city,
+        region: formData.region,
+        country: formData.country,
+        postal_code: formData.postal_code,
+      }
+
       sessionStorage.setItem("terms_accepted", "true")
       sessionStorage.setItem("terms_accepted_at", new Date().toISOString())
 
-      console.log("[v0] Verification code stored for later submission")
+      signupPayload.terms_accepted = true
+      signupPayload.terms_accepted_at = new Date().toISOString()
 
-      const country = getCountryFromCode(countryCode)
+      console.log("[v0] Signup payload:", JSON.stringify(signupPayload, null, 2))
+      console.log("[v0] Calling /api/users/signup...")
+
+      const signupStartTime = Date.now()
+      const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify(signupPayload),
+      })
+
+      const signupEndTime = Date.now()
+      const apiCallDuration = signupEndTime - signupStartTime
+      console.log("[v0] Signup API call completed in:", apiCallDuration, "ms")
+      console.log("[v0] Response status:", response.status, response.statusText)
+
+      const result = await response.json()
+      console.log("[v0] Signup response:", JSON.stringify(result, null, 2))
+
+      if (!response.ok) {
+        console.error("[v0] ❌ HOMEOWNER SIGNUP FAILED")
+        console.error("[v0] Status:", response.status)
+        console.error("[v0] Error:", result)
+        throw new Error(result.error || result.message || "Failed to create account")
+      }
+
+      console.log("[v0] ✅ HOMEOWNER ACCOUNT CREATED SUCCESSFULLY")
+      console.log("[v0] User ID:", result.user?.id || result.id || "NOT PROVIDED")
+      console.log("[v0] Email:", formData.email)
+      console.log("[v0] Role: homeowner")
+      console.log("[v0] Created at:", new Date().toISOString())
+
+      if (!result.token) {
+        console.error("[v0] ❌ CRITICAL: No token received from signup")
+        throw new Error("No authentication token received from signup")
+      }
+
+      console.log("[v0] ✅ Token received from signup")
+      console.log("[v0] Token length:", result.token.length)
+      console.log("[v0] Token preview:", result.token.substring(0, 20) + "...")
+
+      // Store account creation tracking info
+      sessionStorage.setItem("account_created_at", new Date().toISOString())
+      sessionStorage.setItem("account_user_id", result.user?.id || result.id || "unknown")
+      sessionStorage.setItem("account_email", formData.email)
+      sessionStorage.setItem("account_role", "homeowner")
+
+      console.log("[v0] Clearing sessionStorage...")
+      // Clear session storage
+      sessionStorage.removeItem("onboarding_form_data")
+      sessionStorage.removeItem("verification_code")
+      sessionStorage.removeItem("verification_token")
+      sessionStorage.removeItem("verified_phone_number")
+      sessionStorage.removeItem("phone_verified")
+      sessionStorage.removeItem("pending_phone_number")
+      sessionStorage.removeItem("pending_country")
+      sessionStorage.removeItem("pending_role")
+      sessionStorage.removeItem("terms_accepted")
+      sessionStorage.removeItem("terms_accepted_at")
+      console.log("[v0] ✅ sessionStorage cleared")
+
+      console.log("[v0] Storing authentication data in localStorage...")
+      console.log("[v0] BEFORE localStorage.setItem - Token exists:", localStorage.getItem("token") ? "YES" : "NO")
+
+      // Store auth data in localStorage
+      localStorage.setItem("token", result.token)
+      console.log("[v0] ✅ Token stored in localStorage")
+      console.log("[v0] Token verification - reading back:", localStorage.getItem("token") ? "SUCCESS" : "FAILED")
+
+      if (result.user) {
+        localStorage.setItem("user", JSON.stringify(result.user))
+        console.log("[v0] ✅ User data stored in localStorage")
+        console.log("[v0] User data:", JSON.stringify(result.user, null, 2))
+      }
+
+      console.log("[v0] AFTER localStorage.setItem:")
+      console.log("[v0] - Token in localStorage:", localStorage.getItem("token") ? "YES" : "NO")
+      console.log("[v0] - User in localStorage:", localStorage.getItem("user") ? "YES" : "NO")
+
       updateData({
         phone: fullPhoneNumber,
         countryCode: countryCode,
-        country: country,
+        country: getCountryFromCode(countryCode),
         role: "homeowner",
-        address: "",
-        city: "",
-        region: "",
-        province: "",
-        postalCode: "",
+        token: result.token,
+        userId: result.user?.id,
       })
 
-      router.push("/onboarding/personal-info")
+      const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
+      console.log("[v0] PRE-REDIRECT VERIFICATION:")
+      console.log("[v0] - Target dashboard:", targetDashboard)
+      console.log("[v0] - Token in localStorage:", localStorage.getItem("token") ? "YES" : "NO")
+      console.log("[v0] - Token length:", localStorage.getItem("token")?.length || 0)
+      console.log("[v0] - User in localStorage:", localStorage.getItem("user") ? "YES" : "NO")
+      console.log("[v0] Initiating redirect to:", targetDashboard)
+      console.log("[v0] ========== HOMEOWNER VERIFICATION COMPLETE ==========")
+
+      window.location.href = targetDashboard
     } catch (err) {
-      console.error("[v0] Error verifying code:", err)
+      console.error("[v0] ❌ Error during homeowner verification:", err)
+      console.error("[v0] Error details:", {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        timestamp: new Date().toISOString(),
+      })
       setError(err instanceof Error ? err.message : "Invalid verification code.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleSkip = async () => {
+    console.log("[v0] ========== HOMEOWNER: SKIP VERIFICATION ==========")
+    console.log("[v0] User chose to skip phone verification")
+    console.log("[v0] Timestamp:", new Date().toISOString())
+
+    setIsSkipping(true)
+    setError(null)
+
+    try {
+      const savedFormData = sessionStorage.getItem("onboarding_form_data")
+      if (!savedFormData) {
+        console.error("[v0] ❌ No form data found in sessionStorage")
+        throw new Error("Form data not found. Please complete the personal information form first.")
+      }
+
+      const formData = JSON.parse(savedFormData)
+      console.log("[v0] Form data retrieved from sessionStorage")
+      console.log("[v0] Email:", formData.email)
+      console.log("[v0] Phone:", formData.phone_number)
+
+      const signupPayload: any = {
+        phone_number: formData.phone_number,
+        password: formData.password,
+        role: "homeowner",
+        full_name: formData.full_name,
+        email: formData.email,
+        address: formData.address,
+        city: formData.city,
+        region: formData.region,
+        country: formData.country,
+        postal_code: formData.postal_code,
+        terms_accepted: true,
+        terms_accepted_at: new Date().toISOString(),
+      }
+
+      console.log("[v0] Signup payload:", JSON.stringify(signupPayload, null, 2))
+      console.log("[v0] Calling /api/users/signup...")
+
+      const signupStartTime = Date.now()
+      const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify(signupPayload),
+      })
+
+      const signupEndTime = Date.now()
+      const apiCallDuration = signupEndTime - signupStartTime
+      console.log("[v0] Signup API call completed in:", apiCallDuration, "ms")
+      console.log("[v0] Response status:", response.status, response.statusText)
+
+      const result = await response.json()
+      console.log("[v0] Signup response:", JSON.stringify(result, null, 2))
+
+      if (!response.ok) {
+        console.error("[v0] ❌ HOMEOWNER SIGNUP FAILED (SKIP)")
+        console.error("[v0] Status:", response.status)
+        console.error("[v0] Error:", result)
+
+        let errorMessage = "Failed to create account. "
+
+        if (response.status === 500) {
+          errorMessage += "The server encountered an error. This might be because:\n\n"
+          errorMessage += "• Your email or phone number is already registered\n"
+          errorMessage += "• There's a temporary server issue\n\n"
+          errorMessage += "Please try:\n"
+          errorMessage += "1. Using a different email address\n"
+          errorMessage += "2. Logging in if you already have an account\n"
+          errorMessage += "3. Contacting support if the issue persists"
+        } else if (response.status === 409) {
+          errorMessage = "This email or phone number is already registered. Please log in instead."
+        } else {
+          errorMessage += result.error || result.message || "Please try again."
+        }
+
+        throw new Error(errorMessage)
+      }
+
+      console.log("[v0] ✅ HOMEOWNER ACCOUNT CREATED SUCCESSFULLY (SKIP)")
+      console.log("[v0] User ID:", result.user?.id || result.id || "NOT PROVIDED")
+      console.log("[v0] Email:", formData.email)
+      console.log("[v0] Role: homeowner")
+      console.log("[v0] Created at:", new Date().toISOString())
+
+      if (!result.token) {
+        console.error("[v0] ❌ CRITICAL: No token received from signup")
+        throw new Error("No authentication token received from signup")
+      }
+
+      console.log("[v0] ✅ Token received from signup")
+      console.log("[v0] Token length:", result.token.length)
+      console.log("[v0] Token preview:", result.token.substring(0, 20) + "...")
+
+      console.log("[v0] BEFORE localStorage.setItem - Token exists:", localStorage.getItem("token") ? "YES" : "NO")
+
+      // Store auth data in localStorage
+      localStorage.setItem("token", result.token)
+      console.log("[v0] ✅ Token stored in localStorage")
+      console.log("[v0] Token verification - reading back:", localStorage.getItem("token") ? "SUCCESS" : "FAILED")
+
+      if (result.user) {
+        localStorage.setItem("user", JSON.stringify(result.user))
+        console.log("[v0] ✅ User data stored in localStorage")
+        console.log("[v0] User data:", JSON.stringify(result.user, null, 2))
+      }
+
+      console.log("[v0] AFTER localStorage.setItem:")
+      console.log("[v0] - Token in localStorage:", localStorage.getItem("token") ? "YES" : "NO")
+      console.log("[v0] - User in localStorage:", localStorage.getItem("user") ? "YES" : "NO")
+
+      // Clear session storage
+      sessionStorage.removeItem("onboarding_form_data")
+      sessionStorage.removeItem("verification_code")
+      sessionStorage.removeItem("verification_token")
+      sessionStorage.removeItem("verified_phone_number")
+      sessionStorage.removeItem("phone_verified")
+      sessionStorage.removeItem("pending_phone_number")
+      sessionStorage.removeItem("pending_country")
+      sessionStorage.removeItem("pending_role")
+      sessionStorage.removeItem("terms_accepted")
+      sessionStorage.removeItem("terms_accepted_at")
+
+      updateData({
+        token: result.token,
+        userId: result.user?.id,
+      })
+
+      const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
+      console.log("[v0] PRE-REDIRECT VERIFICATION:")
+      console.log("[v0] - Target dashboard:", targetDashboard)
+      console.log("[v0] - Token in localStorage:", localStorage.getItem("token") ? "YES" : "NO")
+      console.log("[v0] - Token length:", localStorage.getItem("token")?.length || 0)
+      console.log("[v0] - User in localStorage:", localStorage.getItem("user") ? "YES" : "NO")
+      console.log("[v0] Initiating redirect to:", targetDashboard)
+      console.log("[v0] ========== HOMEOWNER SKIP COMPLETE ==========")
+
+      window.location.href = targetDashboard
+    } catch (err) {
+      console.error("[v0] ❌ Error during homeowner skip:", err)
+      console.error("[v0] Error details:", {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        timestamp: new Date().toISOString(),
+      })
+      setError(err instanceof Error ? err.message : "Failed to create account. Please try again.")
+      setIsSkipping(false)
     }
   }
 
@@ -300,19 +656,24 @@ export default function HomeownerPhoneVerification() {
           <div className="w-full max-w-md">
             <div className="bg-white rounded-2xl shadow-2xl p-8">
               <div className="flex justify-center mb-6">
-                <div className="w-16 h-16 bg-[#03353a] rounded-full flex items-center justify-center">
-                  <Phone className="h-8 w-8 text-white" />
+                <div className="w-16 h-16 bg-[#328d87]/10 rounded-full flex items-center justify-center">
+                  <BadgeCheck className="h-10 w-10 text-[#328d87]" />
                 </div>
               </div>
 
               <h1 className="text-3xl font-bold text-center mb-2 text-[#03353a]">
-                {step === "phone" ? "Verify Your Phone" : "Enter Verification Code"}
+                {step === "phone" ? "Get Verified" : "Enter Verification Code"}
               </h1>
-              <p className="text-center text-gray-600 mb-8">
+              <p className="text-center text-gray-600 mb-2">
                 {step === "phone"
-                  ? "We'll send you a verification code"
+                  ? "Boost your credibility on the platform"
                   : "Enter the 6-digit code we sent to your phone"}
               </p>
+              {step === "phone" && (
+                <p className="text-center text-sm text-[#328d87] font-medium mb-8">
+                  Verified users receive 3x more responses from contractors
+                </p>
+              )}
 
               {error === "PHONE_REGISTERED" && (
                 <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -380,6 +741,15 @@ export default function HomeownerPhoneVerification() {
                     {isLoading ? "Sending Code..." : "Send Verification Code"}
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={handleSkip}
+                    disabled={isSkipping}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSkipping ? "Loading..." : "Skip for now"}
+                  </button>
+
                   <p className="text-center text-sm text-gray-600 mt-4">
                     Have an account already?{" "}
                     <Link href="/login" className="text-[#328d87] hover:underline font-medium">
@@ -437,10 +807,19 @@ export default function HomeownerPhoneVerification() {
 
                   <button
                     type="button"
-                    onClick={() => router.push("/signup")}
+                    onClick={() => setStep("phone")}
                     className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     Change phone number
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSkip}
+                    disabled={isSkipping}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSkipping ? "Loading..." : "Skip for now"}
                   </button>
                 </form>
               )}

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Camera, Trash2 } from "lucide-react"
+import { Camera, Trash2, BadgeCheck } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { getRegionLabel } from "@/lib/country-data"
@@ -20,6 +20,23 @@ export default function ProfilePage() {
   const [imageLoadError, setImageLoadError] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [phoneCountryCode, setPhoneCountryCode] = useState("+1")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [verificationCode, setVerificationCode] = useState("")
+  const [isCodeSent, setIsCodeSent] = useState(false)
+  const [isSendingCode, setIsSendingCode] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
+  const [verificationSuccess, setVerificationSuccess] = useState<string | null>(null)
+
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
+  const [address, setAddress] = useState("")
+  const [city, setCity] = useState("")
+  const [region, setRegion] = useState("")
+  const [postalCode, setPostalCode] = useState("")
+  const [notificationFrequency, setNotificationFrequency] = useState("daily")
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -33,6 +50,9 @@ export default function ProfilePage() {
         setRegion(data.region || "")
         setPostalCode(data.postal_code || "")
         setNotificationFrequency(data.notification_frequency || "daily")
+        if (data.phone_number) {
+          setPhoneNumber(data.phone_number.replace("+1", ""))
+        }
       } catch (error) {
         console.error("[v0] Error fetching profile:", error)
       } finally {
@@ -42,6 +62,90 @@ export default function ProfilePage() {
 
     fetchProfile()
   }, [])
+
+  const handleSendCode = async () => {
+    setIsSendingCode(true)
+    setVerificationError(null)
+    setVerificationSuccess(null)
+
+    const fullPhoneNumber = `${phoneCountryCode}${phoneNumber}`
+
+    console.log("[v0] Sending verification code request:")
+    console.log("[v0] Phone country code:", phoneCountryCode)
+    console.log("[v0] Phone number:", phoneNumber)
+    console.log("[v0] Full phone number:", fullPhoneNumber)
+    console.log("[v0] Role:", "homeowner")
+
+    if (phoneNumber.length < 10) {
+      setVerificationError("Please enter a valid phone number")
+      setIsSendingCode(false)
+      return
+    }
+
+    try {
+      const response = await apiClient.request("/api/users/request-verification", {
+        method: "POST",
+        body: JSON.stringify({
+          phone_number: fullPhoneNumber,
+          role: "homeowner",
+        }),
+        requiresAuth: true,
+      })
+
+      console.log("[v0] Verification code sent successfully:", response)
+      setIsCodeSent(true)
+      setVerificationSuccess("Verification code sent! Check your phone.")
+    } catch (err: any) {
+      console.error("[v0] Error sending verification code:", err)
+      if (err.message?.toLowerCase().includes("invalid") && err.message?.toLowerCase().includes("phone")) {
+        setVerificationError(
+          "This phone number cannot receive verification codes. Please use a different number or contact support.",
+        )
+      } else {
+        setVerificationError(err.message || "Failed to send verification code")
+      }
+    } finally {
+      setIsSendingCode(false)
+    }
+  }
+
+  const handleVerifyCode = async () => {
+    setIsVerifying(true)
+    setVerificationError(null)
+    setVerificationSuccess(null)
+
+    const fullPhoneNumber = `${phoneCountryCode}${phoneNumber}`
+
+    console.log("[v0] Verifying code:")
+    console.log("[v0] Phone country code:", phoneCountryCode)
+    console.log("[v0] Phone number:", phoneNumber)
+    console.log("[v0] Full phone number:", fullPhoneNumber)
+    console.log("[v0] Verification code:", verificationCode)
+    console.log("[v0] Code length:", verificationCode.length)
+
+    try {
+      const response = await apiClient.request<any>("/api/users/verify-phone", {
+        method: "POST",
+        body: JSON.stringify({
+          code: verificationCode,
+          phone_number: fullPhoneNumber,
+        }),
+        requiresAuth: true,
+      })
+
+      console.log("[v0] Phone verified successfully:", response)
+      setVerificationSuccess("Phone number verified successfully!")
+      setIsCodeSent(false)
+      setVerificationCode("")
+
+      setProfile({ ...profile, phone_verified: true, phone_number: fullPhoneNumber })
+    } catch (err: any) {
+      console.error("[v0] Error verifying code:", err)
+      setVerificationError(err.message || "Invalid verification code")
+    } finally {
+      setIsVerifying(false)
+    }
+  }
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -145,14 +249,6 @@ export default function ProfilePage() {
       setIsSaving(false)
     }
   }
-
-  const [fullName, setFullName] = useState("")
-  const [email, setEmail] = useState("")
-  const [address, setAddress] = useState("")
-  const [city, setCity] = useState("")
-  const [region, setRegion] = useState("")
-  const [postalCode, setPostalCode] = useState("")
-  const [notificationFrequency, setNotificationFrequency] = useState("daily")
 
   if (isLoading) {
     return (
@@ -278,16 +374,7 @@ export default function ProfilePage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-              <input
-                type="tel"
-                value={profile?.phone_number || ""}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-              />
-              <p className="text-xs text-gray-500 mt-1">Phone number cannot be changed</p>
-            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
               <input
@@ -345,6 +432,165 @@ export default function ProfilePage() {
           >
             {isSaving ? "Saving..." : "Save Changes"}
           </button>
+        </div>
+
+        {/* Phone Verification */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                Phone Verification
+                <BadgeCheck className="h-6 w-6 text-[#328d87]" />
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Verify your phone number to build trust and increase your response rate
+              </p>
+            </div>
+          </div>
+
+          {profile?.phone_verified ? (
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                <div className="flex gap-2">
+                  <select
+                    value={phoneCountryCode}
+                    disabled
+                    className="w-24 md:w-28 flex-shrink-0 px-2 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed text-sm"
+                  >
+                    <option value="+1">🇨🇦 +1</option>
+                  </select>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    disabled
+                    className="flex-1 max-w-xs min-w-0 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-green-600">
+                  <BadgeCheck className="h-5 w-5" />
+                  <span className="font-medium">You are verified!</span>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-medium text-blue-900 mb-2">Benefits of Verification</h3>
+                <ul className="space-y-2 text-sm text-blue-800">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 mt-0.5">✓</span>
+                    <span>Verified badge displayed on your profile</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 mt-0.5">✓</span>
+                    <span>3x higher response rate from contractors</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 mt-0.5">✓</span>
+                    <span>Increased trust and credibility</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 mt-0.5">✓</span>
+                    <span>Priority support from our team</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h3 className="font-medium text-amber-900 mb-2">Why Verify Your Phone Number?</h3>
+                <ul className="space-y-2 text-sm text-amber-800">
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-600 mt-0.5">•</span>
+                    <span>
+                      <strong>Build Trust:</strong> Show contractors you're a real person
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-600 mt-0.5">•</span>
+                    <span>
+                      <strong>Get More Responses:</strong> Verified users receive 3x more contractor responses
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-600 mt-0.5">•</span>
+                    <span>
+                      <strong>Stand Out:</strong> Display a verified badge on your profile
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-600 mt-0.5">•</span>
+                    <span>
+                      <strong>Priority Support:</strong> Get faster help from our support team
+                    </span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                <div className="flex gap-2">
+                  <select
+                    value={phoneCountryCode}
+                    onChange={(e) => setPhoneCountryCode(e.target.value)}
+                    className="w-24 md:w-28 flex-shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm"
+                  >
+                    <option value="+1">🇨🇦 +1</option>
+                  </select>
+                  <input
+                    type="tel"
+                    placeholder="5551234567"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                    maxLength={10}
+                    className="flex-1 max-w-xs min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                  />
+                </div>
+                <button
+                  onClick={handleSendCode}
+                  disabled={isSendingCode || phoneNumber.length < 10}
+                  className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+                >
+                  {isSendingCode ? "Sending..." : "Send Code"}
+                </button>
+
+                {isCodeSent && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Enter 6-digit code"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      className="flex-1 max-w-[200px] min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                    />
+                    <button
+                      onClick={handleVerifyCode}
+                      disabled={isVerifying || verificationCode.length !== 6}
+                      className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isVerifying ? "Verifying..." : "Verify"}
+                    </button>
+                  </div>
+                )}
+
+                {verificationError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-600">{verificationError}</p>
+                  </div>
+                )}
+
+                {verificationSuccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-sm text-green-600">{verificationSuccess}</p>
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-500">
+                  We'll send a 6-digit verification code to your phone via SMS. Standard message rates may apply.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -20,7 +20,7 @@ export function AnnouncementBanner() {
 
   useEffect(() => {
     fetchSettings()
-  }, [pathname])
+  }, []) // Only run once on mount
 
   const fetchSettings = async () => {
     try {

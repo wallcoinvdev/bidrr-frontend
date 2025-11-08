@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useSearchParams } from "next/navigation"
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
@@ -11,6 +12,8 @@ import { useOnboarding } from "@/contexts/onboarding-context"
 import { useAuth } from "@/lib/auth-context"
 import { ServicesSelector } from "@/components/services-selector"
 import { getRegionsForCountry, getPostalCodeLabel, getRegionLabel, getPostalCodePlaceholder } from "@/lib/country-data"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 
@@ -36,6 +39,8 @@ export default function PersonalInformation() {
   const router = useRouter()
   const { data, updateData } = useOnboarding()
   const { setUser } = useAuth()
+  const searchParams = useSearchParams()
+  const roleFromUrl = searchParams.get("role")
 
   const [country, setCountry] = useState(data.country || "CA")
   const [businessCountry, setBusinessCountry] = useState(data.businessCountry || data.country || "CA")
@@ -43,6 +48,8 @@ export default function PersonalInformation() {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
+  const [countryCode, setCountryCode] = useState("+1-CA")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
   const [region, setRegion] = useState("")
@@ -61,17 +68,31 @@ export default function PersonalInformation() {
   const [sameAsPersonalAddress, setSameAsPersonalAddress] = useState(false)
   const [radiusKm, setRadiusKm] = useState("50")
   const [services, setServices] = useState<string[]>([])
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    console.log("[v0] ========== ONBOARDING FORM LOADED ==========")
     console.log("[v0] PersonalInformation mounted")
+    console.log("[v0] Role from URL:", roleFromUrl)
     console.log("[v0] Current role from context:", data.role)
     console.log("[v0] Current country from context:", data.country)
     console.log("[v0] Full onboarding data:", JSON.stringify(data, null, 2))
+    console.log("[v0] localStorage state:", {
+      token: !!localStorage.getItem("token"),
+      user: !!localStorage.getItem("user"),
+      onboarding_data: !!localStorage.getItem("homehero_onboarding_data"),
+    })
+    console.log("[v0] sessionStorage state:", {
+      form_data: !!sessionStorage.getItem("onboarding_form_data"),
+      terms_accepted: sessionStorage.getItem("terms_accepted"),
+    })
+    console.log("[v0] Timestamp:", new Date().toISOString())
+    console.log("[v0] ================================================")
 
-    // If role is missing or incorrect, try to recover from localStorage
     const storedData = localStorage.getItem("homehero_onboarding_data")
     if (storedData) {
       try {
@@ -87,6 +108,15 @@ export default function PersonalInformation() {
   }, [])
 
   useEffect(() => {
+    console.log("[v0] Role from URL:", roleFromUrl)
+    console.log("[v0] Current role from context:", data.role)
+
+    if (roleFromUrl && (roleFromUrl === "homeowner" || roleFromUrl === "contractor")) {
+      updateData({ role: roleFromUrl })
+    }
+  }, [roleFromUrl])
+
+  useEffect(() => {
     const savedFormData = sessionStorage.getItem("onboarding_form_data")
     if (savedFormData) {
       try {
@@ -94,6 +124,8 @@ export default function PersonalInformation() {
         setFirstName(parsed.firstName || "")
         setLastName(parsed.lastName || "")
         setEmail(parsed.email || "")
+        setCountryCode(parsed.countryCode || "+1-CA")
+        setPhoneNumber(parsed.phoneNumber || "")
         setAddress(parsed.address || "")
         setCity(parsed.city || "")
         setRegion(parsed.region || "")
@@ -121,6 +153,8 @@ export default function PersonalInformation() {
       firstName,
       lastName,
       email,
+      countryCode,
+      phoneNumber,
       address,
       city,
       region,
@@ -143,6 +177,8 @@ export default function PersonalInformation() {
     firstName,
     lastName,
     email,
+    countryCode,
+    phoneNumber,
     address,
     city,
     region,
@@ -183,14 +219,20 @@ export default function PersonalInformation() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("[v0] ========== FORM SUBMISSION START ==========")
+    console.log("[v0] Form submitted by user")
+    console.log("[v0] Role:", data.role)
+    console.log("[v0] Email:", email)
+    console.log("[v0] Phone:", phoneNumber)
+    console.log("[v0] Terms accepted:", acceptedTerms)
+    console.log("[v0] Timestamp:", new Date().toISOString())
+
     setIsLoading(true)
     setError(null)
 
     try {
-      if (!data.phone || !validateE164Phone(data.phone)) {
-        throw new Error(
-          `Phone number must be in E.164 format (e.g., +13062225100). Current value: ${data.phone || "missing"}`,
-        )
+      if (!acceptedTerms) {
+        throw new Error("You must agree to the Terms of Service to continue")
       }
 
       if (password !== confirmPassword) {
@@ -201,22 +243,20 @@ export default function PersonalInformation() {
         throw new Error("Password must be at least 6 characters")
       }
 
-      const verificationCode = sessionStorage.getItem("verification_code")
-      if (!verificationCode) {
-        throw new Error("Verification code not found. Please verify your phone number again.")
+      if (!phoneNumber || phoneNumber.length < 10) {
+        throw new Error("Please enter a valid phone number")
       }
-
-      console.log("[v0] Creating user account with real data")
-      console.log("[v0] Phone:", data.phone)
-      console.log("[v0] Role:", data.role)
-      console.log("[v0] Verification code:", verificationCode ? "present" : "missing")
 
       const formattedPostalCode = formatPostalCode(postalCode, country)
       const formattedBusinessPostalCode = formatPostalCode(businessPostalCode, businessCountry)
+      const actualCountryCode = countryCode.split("-")[0]
+      const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
 
       const formData: any = {
         full_name: `${firstName} ${lastName}`,
         email,
+        password,
+        phone_number: fullPhoneNumber,
         address,
         city,
         region,
@@ -233,191 +273,28 @@ export default function PersonalInformation() {
         formData.business_country = businessCountry
         formData.business_postal_code = formattedBusinessPostalCode
         formData.radius_km = Number.parseInt(radiusKm)
+        formData.services = services
       }
 
-      console.log("[v0] Step 1: Verifying phone with form data")
-      const verifyResponse = await fetch(`${API_BASE_URL}/api/users/verify-phone`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-        },
-        body: JSON.stringify({
-          phone_number: data.phone,
-          role: data.role,
-          verification_code: verificationCode,
-          form_data: formData,
-        }),
-      })
+      console.log("[v0] Saving form data to sessionStorage")
+      console.log("[v0] Form data keys:", Object.keys(formData))
+      sessionStorage.setItem("onboarding_form_data", JSON.stringify(formData))
 
-      if (!verifyResponse.ok) {
-        const verifyError = await verifyResponse.json()
-        console.error("[v0] Phone verification failed:", verifyError)
-        throw new Error(verifyError.error || "Phone verification failed")
-      }
-
-      const verifyResult = await verifyResponse.json()
-      console.log("[v0] Phone verified successfully with form data")
-
-      if (verifyResult.token) {
-        sessionStorage.setItem("verification_token", verifyResult.token)
-      }
-
-      console.log("[v0] Step 2: Creating user account")
-      const signupPayload: any = {
-        phone_number: data.phone,
-        password,
-        role: data.role,
-        full_name: `${firstName} ${lastName}`,
-        email,
-        postal_code: formattedPostalCode,
-      }
-
-      const termsAccepted = sessionStorage.getItem("terms_accepted")
-      const termsAcceptedAt = sessionStorage.getItem("terms_accepted_at")
-      if (termsAccepted === "true" && termsAcceptedAt) {
-        signupPayload.terms_accepted = true
-        signupPayload.terms_accepted_at = termsAcceptedAt
-        console.log("[v0] Including terms acceptance in signup:", {
-          terms_accepted: true,
-          terms_accepted_at: termsAcceptedAt,
-        })
-      }
-
-      if (data.role === "homeowner") {
-        signupPayload.address = address
-        signupPayload.city = city
-        signupPayload.region = region
-        signupPayload.country = country
-      }
-
-      if (data.role === "contractor") {
-        signupPayload.address = address
-        signupPayload.city = city
-        signupPayload.region = region
-        signupPayload.country = country
-        signupPayload.company_name = companyName
-        signupPayload.company_size = companySize
-        signupPayload.business_address = businessAddress
-        signupPayload.business_city = businessCity
-        signupPayload.business_region = businessRegion
-        signupPayload.business_country = businessCountry
-        signupPayload.business_postal_code = formattedBusinessPostalCode
-        signupPayload.radius_km = Number.parseInt(radiusKm)
-      }
-
-      console.log("[v0] Full signup payload:", JSON.stringify(signupPayload, null, 2))
-
-      const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-        },
-        body: JSON.stringify(signupPayload),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        console.error("[v0] Signup failed with status:", response.status)
-        console.error("[v0] Error response:", JSON.stringify(result, null, 2))
-        throw new Error(result.error || result.message || "Failed to create account")
-      }
-
-      console.log("[v0] Account created successfully")
-      console.log("[v0] Signup response:", JSON.stringify(result, null, 2))
-
-      console.log("[v0] Step 3: Logging in to get authentication token")
-      const loginResponse = await fetch(`${API_BASE_URL}/api/users/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          remember_me: false,
-        }),
-      })
-
-      if (!loginResponse.ok) {
-        const loginError = await loginResponse.json()
-        console.error("[v0] Login after signup failed:", loginError)
-        throw new Error("Account created but login failed. Please try logging in manually.")
-      }
-
-      const loginResult = await loginResponse.json()
-      console.log("[v0] Login successful, token received")
-
-      console.log("[v0] Clearing all localStorage data before storing new auth data")
-      localStorage.clear()
-
-      if (loginResult.token) {
-        localStorage.setItem("token", loginResult.token)
-        console.log("[v0] Token stored in localStorage")
-      } else {
-        throw new Error("Login successful but no token received")
-      }
-
-      if (loginResult.user) {
-        localStorage.setItem("user", JSON.stringify(loginResult.user))
-        console.log("[v0] User stored in localStorage:", JSON.stringify(loginResult.user))
-        console.log("[v0] User role from response:", loginResult.user.role)
-        setUser(loginResult.user)
-      } else {
-        throw new Error("Login successful but no user data received")
-      }
-
-      if (data.role === "contractor" && services.length > 0) {
-        console.log("[v0] Sending services to /api/users/services:", services)
-        try {
-          const servicesResponse = await fetch(`${API_BASE_URL}/api/users/services`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${loginResult.token}`,
-              "ngrok-skip-browser-warning": "true",
-            },
-            body: JSON.stringify({ services }),
-          })
-
-          if (!servicesResponse.ok) {
-            const servicesError = await servicesResponse.json()
-            console.error("[v0] Failed to save services:", servicesError)
-            console.log("[v0] Services could not be saved, but account was created successfully")
-          } else {
-            console.log("[v0] Services saved successfully")
-          }
-        } catch (servicesErr) {
-          console.error("[v0] Error saving services:", servicesErr)
-          console.log("[v0] Continuing despite services error")
-        }
-      }
-
-      sessionStorage.removeItem("onboarding_form_data")
-      sessionStorage.removeItem("verification_code")
-      sessionStorage.removeItem("verification_token")
-      sessionStorage.removeItem("verified_phone_number")
-      sessionStorage.removeItem("phone_verified")
-      sessionStorage.removeItem("pending_phone_number")
-      sessionStorage.removeItem("pending_country")
-      sessionStorage.removeItem("pending_role")
-      sessionStorage.removeItem("terms_accepted")
-      sessionStorage.removeItem("terms_accepted_at")
+      sessionStorage.setItem("terms_accepted", "true")
+      sessionStorage.setItem("terms_accepted_at", new Date().toISOString())
+      console.log("[v0] Terms acceptance saved to sessionStorage")
 
       updateData({
         firstName,
         lastName,
         email,
+        phone: fullPhoneNumber,
+        countryCode,
         address,
         city,
         region,
         country,
         postalCode: formattedPostalCode,
-        token: loginResult.token,
-        userId: loginResult.user?.id,
         ...(data.role === "contractor" && {
           companyName,
           companySize,
@@ -431,16 +308,18 @@ export default function PersonalInformation() {
         }),
       })
 
-      const targetDashboard = loginResult.user?.is_admin
-        ? "/dashboard/admin"
-        : data.role === "homeowner"
-          ? "/dashboard/homeowner"
-          : "/dashboard/contractor"
-      console.log("[v0] Redirecting to dashboard:", targetDashboard)
-      router.push(targetDashboard)
+      console.log("[v0] Updated onboarding context")
+      console.log("[v0] Redirecting to:", `/verify-phone/${data.role}`)
+      console.log("[v0] ========== FORM SUBMISSION SUCCESS ==========")
+
+      router.push(`/verify-phone/${data.role}`)
     } catch (err) {
-      console.error("[v0] Error creating account:", err)
-      setError(err instanceof Error ? err.message : "Failed to create account. Please try again.")
+      console.error("[v0] ========== FORM SUBMISSION ERROR ==========")
+      console.error("[v0] Error:", err)
+      console.error("[v0] Error type:", err instanceof Error ? err.constructor.name : typeof err)
+      console.error("[v0] Error message:", err instanceof Error ? err.message : String(err))
+      console.error("[v0] ===============================================")
+      setError(err instanceof Error ? err.message : "Failed to save information. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -484,7 +363,7 @@ export default function PersonalInformation() {
               </div>
 
               <h1 className="text-3xl font-bold text-center mb-2 text-[#03353a]">
-                {data.role === "contractor" ? "Create Your Contractor Account" : "Create Your Account"}
+                {data.role === "contractor" ? "Create Your Contractor Account" : "Create Your Customer Account"}
               </h1>
               <p className="text-center text-gray-600 mb-8">
                 {data.role === "contractor"
@@ -502,7 +381,7 @@ export default function PersonalInformation() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
-                      First Name
+                      First Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -516,7 +395,7 @@ export default function PersonalInformation() {
 
                   <div>
                     <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
-                      Last Name
+                      Last Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -531,7 +410,7 @@ export default function PersonalInformation() {
 
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
+                    Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
@@ -544,8 +423,37 @@ export default function PersonalInformation() {
                 </div>
 
                 <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="w-20 sm:w-24 px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent outline-none transition-all bg-white text-sm cursor-pointer flex-shrink-0"
+                    >
+                      <option value="+1-CA">🇨🇦 +1</option>
+                      {/* <option value="+1-US">🇺🇸 +1</option>
+                      <option value="+44-GB">🇬🇧 +44</option>
+                      <option value="+61-AU">🇦🇺 +61</option>
+                      <option value="+64-NZ">🇳🇿 +64</option> */}
+                    </select>
+                    <input
+                      type="tel"
+                      id="phone"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                      placeholder="5551234567"
+                      maxLength={10}
+                      className="flex-1 min-w-0 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent outline-none transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
                   <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-                    Street Address
+                    Street Address <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -560,7 +468,7 @@ export default function PersonalInformation() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-                      City
+                      City <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -574,7 +482,7 @@ export default function PersonalInformation() {
 
                   <div>
                     <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-2">
-                      {getRegionLabel(country)}
+                      {getRegionLabel(country)} <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="region"
@@ -595,7 +503,7 @@ export default function PersonalInformation() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
-                      Country
+                      Country <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="country"
@@ -605,16 +513,16 @@ export default function PersonalInformation() {
                       required
                     >
                       <option value="CA">Canada</option>
-                      <option value="US">United States</option>
+                      {/* <option value="US">United States</option>
                       <option value="UK">United Kingdom</option>
                       <option value="AU">Australia</option>
-                      <option value="NZ">New Zealand</option>
+                      <option value="NZ">New Zealand</option> */}
                     </select>
                   </div>
 
                   <div>
                     <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
-                      {getPostalCodeLabel(country)}
+                      {getPostalCodeLabel(country)} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -633,7 +541,7 @@ export default function PersonalInformation() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                      Create Password
+                      Create Password <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -658,7 +566,7 @@ export default function PersonalInformation() {
 
                   <div>
                     <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                      Confirm Password
+                      Confirm Password <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -688,7 +596,7 @@ export default function PersonalInformation() {
                     <div className="space-y-4">
                       <div>
                         <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-2">
-                          Company Name
+                          Company Name <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -702,7 +610,7 @@ export default function PersonalInformation() {
 
                       <div>
                         <label htmlFor="companySize" className="block text-sm font-medium text-gray-700 mb-2">
-                          Company Size
+                          Company Size <span className="text-red-500">*</span>
                         </label>
                         <select
                           id="companySize"
@@ -737,7 +645,7 @@ export default function PersonalInformation() {
 
                       <div>
                         <label htmlFor="businessAddress" className="block text-sm font-medium text-gray-700 mb-2">
-                          Business Address
+                          Business Address <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -752,7 +660,7 @@ export default function PersonalInformation() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label htmlFor="businessCity" className="block text-sm font-medium text-gray-700 mb-2">
-                            City
+                            City <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
@@ -766,7 +674,7 @@ export default function PersonalInformation() {
 
                         <div>
                           <label htmlFor="businessRegion" className="block text-sm font-medium text-gray-700 mb-2">
-                            {getRegionLabel(businessCountry)}
+                            {getRegionLabel(businessCountry)} <span className="text-red-500">*</span>
                           </label>
                           <select
                             id="businessRegion"
@@ -787,7 +695,7 @@ export default function PersonalInformation() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label htmlFor="businessCountry" className="block text-sm font-medium text-gray-700 mb-2">
-                            Country
+                            Country <span className="text-red-500">*</span>
                           </label>
                           <select
                             id="businessCountry"
@@ -797,16 +705,16 @@ export default function PersonalInformation() {
                             required
                           >
                             <option value="CA">Canada</option>
-                            <option value="US">United States</option>
+                            {/* <option value="US">United States</option>
                             <option value="UK">United Kingdom</option>
                             <option value="AU">Australia</option>
-                            <option value="NZ">New Zealand</option>
+                            <option value="NZ">New Zealand</option> */}
                           </select>
                         </div>
 
                         <div>
                           <label htmlFor="businessPostalCode" className="block text-sm font-medium text-gray-700 mb-2">
-                            {getPostalCodeLabel(businessCountry)}
+                            {getPostalCodeLabel(businessCountry)} <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
@@ -824,7 +732,7 @@ export default function PersonalInformation() {
 
                       <div>
                         <label htmlFor="radiusKm" className="block text-sm font-medium text-gray-700 mb-2">
-                          Service Radius (km)
+                          Service Radius (km) <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="number"
@@ -840,7 +748,7 @@ export default function PersonalInformation() {
 
                       <div>
                         <label htmlFor="services" className="block text-sm font-medium text-gray-700 mb-2">
-                          Services Offered
+                          Services Offered <span className="text-red-500">*</span>
                         </label>
                         <p className="text-sm text-gray-500 mb-2">Select all services you offer</p>
                         <ServicesSelector selectedServices={services} onChange={setServices} />
@@ -848,6 +756,28 @@ export default function PersonalInformation() {
                     </div>
                   </div>
                 )}
+
+                <div className="flex items-start gap-3 pt-4">
+                  <input
+                    type="checkbox"
+                    id="acceptTerms"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    className="mt-1 h-4 w-4 text-[#03353a] focus:ring-[#03353a] border-gray-300 rounded cursor-pointer"
+                    required
+                  />
+                  <label htmlFor="acceptTerms" className="text-sm text-gray-700 cursor-pointer">
+                    <span className="text-red-500">*</span> I agree to the{" "}
+                    <button
+                      type="button"
+                      onClick={() => setShowTermsModal(true)}
+                      className="text-[#328d87] hover:underline font-medium"
+                    >
+                      Terms of Service
+                    </button>{" "}
+                    for using HomeHero
+                  </label>
+                </div>
 
                 <button
                   type="submit"
@@ -867,6 +797,113 @@ export default function PersonalInformation() {
             </div>
           </div>
         </main>
+
+        <Dialog open={showTermsModal} onOpenChange={setShowTermsModal}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">Terms of Service</DialogTitle>
+              <DialogDescription>Last updated: January 2025</DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="h-[60vh] pr-4">
+              <div className="space-y-6 text-sm">
+                <section>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Agreement to Terms</h3>
+                  <p className="text-gray-700 leading-relaxed">
+                    Welcome to HomeHero. By accessing or using our platform, you agree to be bound by these Terms of
+                    Service and all applicable laws and regulations. If you do not agree with any of these terms, you
+                    are prohibited from using this platform.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Platform Description</h3>
+                  <p className="text-gray-700 leading-relaxed">
+                    HomeHero is an online marketplace that connects customers seeking home services with qualified
+                    service professionals (contractors). We provide the platform for these connections but are not a
+                    party to the actual service agreements between customers and contractors.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">User Accounts</h3>
+                  <h4 className="text-base font-semibold text-gray-900 mb-2">Account Creation</h4>
+                  <p className="text-gray-700 leading-relaxed mb-2">
+                    To use HomeHero, you must create an account and provide accurate, complete information. You are
+                    responsible for:
+                  </p>
+                  <ul className="list-disc pl-6 mb-4 text-gray-700 space-y-1">
+                    <li>Maintaining the confidentiality of your account credentials</li>
+                    <li>All activities that occur under your account</li>
+                    <li>Notifying us immediately of any unauthorized access</li>
+                    <li>Ensuring your account information remains accurate and up-to-date</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">User Responsibilities</h3>
+                  <h4 className="text-base font-semibold text-gray-900 mb-2">Customer Responsibilities</h4>
+                  <ul className="list-disc pl-6 mb-4 text-gray-700 space-y-1">
+                    <li>Provide accurate project descriptions and requirements</li>
+                    <li>Respond to contractor inquiries in a timely manner</li>
+                    <li>Pay for services as agreed upon with contractors</li>
+                    <li>Provide honest reviews and feedback</li>
+                    <li>Comply with all applicable local laws and regulations</li>
+                  </ul>
+
+                  <h4 className="text-base font-semibold text-gray-900 mb-2">Contractor Responsibilities</h4>
+                  <ul className="list-disc pl-6 mb-4 text-gray-700 space-y-1">
+                    <li>Provide valid licenses, insurance, and certifications upon customer request</li>
+                    <li>Provide accurate service descriptions and pricing</li>
+                    <li>Complete work professionally and as agreed</li>
+                    <li>Respond to customer inquiries promptly</li>
+                    <li>Comply with all applicable laws, regulations, and safety standards</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Prohibited Activities</h3>
+                  <p className="text-gray-700 leading-relaxed mb-2">You may not:</p>
+                  <ul className="list-disc pl-6 mb-4 text-gray-700 space-y-1">
+                    <li>Provide false or misleading information</li>
+                    <li>Impersonate another person or entity</li>
+                    <li>Engage in fraudulent activities</li>
+                    <li>Harass, abuse, or harm other users</li>
+                    <li>Circumvent platform fees by conducting transactions off-platform</li>
+                    <li>Use automated systems to access the platform</li>
+                    <li>Violate any applicable laws or regulations</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Limitation of Liability</h3>
+                  <p className="text-gray-700 leading-relaxed mb-2">
+                    HomeHero is a platform that facilitates connections between customers and contractors. We do not:
+                  </p>
+                  <ul className="list-disc pl-6 mb-4 text-gray-700 space-y-1">
+                    <li>Employ or control contractors</li>
+                    <li>Guarantee the quality of services provided</li>
+                    <li>Verify all contractor credentials (though we encourage verification)</li>
+                    <li>Assume liability for work performed by contractors</li>
+                  </ul>
+                  <p className="text-gray-700 leading-relaxed">
+                    To the maximum extent permitted by law, HomeHero shall not be liable for any indirect, incidental,
+                    special, or consequential damages arising from your use of the platform.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Contact Us</h3>
+                  <p className="text-gray-700 leading-relaxed mb-2">
+                    If you have questions about these Terms of Service, please contact us at{" "}
+                    <a href="mailto:support@homehero.ca" className="text-[#328d87] hover:underline">
+                      support@homehero.ca
+                    </a>
+                  </p>
+                </section>
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

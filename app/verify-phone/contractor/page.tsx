@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Phone, AlertCircle, X } from "lucide-react"
+import { ArrowLeft, BadgeCheck, AlertCircle, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { apiClient } from "@/lib/api-client"
@@ -17,14 +17,30 @@ export default function ContractorPhoneVerification() {
   const { data, updateData } = useOnboarding()
 
   const [countryCode, setCountryCode] = useState(data.countryCode || "+1-CA")
-  const [phoneNumber, setPhoneNumber] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState(data.phone?.replace(/^\+1/, "") || "")
   const [verificationCode, setVerificationCode] = useState("")
-  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [step, setStep] = useState<"phone" | "code">("phone")
   const [isLoading, setIsLoading] = useState(false)
+  const [isSkipping, setIsSkipping] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentOrigin, setCurrentOrigin] = useState<string>("")
   const [showTermsModal, setShowTermsModal] = useState(false)
+
+  useEffect(() => {
+    console.log("[v0] ========== CONTRACTOR VERIFICATION PAGE LOADED ==========")
+    console.log("[v0] Page URL:", typeof window !== "undefined" ? window.location.href : "SSR")
+    console.log("[v0] Onboarding data present:", !!data)
+    console.log("[v0] Onboarding data keys:", data ? Object.keys(data) : "no data")
+    console.log("[v0] Role from onboarding:", data?.role)
+    console.log("[v0] Email from onboarding:", data?.email)
+    console.log("[v0] Phone from onboarding:", data?.phone)
+    console.log("[v0] sessionStorage.onboarding_form_data:", !!sessionStorage.getItem("onboarding_form_data"))
+    console.log("[v0] sessionStorage.terms_accepted:", sessionStorage.getItem("terms_accepted"))
+    console.log("[v0] localStorage.token:", typeof window !== "undefined" ? localStorage.getItem("token") : "SSR")
+    console.log("[v0] localStorage.user:", typeof window !== "undefined" ? !!localStorage.getItem("user") : "SSR")
+    console.log("[v0] Timestamp:", new Date().toISOString())
+    console.log("[v0] =============================================================")
+  }, [])
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -50,30 +66,26 @@ export default function ContractorPhoneVerification() {
       const actualCountryCode = getCountryCodeOnly(countryCode)
       const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
       const country = getCountryFromCode(countryCode)
+
+      if (phoneNumber.length < 10) {
+        setError("Please enter a valid 10-digit phone number")
+        setIsLoading(false)
+        return
+      }
+
       console.log("[v0] === CONTRACTOR PHONE VERIFICATION ===")
       console.log("[v0] Sending verification code to:", fullPhoneNumber)
       console.log("[v0] Country:", country)
       console.log("[v0] Role: contractor (hardcoded)")
       console.log("[v0] Request origin:", window.location.origin)
 
-      const response = await apiClient.request("/api/users/request-verification", {
+      await apiClient.request("/api/users/request-verification", {
         method: "POST",
         body: JSON.stringify({
           phone_number: fullPhoneNumber,
           role: "contractor",
         }),
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        const errorMessage = errorData.error || "Failed to send verification code"
-        if (errorMessage.toLowerCase().includes("already registered")) {
-          setError("PHONE_REGISTERED")
-        } else {
-          throw new Error(errorMessage)
-        }
-        return
-      }
 
       console.log("[v0] Verification code sent successfully")
 
@@ -99,26 +111,25 @@ export default function ContractorPhoneVerification() {
     } catch (err: any) {
       console.error("[v0] Error sending code:", err)
 
-      if (err.message?.toLowerCase().includes("already registered")) {
+      const errorMessage = err.message || "Failed to send verification code"
+
+      if (errorMessage.toLowerCase().includes("invalid") && errorMessage.toLowerCase().includes("phone")) {
+        setError(
+          "This phone number cannot receive verification codes. Please use a different number or click 'Skip for now' to continue without verification.",
+        )
+      } else if (errorMessage.toLowerCase().includes("already registered")) {
         setError("PHONE_REGISTERED")
-      } else if (err.message?.toLowerCase().includes("cors")) {
-        setError(`CORS Error: ${err.message}`)
+      } else if (errorMessage.toLowerCase().includes("cors")) {
+        setError(`CORS Error: ${errorMessage}`)
       } else {
-        setError(err.message || "Failed to send verification code. Please try again.")
+        setError(errorMessage || "Failed to send verification code. Please try again or skip verification.")
       }
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!acceptedTerms) {
-      setError("You must accept the Terms of Service to continue")
-      return
-    }
-
+  const handleVerifyCode = async () => {
     setIsLoading(true)
     setError(null)
 
@@ -126,38 +137,283 @@ export default function ContractorPhoneVerification() {
       const actualCountryCode = getCountryCodeOnly(countryCode)
       const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
 
-      sessionStorage.setItem("verification_code", verificationCode)
-      sessionStorage.setItem("verified_phone_number", fullPhoneNumber)
-      sessionStorage.setItem("phone_verified", "true")
-      sessionStorage.setItem("verified_role", "contractor")
-      sessionStorage.setItem("terms_accepted", "true")
-      sessionStorage.setItem("terms_accepted_at", new Date().toISOString())
+      const savedFormData = sessionStorage.getItem("onboarding_form_data")
+      if (!savedFormData) {
+        throw new Error("Form data not found. Please complete the personal information form first.")
+      }
 
-      console.log("[v0] Verification code stored for later submission")
+      const formData = JSON.parse(savedFormData)
 
-      const country = getCountryFromCode(countryCode)
+      console.log("[v0] ========== ACCOUNT CREATION TRACKING START ==========")
+      console.log("[v0] Creating contractor account with phone verification")
+      console.log("[v0] Email:", formData.email)
+      console.log("[v0] Phone:", fullPhoneNumber)
+      console.log("[v0] Role: contractor")
+
+      const signupPayload: any = {
+        phone_number: fullPhoneNumber,
+        verification_code: verificationCode,
+        password: formData.password,
+        role: "contractor",
+        full_name: formData.full_name,
+        email: formData.email,
+        address: formData.address,
+        city: formData.city,
+        region: formData.region,
+        country: formData.country,
+        postal_code: formData.postal_code,
+        company_name: formData.company_name,
+        company_size: formData.company_size,
+        business_address: formData.business_address,
+        business_city: formData.business_city,
+        business_region: formData.business_region,
+        business_country: formData.business_country,
+        business_postal_code: formData.business_postal_code,
+        radius_km: formData.radius_km,
+        services: formData.services,
+      }
+
+      const termsAccepted = sessionStorage.getItem("terms_accepted")
+      const termsAcceptedAt = sessionStorage.getItem("terms_accepted_at")
+
+      if (termsAccepted === "true" && termsAcceptedAt) {
+        signupPayload.terms_accepted = true
+        signupPayload.terms_accepted_at = termsAcceptedAt
+      } else {
+        signupPayload.terms_accepted = true
+        signupPayload.terms_accepted_at = new Date().toISOString()
+      }
+
+      console.log("[v0] Full signup payload:", JSON.stringify(signupPayload, null, 2))
+      console.log("[v0] Calling /api/users/signup...")
+
+      const signupStartTime = Date.now()
+      const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify(signupPayload),
+      })
+
+      const signupEndTime = Date.now()
+      console.log("[v0] Signup API call took:", signupEndTime - signupStartTime, "ms")
+      console.log("[v0] Signup response status:", response.status, response.statusText)
+
+      const result = await response.json()
+      console.log("[v0] Signup response body:", JSON.stringify(result, null, 2))
+
+      if (!response.ok) {
+        console.error("[v0] ❌ SIGNUP FAILED")
+        console.error("[v0] Status:", response.status)
+        console.error("[v0] Error:", JSON.stringify(result, null, 2))
+        console.error("[v0] This error will cause the account to not be created")
+        console.error("[v0] User should see error message and stay on verification page")
+        throw new Error(result.error || result.message || "Failed to create account")
+      }
+
+      console.log("[v0] ✅ ACCOUNT CREATED SUCCESSFULLY")
+      console.log("[v0] User ID from signup:", result.user?.id || result.id || "NOT PROVIDED")
+      console.log("[v0] Account created at:", new Date().toISOString())
+
+      if (!result.token) {
+        throw new Error("No authentication token received from signup")
+      }
+
+      console.log("[v0] ✅ Using token from signup response")
+      console.log("[v0] Token received:", result.token ? "YES" : "NO")
+      console.log("[v0] Token length:", result.token?.length || 0)
+
+      console.log("[v0] ========== LOCALSTORAGE DEBUG START ==========")
+      console.log("[v0] Before storage - localStorage.token:", localStorage.getItem("token"))
+      console.log("[v0] Before storage - localStorage.user:", localStorage.getItem("user"))
+      console.log("[v0] Response token:", result.token)
+      console.log("[v0] Response user:", result.user)
+
+      sessionStorage.removeItem("verification_token")
+      sessionStorage.removeItem("verified_phone_number")
+      sessionStorage.removeItem("phone_verified")
+      sessionStorage.removeItem("pending_phone_number")
+      sessionStorage.removeItem("pending_country")
+      sessionStorage.removeItem("pending_role")
+      sessionStorage.removeItem("terms_accepted")
+      sessionStorage.removeItem("terms_accepted_at")
+
+      localStorage.setItem("token", result.token)
+      if (result.user) {
+        localStorage.setItem("user", JSON.stringify(result.user))
+      }
+
+      console.log("[v0] After storage - localStorage.token:", localStorage.getItem("token"))
+      console.log("[v0] After storage - localStorage.user:", localStorage.getItem("user"))
+      console.log("[v0] Storage verification - tokens match:", localStorage.getItem("token") === result.token)
+      console.log("[v0] ========== LOCALSTORAGE DEBUG END ==========")
+
+      console.log("[v0] ========== PRE-REDIRECT VERIFICATION ==========")
+      console.log("[v0] About to redirect to:", result.user?.is_admin ? "/dashboard/admin" : "/dashboard/contractor")
+      console.log("[v0] Final localStorage check before redirect:")
+      console.log("[v0] - token exists:", !!localStorage.getItem("token"))
+      console.log("[v0] - user exists:", !!localStorage.getItem("user"))
+      console.log("[v0] - token length:", localStorage.getItem("token")?.length || 0)
+      console.log("[v0] Current timestamp:", new Date().toISOString())
+      console.log("[v0] ========== STARTING REDIRECT NOW ==========")
+
       updateData({
         phone: fullPhoneNumber,
         countryCode: countryCode,
-        country: country,
+        country: getCountryFromCode(countryCode),
         role: "contractor",
-        address: "",
-        city: "",
-        region: "",
-        province: "",
-        postalCode: "",
+        token: result.token,
+        userId: result.user?.id,
       })
 
-      console.log("[v0] === NAVIGATING TO PERSONAL INFO ===")
-      console.log("[v0] Role confirmed as: contractor")
-      console.log("[v0] Country:", country)
-
-      router.push("/onboarding/personal-info")
+      const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/contractor"
+      console.log("[v0] Redirecting to dashboard:", targetDashboard)
+      window.location.href = targetDashboard
     } catch (err) {
       console.error("[v0] Error verifying code:", err)
+      console.error("[v0] ========== VERIFICATION ERROR DETAILS ==========")
+      console.error("[v0] Error type:", err instanceof Error ? err.constructor.name : typeof err)
+      console.error("[v0] Error message:", err instanceof Error ? err.message : String(err))
+      console.error("[v0] Current localStorage state:")
+      console.error("[v0] - token:", localStorage.getItem("token") ? "exists" : "null")
+      console.error("[v0] - user:", localStorage.getItem("user") ? "exists" : "null")
+      console.error("[v0] ========== ERROR DETAILS END ==========")
       setError(err instanceof Error ? err.message : "Invalid verification code.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleSkip = async () => {
+    console.log("[v0] Skipping phone verification")
+    setIsSkipping(true)
+    setError(null)
+
+    try {
+      const savedFormData = sessionStorage.getItem("onboarding_form_data")
+      if (!savedFormData) {
+        throw new Error("Form data not found. Please complete the personal information form first.")
+      }
+
+      const formData = JSON.parse(savedFormData)
+
+      console.log("[v0] ========== ACCOUNT CREATION TRACKING START (SKIP) ==========")
+      console.log("[v0] Creating contractor account without phone verification")
+      console.log("[v0] Email:", formData.email)
+      console.log("[v0] Phone:", formData.phone_number)
+      console.log("[v0] Role: contractor")
+
+      const signupPayload: any = {
+        phone_number: formData.phone_number,
+        verification_code: "",
+        password: formData.password,
+        role: "contractor",
+        full_name: formData.full_name,
+        email: formData.email,
+        address: formData.address,
+        city: formData.city,
+        region: formData.region,
+        country: formData.country,
+        postal_code: formData.postal_code,
+        company_name: formData.company_name,
+        company_size: formData.company_size,
+        business_address: formData.business_address,
+        business_city: formData.business_city,
+        business_region: formData.business_region,
+        business_country: formData.business_country,
+        business_postal_code: formData.business_postal_code,
+        radius_km: formData.radius_km,
+        services: formData.services,
+        terms_accepted: true,
+        terms_accepted_at: new Date().toISOString(),
+      }
+
+      console.log("[v0] Signup payload:", JSON.stringify(signupPayload, null, 2))
+      console.log("[v0] Calling /api/users/signup...")
+
+      const signupStartTime = Date.now()
+      const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify(signupPayload),
+      })
+
+      const signupEndTime = Date.now()
+      console.log("[v0] Signup API call took:", signupEndTime - signupStartTime, "ms")
+      console.log("[v0] Signup response status:", response.status, response.statusText)
+
+      const result = await response.json()
+      console.log("[v0] Signup response body:", JSON.stringify(result, null, 2))
+
+      if (!response.ok) {
+        console.error("[v0] ❌ SIGNUP FAILED (SKIP)")
+        console.error("[v0] Status:", response.status)
+        console.error("[v0] Error:", JSON.stringify(result, null, 2))
+        throw new Error(result.error || result.message || "Failed to create account")
+      }
+
+      console.log("[v0] ✅ ACCOUNT CREATED SUCCESSFULLY (SKIP)")
+      console.log("[v0] User ID from signup:", result.user?.id || result.id || "NOT PROVIDED")
+      console.log("[v0] Account created at:", new Date().toISOString())
+
+      if (!result.token) {
+        throw new Error("No authentication token received from signup")
+      }
+
+      console.log("[v0] ✅ Using token from signup response (NO SEPARATE LOGIN)")
+      console.log("[v0] Token received:", result.token ? "YES" : "NO")
+      console.log("[v0] Token length:", result.token?.length || 0)
+
+      console.log("[v0] ========== LOCALSTORAGE DEBUG START (SKIP) ==========")
+      console.log("[v0] Before storage - localStorage.token:", localStorage.getItem("token"))
+      console.log("[v0] Before storage - localStorage.user:", localStorage.getItem("user"))
+      console.log("[v0] Response token:", result.token)
+      console.log("[v0] Response user:", result.user)
+
+      sessionStorage.removeItem("onboarding_form_data")
+      sessionStorage.removeItem("verification_code")
+      sessionStorage.removeItem("verification_token")
+      sessionStorage.removeItem("verified_phone_number")
+      sessionStorage.removeItem("phone_verified")
+      sessionStorage.removeItem("pending_phone_number")
+      sessionStorage.removeItem("pending_country")
+      sessionStorage.removeItem("pending_role")
+      sessionStorage.removeItem("terms_accepted")
+      sessionStorage.removeItem("terms_accepted_at")
+
+      localStorage.setItem("token", result.token)
+      console.log("[v0] ✅ Token stored")
+      console.log("[v0] Token preview:", result.token.substring(0, 20) + "...")
+
+      if (result.user) {
+        localStorage.setItem("user", JSON.stringify(result.user))
+        console.log("[v0] ✅ User stored")
+        console.log("[v0] User data:", JSON.stringify(result.user, null, 2))
+      }
+
+      console.log("[v0] After storage - localStorage.token:", localStorage.getItem("token"))
+      console.log("[v0] After storage - localStorage.user:", localStorage.getItem("user"))
+      console.log("[v0] Storage verification - tokens match:", localStorage.getItem("token") === result.token)
+      console.log("[v0] ========== LOCALSTORAGE DEBUG END (SKIP) ==========")
+
+      updateData({
+        token: result.token,
+        userId: result.user?.id,
+      })
+
+      const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/contractor"
+      console.log("[v0] Redirecting to dashboard:", targetDashboard)
+      console.log("[v0] ========== ACCOUNT CREATION TRACKING END (SKIP) ==========")
+      window.location.href = targetDashboard
+    } catch (err) {
+      console.error("[v0] Error during skip:", err)
+      setError(err instanceof Error ? err.message : "Failed to create account. Please try again.")
+      setIsSkipping(false)
     }
   }
 
@@ -322,19 +578,22 @@ export default function ContractorPhoneVerification() {
           <div className="w-full max-w-md">
             <div className="bg-white rounded-2xl shadow-2xl p-8">
               <div className="flex justify-center mb-6">
-                <div className="w-16 h-16 bg-[#e2bb12] rounded-full flex items-center justify-center">
-                  <Phone className="h-8 w-8 text-[#03353a]" />
+                <div className="w-16 h-16 bg-[#e2bb12]/10 rounded-full flex items-center justify-center">
+                  <BadgeCheck className="h-10 w-10 text-[#e2bb12]" />
                 </div>
               </div>
 
               <h1 className="text-3xl font-bold text-center mb-2 text-[#03353a]">
-                {step === "phone" ? "Join as a Contractor" : "Enter Verification Code"}
+                {step === "phone" ? "Get Verified" : "Enter Verification Code"}
               </h1>
-              <p className="text-center text-gray-600 mb-8">
-                {step === "phone"
-                  ? "We'll send you a verification code"
-                  : "Enter the 6-digit code we sent to your phone"}
+              <p className="text-center text-gray-600 mb-2">
+                {step === "phone" ? "Stand out to potential customers" : "Enter the 6-digit code we sent to your phone"}
               </p>
+              {step === "phone" && (
+                <p className="text-center text-sm text-[#e2bb12] font-medium mb-8">
+                  Verified contractors receive 5x more job inquiries
+                </p>
+              )}
 
               {error === "PHONE_REGISTERED" && (
                 <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -402,6 +661,15 @@ export default function ContractorPhoneVerification() {
                     {isLoading ? "Sending Code..." : "Send Verification Code"}
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={handleSkip}
+                    disabled={isSkipping}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSkipping ? "Loading..." : "Skip for now"}
+                  </button>
+
                   <p className="text-center text-sm text-gray-600 mt-4">
                     Have an account already?{" "}
                     <Link href="/login" className="text-[#328d87] hover:underline font-medium">
@@ -410,7 +678,7 @@ export default function ContractorPhoneVerification() {
                   </p>
                 </form>
               ) : (
-                <form onSubmit={handleVerifyCode} className="space-y-6">
+                <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
                   <div>
                     <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-2">
                       Verification Code
@@ -427,31 +695,10 @@ export default function ContractorPhoneVerification() {
                     />
                   </div>
 
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      checked={acceptedTerms}
-                      onChange={(e) => setAcceptedTerms(e.target.checked)}
-                      className="mt-1 h-4 w-4 text-[#e2bb12] border-gray-300 rounded focus:ring-[#e2bb12]"
-                      required
-                    />
-                    <label htmlFor="terms" className="text-sm text-gray-700">
-                      I agree to the{" "}
-                      <button
-                        type="button"
-                        onClick={() => setShowTermsModal(true)}
-                        className="text-[#328d87] hover:underline font-medium"
-                      >
-                        Terms of Service
-                      </button>{" "}
-                      for using homeHero
-                    </label>
-                  </div>
-
                   <button
-                    type="submit"
-                    disabled={isLoading || !acceptedTerms}
+                    type="button"
+                    onClick={handleVerifyCode}
+                    disabled={isLoading}
                     className="w-full px-6 py-3 bg-[#e2bb12] text-[#03353a] rounded-lg font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? "Verifying..." : "Verify & Continue"}
@@ -459,10 +706,19 @@ export default function ContractorPhoneVerification() {
 
                   <button
                     type="button"
-                    onClick={() => router.push("/signup")}
+                    onClick={() => setStep("phone")}
                     className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     Change phone number
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSkip}
+                    disabled={isSkipping}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSkipping ? "Loading..." : "Skip for now"}
                   </button>
                 </form>
               )}

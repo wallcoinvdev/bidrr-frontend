@@ -24,6 +24,9 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
 import { containsContactInfo } from "@/lib/contact-validation"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { VerifiedBadge } from "@/components/verified-badge"
+import { notificationService } from "@/lib/notification-service" // Added import
 
 interface Stats {
   total_bids: number
@@ -66,7 +69,12 @@ interface Mission {
   viewed_by_contractor?: boolean
   homeowner_first_name?: string
   homeowner_phone?: string
+  homeowner_email?: string
+  // </CHANGE>
   homeowner_postal_code?: string
+  homeowner_profile_image?: string
+  homeowner_phone_verified?: boolean
+  // </CHANGE>
   details_requested_by_contractor?: boolean
   has_bid?: boolean
   my_bid_status?: "pending" | "considering" | "accepted" | "rejected"
@@ -82,7 +90,7 @@ export default function ContractorDashboard() {
   const [userProfile, setUserProfile] = useState<any>(null)
   const [error, setError] = useState("")
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false) // Renamed from isMissionModalOpen
   const [previewImage, setPreviewImage] = useState<string | null>(null)
 
   const [notifications, setNotifications] = useState<any[]>([])
@@ -270,32 +278,25 @@ export default function ContractorDashboard() {
     return date.toLocaleDateString()
   }
 
-  const openMissionModal = async (mission: Mission) => {
-    setSelectedMission(mission)
-    setIsModalOpen(true)
-    setDetailsRequestSent(mission.details_requested_by_contractor || false)
+  // Mapped openMissionModal function
+  const openMissionModal = (mission: any) => {
+    console.log("[v0] Opening mission modal with customer data:", {
+      homeowner_email: mission.homeowner_email,
+      homeowner_profile_image: mission.homeowner_profile_image,
+      homeowner_phone_verified: mission.homeowner_phone_verified,
+    })
+    console.log("[v0] Full mission object:", mission)
 
-    if (!mission.viewed_by_contractor) {
-      // Update local state immediately for instant UI feedback
-      setMissions((prevMissions) =>
-        prevMissions.map((m) => (m.id === mission.id ? { ...m, viewed_by_contractor: true } : m)),
-      )
-
-      // Call backend to persist the viewed status
-      try {
-        await apiClient.request(`/api/missions/${mission.id}/mark-viewed`, {
-          method: "POST",
-          requiresAuth: true,
-        })
-
-        window.dispatchEvent(new CustomEvent("notificationUpdated"))
-        // </CHANGE>
-      } catch (error) {
-        console.error("[v0] Error marking job as viewed:", error)
-        // Don't show error to user - this is a non-critical feature
-        // The local state update still provides immediate feedback
-      }
+    const mappedMission = {
+      ...mission,
+      homeowner_first_name: mission.first_name,
+      homeowner_phone: mission.phone,
+      homeowner_postal_code: mission.postal_code,
     }
+
+    setSelectedMission(mappedMission)
+    setIsModalOpen(true) // Use setIsModalOpen
+    notificationService.emit("mark-mission-viewed", mission.id)
   }
 
   const closeMissionModal = () => {
@@ -560,7 +561,7 @@ export default function ContractorDashboard() {
   if (!loading && userProfile && userProfile.role !== "contractor") {
     return (
       <DashboardLayout userRole="contractor">
-        <div className="max-w-2xl mx-auto mt-12">
+        <div className="flex items-center justify-center min-h-[60vh]">
           <div className="bg-white rounded-lg p-8 text-center shadow-sm border border-gray-200">
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-4 text-gray-900">Contractor Access Required</h2>
@@ -570,7 +571,10 @@ export default function ContractorDashboard() {
             </p>
             <button
               onClick={() => {
-                localStorage.clear()
+                localStorage.removeItem("token")
+                localStorage.removeItem("userId")
+                localStorage.removeItem("userRole")
+                // </CHANGE>
                 window.location.href = "/login"
               }}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
@@ -1035,7 +1039,7 @@ export default function ContractorDashboard() {
             }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">{selectedMission.title}</h2>
               <button
                 onClick={closeMissionModal}
@@ -1062,36 +1066,69 @@ export default function ContractorDashboard() {
               {/* </CHANGE> */}
 
               {(selectedMission.homeowner_first_name ||
-                selectedMission.homeowner_phone ||
+                selectedMission.homeowner_email ||
                 selectedMission.homeowner_postal_code) && (
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="relative bg-blue-50 rounded-lg p-4 border border-blue-200">
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">Posted By</h3>
-                  <div className="space-y-2">
+                  <div className="flex flex-col items-start gap-2">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage
+                        src={selectedMission.homeowner_profile_image || "/placeholder.svg"}
+                        alt={selectedMission.homeowner_first_name || "Customer"}
+                      />
+                      <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-base">
+                        {selectedMission.homeowner_first_name?.charAt(0).toUpperCase() || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+
                     {selectedMission.homeowner_first_name && (
-                      <p className="text-gray-700">
-                        <span className="font-medium">Name:</span> {selectedMission.homeowner_first_name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-gray-900 font-medium">{selectedMission.homeowner_first_name}</p>
+                        {selectedMission.homeowner_phone_verified && <VerifiedBadge type="phone" size="sm" />}
+                      </div>
                     )}
+
                     {selectedMission.homeowner_postal_code && (
-                      <p className="text-gray-700">
+                      <p className="text-gray-700 text-sm">
                         <span className="font-medium">Location:</span> {selectedMission.homeowner_postal_code}
                       </p>
                     )}
+
                     {selectedMission.homeowner_phone && (
-                      <p className="text-gray-700 flex items-center gap-2">
-                        <span className="font-medium">Phone:</span>
-                        <span className="font-mono">
-                          {formatPhoneWithAreaCode(selectedMission.homeowner_phone).areaCode}
-                          <span className="blur-sm select-none">
-                            {formatPhoneWithAreaCode(selectedMission.homeowner_phone).remaining}
+                      <div className="text-gray-700 text-sm">
+                        <div>
+                          <span className="font-medium">Phone:</span>{" "}
+                          <span className="font-mono">
+                            {formatPhoneWithAreaCode(selectedMission.homeowner_phone).areaCode}
+                            <span className="blur-sm select-none pointer-events-none">
+                              {formatPhoneWithAreaCode(selectedMission.homeowner_phone).remaining}
+                            </span>
                           </span>
-                        </span>
-                        <span className="text-xs text-gray-500">(full number visible after bid acceptance)</span>
-                      </p>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">(visible after bid acceptance)</div>
+                      </div>
+                    )}
+
+                    {selectedMission.homeowner_email && (
+                      <div className="text-gray-700 text-sm">
+                        <div>
+                          <span className="font-medium">Email:</span>{" "}
+                          <span className="font-mono">
+                            {selectedMission.homeowner_email.split("@")[0].slice(0, 2)}
+                            <span className="blur-sm select-none pointer-events-none">
+                              {selectedMission.homeowner_email.slice(2)}
+                            </span>
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">(visible after bid acceptance)</div>
+                      </div>
                     )}
                   </div>
+                  {/* </CHANGE> */}
                 </div>
               )}
+              {/* </CHANGE> */}
+              {/* </CHANGE> */}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -1142,7 +1179,7 @@ export default function ContractorDashboard() {
               {selectedMission.images && selectedMission.images.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Photos</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="relative grid grid-cols-2 md:grid-cols-3 gap-4">
                     {selectedMission.images.map((image, index) => (
                       <button
                         key={index}

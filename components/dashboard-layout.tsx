@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from "react"
 import { apiClient } from "@/lib/api-client"
 import { FeedbackModal } from "@/components/feedback-modal"
 import { useToast } from "@/hooks/use-toast"
+import { VerifiedBadge } from "@/components/verified-badge"
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -311,13 +312,24 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
 
               <div className="flex items-center gap-3">
                 <FeedbackModal />
-                <button
-                  onClick={handleLogout}
-                  className="hidden sm:flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span className="text-sm font-medium">Log out</span>
-                </button>
+                {user && (user.phone_verified || (userRole === "contractor" && (user as any).is_verified)) && (
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      {user.phone_verified && (
+                        <div className="flex items-center gap-1.5">
+                          <VerifiedBadge type="phone" size="sm" showTooltip={false} />
+                          <span className="text-xs text-gray-600">Phone verified</span>
+                        </div>
+                      )}
+                      {userRole === "contractor" && (user as any).is_verified && (
+                        <div className="flex items-center gap-1.5">
+                          <VerifiedBadge type="google" size="sm" showTooltip={false} />
+                          <span className="text-xs text-gray-600">Google verified</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <button
                   onClick={handleProfileClick}
                   className="w-10 h-10 rounded-full bg-[#328d87] flex items-center justify-center text-white hover:opacity-90 transition-opacity overflow-hidden"
