@@ -338,7 +338,7 @@ export default function PersonalInformation() {
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
             <div className="flex items-center justify-between h-20">
               <Link href="/" className="flex items-center">
-                <Image src="/images/logo-white.png" alt="HomeHero" width={160} height={40} className="h-10 w-auto" />
+                <Image src="/images/bidrr-white-logo.png" alt="Bidrr" width={140} height={35} className="h-8 w-auto" />
               </Link>
               <Link
                 href="/"
@@ -775,7 +775,7 @@ export default function PersonalInformation() {
                     >
                       Terms of Service
                     </button>{" "}
-                    for using HomeHero
+                    for using Bidrr
                   </label>
                 </div>
 
@@ -809,7 +809,7 @@ export default function PersonalInformation() {
                 <section>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Agreement to Terms</h3>
                   <p className="text-gray-700 leading-relaxed">
-                    Welcome to HomeHero. By accessing or using our platform, you agree to be bound by these Terms of
+                    Welcome to Bidrr. By accessing or using our platform, you agree to be bound by these Terms of
                     Service and all applicable laws and regulations. If you do not agree with any of these terms, you
                     are prohibited from using this platform.
                   </p>
@@ -818,9 +818,9 @@ export default function PersonalInformation() {
                 <section>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Platform Description</h3>
                   <p className="text-gray-700 leading-relaxed">
-                    HomeHero is an online marketplace that connects customers seeking home services with qualified
-                    service professionals (contractors). We provide the platform for these connections but are not a
-                    party to the actual service agreements between customers and contractors.
+                    Bidrr is an online marketplace that connects customers seeking home services with qualified service
+                    professionals (contractors). We provide the platform for these connections but are not a party to
+                    the actual service agreements between customers and contractors.
                   </p>
                 </section>
 
@@ -828,7 +828,7 @@ export default function PersonalInformation() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">User Accounts</h3>
                   <h4 className="text-base font-semibold text-gray-900 mb-2">Account Creation</h4>
                   <p className="text-gray-700 leading-relaxed mb-2">
-                    To use HomeHero, you must create an account and provide accurate, complete information. You are
+                    To use Bidrr, you must create an account and provide accurate, complete information. You are
                     responsible for:
                   </p>
                   <ul className="list-disc pl-6 mb-4 text-gray-700 space-y-1">
@@ -877,7 +877,7 @@ export default function PersonalInformation() {
                 <section>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Limitation of Liability</h3>
                   <p className="text-gray-700 leading-relaxed mb-2">
-                    HomeHero is a platform that facilitates connections between customers and contractors. We do not:
+                    Bidrr is a platform that facilitates connections between customers and contractors. We do not:
                   </p>
                   <ul className="list-disc pl-6 mb-4 text-gray-700 space-y-1">
                     <li>Employ or control contractors</li>
@@ -886,7 +886,7 @@ export default function PersonalInformation() {
                     <li>Assume liability for work performed by contractors</li>
                   </ul>
                   <p className="text-gray-700 leading-relaxed">
-                    To the maximum extent permitted by law, HomeHero shall not be liable for any indirect, incidental,
+                    To the maximum extent permitted by law, Bidrr shall not be liable for any indirect, incidental,
                     special, or consequential damages arising from your use of the platform.
                   </p>
                 </section>
@@ -895,8 +895,8 @@ export default function PersonalInformation() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Contact Us</h3>
                   <p className="text-gray-700 leading-relaxed mb-2">
                     If you have questions about these Terms of Service, please contact us at{" "}
-                    <a href="mailto:support@homehero.ca" className="text-[#328d87] hover:underline">
-                      support@homehero.ca
+                    <a href="mailto:support@bidrr.ca" className="text-[#328d87] hover:underline">
+                      support@bidrr.ca
                     </a>
                   </p>
                 </section>

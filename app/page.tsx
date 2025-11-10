@@ -35,13 +35,62 @@ export default function HomePage() {
   const [filteredServices, setFilteredServices] = useState<string[]>([])
   const autocompleteRef = useRef<HTMLDivElement>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [heroHeading, setHeroHeading] = useState("")
+
+  const headingVariations = [
+    {
+      id: "A",
+      text: "Get Fair Bids—Let Contractors Compete for Your Job",
+    },
+    {
+      id: "B",
+      text: "Stop Searching. Let Contractors Bid on Your Work",
+    },
+    {
+      id: "C",
+      text: "Fair Prices. Fast Bids. Contractors Compete for Your Work",
+    },
+    {
+      id: "D",
+      text: "Skip the Search—Let Contractors Compete for Your Work",
+    },
+    {
+      id: "E",
+      text: "Stop Searching for Contractors—Let Them Bid on Your Work at a Fair Price",
+    },
+  ]
+
+  useEffect(() => {
+    const storedVariation = localStorage.getItem("hero_heading_variation")
+
+    if (storedVariation) {
+      const variation = headingVariations.find((v) => v.id === storedVariation)
+      if (variation) {
+        setHeroHeading(variation.text)
+      } else {
+        assignRandomVariation()
+      }
+    } else {
+      assignRandomVariation()
+    }
+
+    function assignRandomVariation() {
+      const randomIndex = Math.floor(Math.random() * headingVariations.length)
+      const selectedVariation = headingVariations[randomIndex]
+
+      setHeroHeading(selectedVariation.text)
+      localStorage.setItem("hero_heading_variation", selectedVariation.id)
+
+      console.log("[v0] A/B Test: Assigned hero heading variation:", selectedVariation.id)
+    }
+  }, [])
 
   useEffect(() => {
     if (searchQuery.trim().length > 0) {
       const filtered = SERVICES.filter((service) => service.toLowerCase().includes(searchQuery.toLowerCase())).slice(
         0,
         8,
-      ) // Limit to 8 suggestions
+      )
       setFilteredServices(filtered)
       setShowAutocomplete(filtered.length > 0)
     } else {
@@ -97,20 +146,17 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen relative">
-      {/* Living room background image - fixed to viewport */}
       <div
         className="fixed inset-0 bg-cover bg-center z-0"
         style={{ backgroundImage: "url('/living-room-background.jpg')" }}
       />
-      {/* Green/teal overlay with transparency to show living room subtly - fixed to viewport */}
       <div className="fixed inset-0 bg-[#0d3d42]/95 z-0" />
 
       <div className="relative z-10">
-        {/* Header */}
         <header className="border-b border-[#1a4f54]">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <Link href="/" className="flex items-center">
-              <img src="/images/logo-white.png" alt="Bidrr" className="h-8" />
+              <img src="/images/bidrr-white-logo.png" alt="Bidrr" className="h-8" />
             </Link>
             <nav className="hidden md:flex items-center gap-8">
               <Link href="#services" className="text-white/90 hover:text-white transition-colors">
@@ -183,18 +229,14 @@ export default function HomePage() {
           )}
         </header>
 
-        {/* Hero Section */}
         <section className="container mx-auto px-4 py-12 md:py-20 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 md:mb-6 text-balance leading-tight">
-            Stop Hunting for Contractors
-            <br />
-            —Let Them Bid on You
+            {heroHeading || "Get Fair Bids—Let Contractors Compete for Your Job"}
           </h1>
           <p className="text-lg md:text-xl text-white/80 mb-8 md:mb-12 max-w-3xl mx-auto px-4">
             Post your home job free. Compare bids. Hire with confidence.
           </p>
 
-          {/* Search Bar with Autocomplete */}
           <form onSubmit={handleSearch} className="max-w-3xl mx-auto mb-6 md:mb-8 relative" ref={autocompleteRef}>
             <div className="flex items-center bg-white rounded-full overflow-hidden shadow-lg">
               <div className="flex items-center pl-4 sm:pl-6 pr-2">
@@ -239,7 +281,6 @@ export default function HomePage() {
           </p>
         </section>
 
-        {/* Stats Section */}
         <section className="border-t border-b border-[#1a4f54] py-8 md:py-12">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8 text-center">
@@ -259,7 +300,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Popular Services - Converted to auto-scrolling carousel */}
         <section id="services" className="py-12 md:py-16 overflow-hidden">
           <div className="container mx-auto px-4">
             <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-3 md:mb-4">Popular services</h2>
@@ -316,7 +356,6 @@ export default function HomePage() {
           `}</style>
         </section>
 
-        {/* How It Works */}
         <section id="how-it-works" className="py-12 md:py-16">
           <div className="container mx-auto px-4">
             <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-3 md:mb-4">How it works</h2>
@@ -359,7 +398,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Testimonials */}
         <section className="py-12 md:py-16">
           <div className="container mx-auto px-4">
             <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-3 md:mb-4">Trusted by thousands</h2>
@@ -420,7 +458,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CTA Section */}
         <section className="bg-[#328d87] py-12 md:py-16">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 md:mb-4 px-4">
@@ -446,7 +483,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Footer */}
         <SiteFooter />
       </div>
     </div>

@@ -66,7 +66,7 @@ interface BidWithReviews extends Record<string, any> {
   message?: string
   status?: string
   logo_url?: string
-  agent_photo_url?: string
+  agent_photo_url?: string // Added for agent photo
   years_in_business?: string
   business_address?: string
   business_city?: string
@@ -82,7 +82,12 @@ interface BidWithReviews extends Record<string, any> {
   google_reviews?: any[] // Array of Google reviews
   estimated_duration?: string
   is_verified?: boolean
-  google_places_id?: string
+  google_places_id?: string // Added for Google Places ID
+  google_verified?: boolean // Added for Google verification status
+  profile_photo?: string // Added for profile photo
+  profile_photo_url?: string // Added for profile photo URL
+  google_business_url?: string // Added for Google Business URL
+  phone_verified?: boolean // Added for phone verification status
 }
 
 function getRelativeTime(dateString: string): string {
@@ -553,122 +558,32 @@ export default function HomeownerDashboard() {
       const bidsWithReviews = await Promise.all(
         data.map(async (bid) => {
           try {
+            // Fetch reviews only (no need to fetch contractor profile anymore)
             const reviewsData = await apiClient.request<any>(`/api/contractors/${bid.contractor_id}/reviews`, {
               requiresAuth: false,
             })
 
             console.log(`[v0] Reviews for contractor ${bid.contractor_id}:`, reviewsData)
 
-            if (reviewsData.google_review_count === 0) {
-              console.log(
-                `[v0] No Google reviews in database for contractor ${bid.contractor_id}, fetching from profile`,
-              )
-
-              try {
-                const profileData = await apiClient.request<any>(`/api/contractors/${bid.contractor_id}/profile`, {
-                  requiresAuth: false,
-                })
-
-                console.log(`[v0] Contractor profile fetched:`, profileData)
-
-                // Extract Google reviews from review_sites
-                const googleSite = profileData.review_sites?.find((site: any) => site.site === "google")
-
-                if (googleSite) {
-                  const googleRating = googleSite.rating || 0
-                  const googleCount = googleSite.review_count || 0
-                  const googleReviews = googleSite.reviews || []
-
-                  console.log(`[v0] Found Google reviews in profile:`, {
-                    rating: googleRating,
-                    count: googleCount,
-                    reviews: googleReviews.length,
-                  })
-
-                  // Calculate combined average rating
-                  const homeheroRating = reviewsData.homehero_rating || 0
-                  const homeheroCount = reviewsData.homehero_review_count || 0
-                  const totalCount = homeheroCount + googleCount
-                  const averageRating =
-                    totalCount > 0 ? (homeheroRating * homeheroCount + googleRating * googleCount) / totalCount : 0
-
-                  return {
-                    ...bid,
-                    average_rating: averageRating,
-                    total_rating: averageRating,
-                    homehero_rating: homeheroRating,
-                    homehero_review_count: homeheroCount,
-                    google_rating: googleRating,
-                    google_review_count: googleCount,
-                    google_reviews: googleReviews,
-                  }
-                }
-              } catch (profileError) {
-                console.error(`[v0] Failed to fetch contractor profile for fallback:`, profileError)
-              }
-            }
-
-            // Return with database reviews only (no Google reviews found)
+            // All needed fields now come from the bid data itself
             return {
               ...bid,
-              average_rating: reviewsData.average_rating || 0,
-              total_rating: reviewsData.average_rating || 0,
-              homehero_rating: reviewsData.homehero_rating || 0,
-              homehero_review_count: reviewsData.homehero_review_count || 0,
-              google_rating: reviewsData.google_rating || 0,
-              google_review_count: reviewsData.google_review_count || 0,
+              ...reviewsData,
+              // Backend now provides these fields directly
+              phone_verified: bid.phone_verified,
+              google_verified: bid.is_google_verified,
+              agent_photo_url: bid.agent_photo_url || bid.profile_photo_url,
             }
-          } catch (error: any) {
-            console.error(`[v0] Failed to fetch reviews for contractor ${bid.contractor_id}:`, error.message)
-
-            try {
-              console.log(`[v0] Attempting to fetch contractor profile as fallback for contractor ${bid.contractor_id}`)
-
-              const profileData = await apiClient.request<any>(`/api/contractors/${bid.contractor_id}/profile`, {
-                requiresAuth: false,
-              })
-
-              console.log(`[v0] Contractor profile fetched (fallback):`, profileData)
-
-              // Extract Google reviews from review_sites
-              const googleSite = profileData.review_sites?.find((site: any) => site.site === "google")
-
-              if (googleSite) {
-                const googleRating = googleSite.rating || 0
-                const googleCount = googleSite.review_count || 0
-                const googleReviews = googleSite.reviews || []
-
-                console.log(`[v0] Found Google reviews in profile (fallback):`, {
-                  rating: googleRating,
-                  count: googleCount,
-                  reviews: googleReviews.length,
-                })
-
-                return {
-                  ...bid,
-                  average_rating: googleRating,
-                  total_rating: googleRating,
-                  homehero_rating: 0,
-                  homehero_review_count: 0,
-                  google_rating: googleRating,
-                  google_review_count: googleCount,
-                  google_reviews: googleReviews,
-                }
-              }
-            } catch (profileError) {
-              console.error(`[v0] Failed to fetch contractor profile (fallback):`, profileError)
-            }
-
-            // Return bid without review data if both fetches fail
+          } catch (error) {
+            console.error(`[v0] Error processing bid ${bid.id}:`, error)
             return {
               ...bid,
               average_rating: 0,
-              total_rating: 0,
               homehero_rating: 0,
-              homehero_review_count: 0,
               google_rating: 0,
-              google_review_count: 0,
-              google_reviews: [],
+              phone_verified: bid.phone_verified,
+              google_verified: bid.is_google_verified,
+              agent_photo_url: bid.agent_photo_url || bid.profile_photo_url,
             }
           }
         }),
@@ -2124,7 +2039,7 @@ export default function HomeownerDashboard() {
 
               <button
                 onClick={handlePostJob}
-                className="w-full bg-[#328d87] text-white py-3 rounded-lg hover:bg-[#2a7a75] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#328d87] text-white py-3 rounded-lg hover:bg-[#2a7570] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={
                   uploading ||
                   !postJobForm.title ||
@@ -2499,7 +2414,7 @@ export default function HomeownerDashboard() {
                     const isConsidering = bidStatus === "considering"
 
                     const hasLogo = bid.logo_url && bid.logo_url.trim() !== ""
-                    const hasAgentPhoto = bid.agent_photo_url && bid.agent_photo_url.trim() !== ""
+                    // const hasAgentPhoto = bid.agent_photo_url && bid.agent_photo_url.trim() !== "" // Removed check as per update
                     const hasYearsInBusiness = bid.years_in_business && Number(bid.years_in_business) > 0
                     const hasBusinessAddress = bid.business_address || bid.business_city
 
@@ -2543,8 +2458,6 @@ export default function HomeownerDashboard() {
                                 <h3 className="text-base md:text-xl font-bold text-gray-900">
                                   {bid.company_name || bid.contractor_name || "Contractor"}
                                 </h3>
-                                {(bid.is_verified || bid.google_places_id) && <VerifiedBadge type="google" size="md" />}
-                                <VerifiedBadge type="phone" size="md" />
                               </div>
                               <div className="flex items-center gap-2">
                                 {isAccepted && (
@@ -2638,46 +2551,43 @@ export default function HomeownerDashboard() {
                         </div>
 
                         {/* Agent Photo and Name Above Message */}
-                        <div className="mb-4">
-                          <div className="flex items-center gap-3 mb-3">
-                            {hasAgentPhoto ? (
-                              <img
-                                src={bid.agent_photo_url || "/placeholder.svg"}
-                                alt={bid.contractor_name || "Agent"}
-                                className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
-                              />
-                            ) : (
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#328d87] to-[#2a7570] flex items-center justify-center border-2 border-gray-300">
-                                <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold text-gray-900">{bid.contractor_name || "Agent"}</p>
-                              <p className="text-xs text-gray-500">
-                                {bid.created_at &&
-                                  new Date(bid.created_at).toLocaleDateString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    year: "numeric",
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                  })}
-                              </p>
-                            </div>
-                          </div>
-
-                          {bid.message && (
-                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 md:ml-15">
-                              <p className="text-gray-700 whitespace-pre-wrap text-left">{bid.message}</p>
+                        <div className="flex flex-col items-start gap-3 mb-6 pb-6 border-b border-gray-200">
+                          {bid.agent_photo_url || bid.profile_photo_url || bid.profile_photo ? (
+                            <img
+                              src={
+                                bid.agent_photo_url ||
+                                bid.profile_photo_url ||
+                                bid.profile_photo ||
+                                "/placeholder.svg" ||
+                                "/placeholder.svg"
+                              }
+                              alt={bid.contractor_name || "Agent"}
+                              className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#328d87] to-[#2a7570] flex items-center justify-center border-2 border-gray-300">
+                              <svg className="h-8 w-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
                             </div>
                           )}
+                          <h3 className="font-semibold text-gray-900 text-base">
+                            {bid.contractor_name || "Contractor"}
+                          </h3>
+                          {bid.phone_verified && <VerifiedBadge type="phone" size="sm" showText={true} />}
+                          {bid.is_google_verified && <VerifiedBadge type="google" size="sm" showText={true} />}
+                          <p className="text-sm text-gray-500">{getRelativeTime(bid.created_at || "")}</p>
                         </div>
+
+                        {bid.message && (
+                          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 md:ml-15">
+                            <p className="text-gray-700 whitespace-pre-wrap text-left">{bid.message}</p>
+                          </div>
+                        )}
 
                         {/* Additional Details */}
                         {bid.estimated_duration && (

@@ -106,11 +106,18 @@ export default function ReviewsPage() {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
+        console.log("[v0] ===== FETCHING REVIEWS =====")
+
         const profile = await apiClient.request<any>("/api/users/profile", {
           requiresAuth: true,
         })
 
-        console.log("[v0] Profile data:", profile)
+        console.log("[v0] Profile data:", {
+          id: profile.id,
+          google_places_id: profile.google_places_id,
+          google_rating: profile.google_rating,
+          google_review_count: profile.google_review_count,
+        })
 
         if (profile.google_places_id) {
           setGooglePlaceId(profile.google_places_id)
@@ -119,11 +126,19 @@ export default function ReviewsPage() {
         const contractorIdValue = profile.id
         setContractorId(contractorIdValue)
 
+        console.log("[v0] Fetching reviews for contractor ID:", contractorIdValue)
+
         const allReviewsData = await apiClient.request<any>(`/api/contractors/${contractorIdValue}/reviews`, {
           requiresAuth: true,
         })
 
-        console.log("[v0] All reviews data from backend:", allReviewsData)
+        console.log("[v0] All reviews response:", {
+          totalReviews: allReviewsData.reviews.length,
+          googleReviews: allReviewsData.reviews.filter((r: any) => r.source === "google").length,
+          bidrrReviews: allReviewsData.reviews.filter((r: any) => r.source === "bidrr").length,
+          google_rating: allReviewsData.google_rating,
+          google_review_count: allReviewsData.google_review_count,
+        })
 
         const bidrrReviewsList = allReviewsData.reviews.filter((r: any) => r.source === "bidrr") || []
         setBidrrReviews(bidrrReviewsList)
@@ -131,8 +146,8 @@ export default function ReviewsPage() {
         const googleReviewsList = allReviewsData.reviews.filter((r: any) => r.source === "google") || []
         setGoogleReviews(googleReviewsList)
 
-        console.log("[v0] Google reviews from database:", googleReviewsList)
-        console.log("[v0] Bidrr reviews from database:", bidrrReviewsList)
+        console.log("[v0] Google reviews set in state:", googleReviewsList.length)
+        console.log("[v0] First Google review:", googleReviewsList[0])
 
         // Calculate averages
         const bidrrCount = bidrrReviewsList.length
@@ -140,7 +155,7 @@ export default function ReviewsPage() {
           bidrrCount > 0 ? bidrrReviewsList.reduce((sum: number, r: any) => sum + r.rating, 0) / bidrrCount : 0
 
         const googleAvg = Number.parseFloat(allReviewsData.google_rating) || 0
-        const googleCount = googleReviewsList.length || Number.parseInt(allReviewsData.google_review_count) || 0
+        const googleCount = Number.parseInt(allReviewsData.google_review_count) || 0
 
         let totalAvg = 0
         if (googleAvg > 0 && bidrrAvg > 0) {

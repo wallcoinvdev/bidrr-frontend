@@ -19,6 +19,7 @@ import {
   Mail,
   SettingsIcon,
   FileCheck,
+  DollarSign,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
@@ -47,7 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     fetchUnreadCounts()
-    const interval = setInterval(fetchUnreadCounts, 30000)
+    const interval = setInterval(fetchUnreadCounts, 60000)
     return () => clearInterval(interval)
   }, [])
 
@@ -82,6 +83,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     } else if (pathname === "/dashboard/admin/audit") {
       setLastVisit("audit")
       setUnreadCounts((prev) => ({ ...prev, auditLogs: 0 }))
+    } else if (pathname === "/dashboard/admin/billing") {
+      setLastVisit("billing")
+      // Assuming there's no badge for billing
     }
   }
 
@@ -144,13 +148,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         auditLogs: newAuditLogs,
       })
     } catch (error) {
-      console.error("[v0] Error fetching unread counts:", error)
+      console.error("Error fetching admin counts:", error)
     }
   }
 
   const adminNav = [
     { href: "/dashboard/admin", label: "Overview", icon: Home },
     { href: "/dashboard/admin/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/dashboard/admin/billing", label: "Billing", icon: DollarSign }, // Added Billing nav item
     { href: "/dashboard/admin/users", label: "Users", icon: Users, badge: unreadCounts.users },
     { href: "/dashboard/admin/jobs", label: "Jobs", icon: Briefcase, badge: unreadCounts.jobs },
     { href: "/dashboard/admin/feedback", label: "Feedback", icon: MessageCircle, badge: unreadCounts.feedback },

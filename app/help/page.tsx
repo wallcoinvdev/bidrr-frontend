@@ -4,10 +4,15 @@ import Link from "next/link"
 import { ChevronDown, ArrowLeft } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
 export default function HelpPage() {
   const { user } = useAuth()
   const router = useRouter()
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
 
   const handleBackToDashboard = () => {
     if (user?.role === "admin") {
@@ -27,7 +32,7 @@ export default function HelpPage() {
       <header className="border-b border-gray-200 bg-white">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center">
-            <img src="/images/logo-dark-teal.png" alt="Bidrr" className="h-8" />
+            <img src="/images/bidrr-dark-teal-logo.png" alt="Bidrr" className="h-8" />
           </Link>
           <nav className="flex items-center gap-6">
             {user ? (
@@ -361,7 +366,7 @@ export default function HelpPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <Link href="/" className="flex items-center">
-              <img src="/images/logo-white.png" alt="Bidrr" className="h-8" />
+              <img src="/images/bidrr-white-logo.png" alt="Bidrr" className="h-8" />
             </Link>
             <nav className="flex items-center gap-8">
               <Link href="/privacy" className="text-white/70 hover:text-white transition-colors">

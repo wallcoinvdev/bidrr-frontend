@@ -18,6 +18,7 @@ interface Conversation {
   last_message_at?: string
   unread_count: number
   can_send: boolean // Added backend can_send flag
+  bid_status?: "pending" | "considering" | "accepted" | "rejected" // Added bid status
 }
 
 interface Message {
@@ -154,7 +155,8 @@ export default function MessagesPage() {
 
     setErrorMessage(null) // Clear any previous error messages
 
-    if (!canSendMessage) {
+    const isBidAccepted = selectedConversation.bid_status === "accepted"
+    if (!canSendMessage && !isBidAccepted) {
       const message =
         "You have already responded to the customer's last message. Please wait for them to reply before sending another message."
       setErrorMessage(message)
@@ -362,7 +364,7 @@ export default function MessagesPage() {
                 <p className="text-sm text-red-900">{errorMessage}</p>
               </div>
             )}
-            {!canSendMessage && (
+            {!canSendMessage && selectedConversation.bid_status !== "accepted" && (
               <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-900">
                   You have already responded to the customer's last message. Please wait for them to reply before
@@ -384,13 +386,19 @@ export default function MessagesPage() {
                     handleSendMessage()
                   }
                 }}
-                placeholder={canSendMessage ? "Type your message..." : "Wait for customer to reply before responding"}
+                placeholder={
+                  canSendMessage || selectedConversation.bid_status === "accepted"
+                    ? "Type your message..."
+                    : "Wait for customer to reply before responding"
+                }
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                disabled={sending || !canSendMessage}
+                disabled={sending || (!canSendMessage && selectedConversation.bid_status !== "accepted")}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!messageText.trim() || sending || !canSendMessage}
+                disabled={
+                  !messageText.trim() || sending || (!canSendMessage && selectedConversation.bid_status !== "accepted")
+                }
                 className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity flex-shrink-0"
               >
                 <Send className="h-5 w-5" />
@@ -401,7 +409,7 @@ export default function MessagesPage() {
           <div className="p-4 border-t border-gray-200 bg-blue-50">
             <p className="text-xs text-gray-700">
               <strong>Note:</strong> You can send an initial message with a bid. After that, you can only respond once
-              to customer messages to prevent spam.
+              to customer messages to prevent spam. Once your bid is accepted, you can message freely.
             </p>
           </div>
         </div>
@@ -455,7 +463,7 @@ export default function MessagesPage() {
           <div className="p-4 border-t border-gray-200 bg-blue-50">
             <p className="text-xs text-gray-700">
               <strong>Note:</strong> You can send an initial message with a bid. After that, you can only respond once
-              to customer messages to prevent spam.
+              to customer messages to prevent spam. Once your bid is accepted, you can message freely.
             </p>
           </div>
         </div>
@@ -568,7 +576,7 @@ export default function MessagesPage() {
               <div className="p-4 bg-blue-50 border-t border-blue-100">
                 <p className="text-xs text-blue-900 leading-relaxed">
                   <strong>Note:</strong> You can send an initial message with a bid. After that, you can only respond
-                  once to customer messages to prevent spam.
+                  once to customer messages to prevent spam. Once your bid is accepted, you can message freely.
                 </p>
               </div>
             </div>
@@ -644,7 +652,7 @@ export default function MessagesPage() {
                         <p className="text-sm text-red-900">{errorMessage}</p>
                       </div>
                     )}
-                    {!canSendMessage && (
+                    {!canSendMessage && selectedConversation.bid_status !== "accepted" && (
                       <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                         <p className="text-sm text-amber-900">
                           You have already responded to the customer's last message. Please wait for them to reply
@@ -667,10 +675,12 @@ export default function MessagesPage() {
                           }
                         }}
                         placeholder={
-                          canSendMessage ? "Type your message..." : "Wait for customer to reply before responding"
+                          canSendMessage || selectedConversation.bid_status === "accepted"
+                            ? "Type your message..."
+                            : "Wait for customer to reply before responding"
                         }
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        disabled={sending || !canSendMessage}
+                        disabled={sending || (!canSendMessage && selectedConversation.bid_status !== "accepted")}
                       />
                       <button
                         onClick={() => {
@@ -678,7 +688,11 @@ export default function MessagesPage() {
                             console.error("[v0] Unhandled error in handleSendMessage:", err)
                           })
                         }}
-                        disabled={!messageText.trim() || sending || !canSendMessage}
+                        disabled={
+                          !messageText.trim() ||
+                          sending ||
+                          (!canSendMessage && selectedConversation.bid_status !== "accepted")
+                        }
                         className="px-6 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                       >
                         <Send className="h-4 w-4" />

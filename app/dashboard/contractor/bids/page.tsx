@@ -26,6 +26,7 @@ interface Bid {
   house_size?: string
   stories?: number
   accepted_bid_amount?: number
+  homeowner_email?: string
 }
 
 interface Mission {
@@ -66,7 +67,6 @@ export default function MyBidsPage() {
       setLoading(true)
       setError("")
       const data = await apiClient.request<Bid[]>("/api/contractor/recent-bids", { requiresAuth: true })
-      console.log("[v0] My Bids data fetched:", data)
       setBids(data)
     } catch (error: any) {
       console.error("[v0] Error fetching bids:", error)
@@ -114,7 +114,6 @@ export default function MyBidsPage() {
     setMissionError("")
     try {
       const mission = await apiClient.request<Mission>(`/api/missions/${missionId}`, { requiresAuth: true })
-      console.log("[v0] Full mission data fetched:", mission)
       setSelectedMission(mission)
       setSelectedBid(null) // Close bid modal
     } catch (error: any) {
@@ -318,30 +317,45 @@ export default function MyBidsPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Bid Amount</h3>
-                  <p className="text-2xl font-bold text-gray-900">${selectedBid.quote?.toLocaleString() || "0"}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Submitted Date</h3>
-                  <p className="text-gray-900">{formatDate(selectedBid.created_at)}</p>
-                </div>
-              </div>
-
-              {selectedBid.homeowner_phone && (
+              {(selectedBid.homeowner_phone || selectedBid.homeowner_email) && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Contact Information</h3>
-                  <div className="flex items-center gap-2">
-                    <p className="text-gray-900 font-mono">
-                      {selectedBid.status === "accepted"
-                        ? selectedBid.homeowner_phone
-                        : blurPhone(selectedBid.homeowner_phone)}
-                    </p>
-                    {selectedBid.status !== "accepted" && (
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                        Available when bid is accepted
-                      </span>
+                  <div className="space-y-3">
+                    {selectedBid.homeowner_phone && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Phone:</p>
+                        {selectedBid.status === "accepted" ? (
+                          <p className="text-gray-900 font-mono">{selectedBid.homeowner_phone}</p>
+                        ) : (
+                          <div>
+                            <p className="text-gray-900 font-mono">
+                              +{selectedBid.homeowner_phone.replace(/\D/g, "").slice(0, 1)} (
+                              {selectedBid.homeowner_phone.replace(/\D/g, "").slice(1, 4)})
+                              <span className="blur-sm select-none">
+                                {" "}
+                                {selectedBid.homeowner_phone.replace(/\D/g, "").slice(4)}
+                              </span>
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">(visible after bid acceptance)</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {selectedBid.homeowner_email && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Email:</p>
+                        {selectedBid.status === "accepted" ? (
+                          <p className="text-gray-900 font-mono">{selectedBid.homeowner_email}</p>
+                        ) : (
+                          <div>
+                            <p className="text-gray-900 font-mono">
+                              {selectedBid.homeowner_email.slice(0, 2)}
+                              <span className="blur-sm select-none">{selectedBid.homeowner_email.slice(2)}</span>
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">(visible after bid acceptance)</p>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

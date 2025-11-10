@@ -43,7 +43,7 @@ export default function ProfilePage() {
         const data = await apiClient.request<any>("/api/users/profile", { requiresAuth: true })
         console.log("[v0] Profile data from backend:", data)
         setProfile(data)
-        setFullName(data.name || "")
+        setFullName(data.full_name || "")
         setEmail(data.email || "")
         setAddress(data.address || "")
         setCity(data.city || "")
@@ -224,7 +224,7 @@ export default function ProfilePage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          name: fullName,
+          full_name: fullName,
           email,
           address,
           city,
@@ -301,7 +301,7 @@ export default function ProfilePage() {
                 </button>
               ) : (
                 <div className="w-24 h-24 rounded-full bg-[#328d87] flex items-center justify-center text-white text-3xl font-bold">
-                  {profile?.name?.charAt(0) || "U"}
+                  {profile?.full_name?.charAt(0) || "U"}
                 </div>
               )}
               <button

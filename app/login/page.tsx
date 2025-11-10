@@ -89,78 +89,34 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const requestBody = { email, password, remember_me: rememberMe }
-      console.log("[v0] Making login request to:", "https://api.bidrr.ca/api/users/login")
-      console.log("[v0] Request body (password hidden):", { ...requestBody, password: "[HIDDEN]" })
+      const result = await login(email, password, rememberMe)
 
-      const loginStartTime = Date.now()
-      const response = await fetch("https://api.bidrr.ca/api/users/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      })
-
-      const loginEndTime = Date.now()
-      console.log("[v0] Login API call took:", loginEndTime - loginStartTime, "ms")
-      console.log("[v0] Login response status:", response.status, response.statusText)
-      console.log("[v0] Login response ok:", response.ok)
-
-      const data = await response.json()
-      console.log("[v0] Login response data:", JSON.stringify(data, null, 2))
-
-      if (!response.ok) {
-        console.log("[v0] ❌ LOGIN FAILED")
-        console.log("[v0] Error from backend:", data.error)
-
-        if (accountCreatedAt && accountEmail === email && response.status === 429) {
-          console.log("[v0] ⚠️ RATE LIMIT: Recently created account is rate-limited")
-          console.log("[v0] This is NOT account deletion - just rate limiting from previous attempts")
-        } else if (accountCreatedAt && accountEmail === email) {
-          console.log("[v0] 🚨 CRITICAL: Account was just created but login failed!")
-          console.log("[v0] This suggests the account was deleted or credentials are wrong")
-          console.log("[v0] Backend should check if user exists in database")
-        }
-
-        throw new Error(data.error || "Invalid email or password")
-      }
-
-      console.log("[v0] ✅ LOGIN SUCCESSFUL")
-      console.log("[v0] User ID from login:", data.user?.id)
-      console.log("[v0] User role:", data.user?.role)
-      console.log("[v0] Token received:", data.token ? "YES" : "NO")
-
-      // Check if 2FA is required (admin users)
-      if (data.requires_2fa) {
+      if ("requires_2fa" in result && result.requires_2fa) {
         console.log("[v0] 2FA required, showing 2FA form")
-        setTempToken(data.temp_token)
-        setPhoneNumber(data.phone_number)
+        setTempToken(result.temp_token)
+        setPhoneNumber(result.phone_number)
         setShow2FA(true)
         setLoading(false)
         return
       }
 
-      // Non-admin login - store token and user data
-      console.log("[v0] Storing authentication data in localStorage")
-      localStorage.setItem("token", data.token)
-      if (data.refresh_token) {
-        localStorage.setItem("refresh_token", data.refresh_token)
-      }
-      localStorage.setItem("user", JSON.stringify(data.user))
-      console.log("[v0] ✅ Token and user data stored")
+      const userData = result as any
 
-      // Update AuthContext
-      setUser(data.user)
+      console.log("[v0] ✅ LOGIN SUCCESSFUL")
+      console.log("[v0] User ID from login:", userData?.id)
+      console.log("[v0] User role:", userData?.role)
+      console.log("[v0] Is admin:", userData?.is_admin)
 
-      const targetDashboard = data.user.is_admin
+      const targetDashboard = userData.is_admin
         ? "/dashboard/admin"
-        : data.user.role === "homeowner"
+        : userData.role === "homeowner"
           ? "/dashboard/homeowner"
           : "/dashboard/contractor"
 
       console.log("[v0] ========== LOGIN ATTEMPT TRACKING END ==========")
       console.log("[v0] SUMMARY:")
       console.log("[v0] - Login successful: YES")
-      console.log("[v0] - User ID:", data.user?.id)
+      console.log("[v0] - User ID:", userData?.id)
       console.log("[v0] - Email:", email)
       console.log("[v0] - Redirecting to:", targetDashboard)
       console.log("[v0] ===================================================")
@@ -190,7 +146,6 @@ export default function LoginPage() {
       let errorMessage = err.message || "Invalid email or password. Please try again."
 
       if (errorMessage.includes("Account locked") || errorMessage.includes("Try again in")) {
-        // Extract the time from the error message
         const timeMatch = errorMessage.match(/(\d+)\s+minute/)
         const minutes = timeMatch ? timeMatch[1] : "a few"
 
@@ -281,13 +236,7 @@ export default function LoginPage() {
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
             <div className="flex items-center justify-between h-20">
               <Link href="/" className="flex items-center">
-                <Image
-                  src="/images/logo-white.png"
-                  alt="HomeHero"
-                  width={160}
-                  height={40}
-                  className="h-8 md:h-10 w-auto"
-                />
+                <Image src="/images/bidrr-white-logo.png" alt="Bidrr" width={140} height={35} className="h-8 w-auto" />
               </Link>
               <Link
                 href="/"

@@ -56,6 +56,7 @@ export default function ContractorProfilePage() {
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [phoneVerified, setPhoneVerified] = useState(false) // Added state for phone verification status
+  const [googleVerified, setGoogleVerified] = useState(false)
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
   const [region, setRegion] = useState("")
@@ -84,6 +85,7 @@ export default function ContractorProfilePage() {
           requiresAuth: true,
         })
 
+        console.log("[v0] Profile data received:", profile)
         console.log("[v0] Profile data received:", profile)
         console.log("[v0] Full name from backend:", profile.full_name)
         console.log("[v0] Name from backend:", profile.name)
@@ -125,6 +127,10 @@ export default function ContractorProfilePage() {
 
         setGoogleBusinessUrl(profile.google_business_url || "")
         console.log("[v0] Google Business URL loaded:", profile.google_business_url)
+
+        const isGoogleVerified = !!(profile.google_business_url && profile.google_business_url.trim() !== "")
+        setGoogleVerified(isGoogleVerified)
+        console.log("[v0] Google verified status:", isGoogleVerified)
       } catch (err) {
         console.error("[v0] Error fetching profile:", err)
       }
@@ -167,7 +173,7 @@ export default function ContractorProfilePage() {
 
       const profileResponse = await apiClient.request("/api/users/profile", {
         method: "PUT",
-        body: JSON.stringify({
+        body: JSON.JSON.stringify({
           google_business_url: googleBusinessUrl,
         }),
         requiresAuth: true,
@@ -181,6 +187,7 @@ export default function ContractorProfilePage() {
         description: "Google Business connected and reviews synced!",
       })
       setSuccess("Google Business connected successfully! Your reviews will appear shortly.")
+      setGoogleVerified(true)
     } catch (err) {
       console.error("[v0] Google Business connection error:", err)
 
@@ -451,7 +458,7 @@ export default function ContractorProfilePage() {
 
   const handleSendCode = async () => {
     setIsSendingCode(true)
-    setVerificationError(null) // Changed from setPhoneError to setVerificationError to match state name
+    setVerificationError(null)
     setVerificationSuccess(null)
 
     const fullPhoneNumber = `${phoneCountryCode}${phoneNumber}`
@@ -463,7 +470,7 @@ export default function ContractorProfilePage() {
     console.log("[v0] Role:", "contractor")
 
     if (phoneNumber.length < 10) {
-      setVerificationError("Please enter a valid phone number") // Changed from setPhoneError to setVerificationError
+      setVerificationError("Please enter a valid phone number")
       setIsSendingCode(false)
       return
     }
@@ -473,26 +480,37 @@ export default function ContractorProfilePage() {
         method: "POST",
         body: JSON.stringify({
           phone_number: fullPhoneNumber,
-          role: "contractor", // Add role to help backend distinguish between new signups and profile updates
+          role: "contractor",
+          user_id: user?.id, // Pass user ID so backend can exclude current user from duplicate check
         }),
         requiresAuth: true,
       })
 
       console.log("[v0] Verification code sent successfully:", response)
       setIsCodeSent(true)
-      setVerificationSuccess("Verification code sent! Check your phone.") // Changed from setPhoneSuccess to setVerificationSuccess
+      setVerificationSuccess("Verification code sent! Check your phone.")
     } catch (err: any) {
       console.error("[v0] Error sending verification code:", err)
       const errorMessage = err.message || "Failed to send verification code"
 
-      if (errorMessage.toLowerCase().includes("already registered")) {
-        setVerificationError("This phone number is already in use. If this is your number, try logging in again.") // Changed from setPhoneError to setVerificationError
+      if (
+        errorMessage.toLowerCase().includes("already registered") ||
+        errorMessage.toLowerCase().includes("already in use")
+      ) {
+        setVerificationError(
+          "Backend configuration error: The server needs to be updated to allow users to verify their own phone numbers. Please contact your administrator to update the /api/users/request-verification endpoint to exclude the authenticated user from the duplicate phone check.",
+        )
+        toast({
+          title: "Backend Update Required",
+          description: "The server needs a configuration update. See error message for details.",
+          variant: "destructive",
+        })
       } else if (errorMessage.toLowerCase().includes("invalid") && errorMessage.toLowerCase().includes("phone")) {
         setVerificationError(
           "This phone number cannot receive verification codes. Please use a different number or contact support.",
-        ) // Changed from setPhoneError to setVerificationError
+        )
       } else {
-        setVerificationError(errorMessage) // Changed from setPhoneError to setVerificationError
+        setVerificationError(errorMessage)
       }
 
       toast({
@@ -705,146 +723,421 @@ export default function ContractorProfilePage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Profile Photos */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-              <Camera className="h-5 w-5 text-[#328d87]" />
-              Profile Photos
-            </h2>
+        {/* Combined Profile Information Section */}
+        <form onSubmit={handleSubmit}>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-8">
+            {/* Profile Photos */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <Camera className="h-5 w-5 text-[#328d87]" />
+                Profile Photos
+              </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Company Logo</label>
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => logoUrl && openImagePreview(logoUrl, "Company Logo")}
-                    disabled={!logoUrl}
-                    className="w-24 h-24 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#328d87] transition-all disabled:hover:ring-0 disabled:cursor-default"
-                  >
-                    {logoUrl ? (
-                      <img
-                        src={logoUrl || "/placeholder.svg"}
-                        alt="Company logo"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none"
-                          const parent = e.currentTarget.parentElement
-                          if (parent) {
-                            parent.innerHTML =
-                              '<svg class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>'
-                          }
-                        }}
-                      />
-                    ) : (
-                      <Building2 className="h-10 w-10 text-gray-400" />
-                    )}
-                  </button>
-                  <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Company Logo</label>
+                  <div className="flex items-center gap-4">
                     <button
                       type="button"
-                      onClick={() => logoInputRef.current?.click()}
-                      disabled={isUploadingLogo}
-                      className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                      onClick={() => logoUrl && openImagePreview(logoUrl, "Company Logo")}
+                      disabled={!logoUrl}
+                      className="w-24 h-24 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#328d87] transition-all disabled:hover:ring-0 disabled:cursor-default"
                     >
-                      <Upload className="h-4 w-4" />
-                      {isUploadingLogo ? "Uploading..." : "Upload Logo"}
+                      {logoUrl ? (
+                        <img
+                          src={logoUrl || "/placeholder.svg"}
+                          alt="Company logo"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none"
+                            const parent = e.currentTarget.parentElement
+                            if (parent) {
+                              parent.innerHTML =
+                                '<svg class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>'
+                            }
+                          }}
+                        />
+                      ) : (
+                        <Building2 className="h-10 w-10 text-gray-400" />
+                      )}
                     </button>
-                    {logoUrl && (
+                    <div className="flex flex-col gap-2">
                       <button
                         type="button"
-                        onClick={handleLogoDelete}
+                        onClick={() => logoInputRef.current?.click()}
                         disabled={isUploadingLogo}
-                        className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
                       >
-                        <Trash2 className="h-4 w-4" />
-                        Remove
+                        <Upload className="h-4 w-4" />
+                        {isUploadingLogo ? "Uploading..." : "Upload"}
                       </button>
-                    )}
-                    <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Recommended: 800x800px, PNG or JPG. Max 5MB. {logoUrl && "Click to preview."}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Agent Photo</label>
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => agentPhotoUrl && openImagePreview(agentPhotoUrl, "Agent Photo")}
-                    disabled={!agentPhotoUrl}
-                    className="w-24 h-24 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#328d87] transition-all disabled:hover:ring-0 disabled:cursor-default"
-                  >
-                    {agentPhotoUrl ? (
-                      <img
-                        src={agentPhotoUrl || "/placeholder.svg"}
-                        alt="Agent photo"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none"
-                          const parent = e.currentTarget.parentElement
-                          if (parent) {
-                            parent.innerHTML =
-                              '<svg class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>'
-                          }
-                        }}
+                      {logoUrl && (
+                        <button
+                          type="button"
+                          onClick={handleLogoDelete}
+                          disabled={isUploadingLogo}
+                          className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </button>
+                      )}
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleLogoUpload}
+                        className="hidden"
                       />
-                    ) : (
-                      <User className="h-10 w-10 text-gray-400" />
-                    )}
-                  </button>
-                  <div className="flex flex-col gap-2">
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Recommended: 800x800px, PNG or JPG. Max 5MB. {logoUrl && "Click to preview."}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Agent Photo</label>
+                  <div className="flex items-center gap-4">
                     <button
                       type="button"
-                      onClick={() => agentPhotoInputRef.current?.click()}
-                      disabled={isUploadingAgentPhoto}
-                      className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                      onClick={() => agentPhotoUrl && openImagePreview(agentPhotoUrl, "Agent Photo")}
+                      disabled={!agentPhotoUrl}
+                      className="w-24 h-24 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#328d87] transition-all disabled:hover:ring-0 disabled:cursor-default"
                     >
-                      <Upload className="h-4 w-4" />
-                      {isUploadingAgentPhoto ? "Uploading..." : "Upload Photo"}
+                      {agentPhotoUrl ? (
+                        <img
+                          src={agentPhotoUrl || "/placeholder.svg"}
+                          alt="Agent photo"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none"
+                            const parent = e.currentTarget.parentElement
+                            if (parent) {
+                              parent.innerHTML =
+                                '<svg class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>'
+                            }
+                          }}
+                        />
+                      ) : (
+                        <User className="h-10 w-10 text-gray-400" />
+                      )}
                     </button>
-                    {agentPhotoUrl && (
+                    <div className="flex flex-col gap-2">
                       <button
                         type="button"
-                        onClick={handleAgentPhotoDelete}
+                        onClick={() => agentPhotoInputRef.current?.click()}
                         disabled={isUploadingAgentPhoto}
-                        className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
                       >
-                        <Trash2 className="h-4 w-4" />
-                        Remove
+                        <Upload className="h-4 w-4" />
+                        {isUploadingAgentPhoto ? "Uploading..." : "Upload"}
                       </button>
-                    )}
-                    <input
-                      ref={agentPhotoInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={handleAgentPhotoUpload}
-                      className="hidden"
-                    />
+                      {agentPhotoUrl && (
+                        <button
+                          type="button"
+                          onClick={handleAgentPhotoDelete}
+                          disabled={isUploadingAgentPhoto}
+                          className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </button>
+                      )}
+                      <input
+                        ref={agentPhotoInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleAgentPhotoUpload}
+                        className="hidden"
+                      />
+                    </div>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Recommended: 400x400px. Max 5MB. {agentPhotoUrl && "Click to preview."}
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Recommended: 400x400px. Max 5MB. {agentPhotoUrl && "Click to preview."}
-                </p>
               </div>
             </div>
-          </div>
 
+            {/* Personal Information */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <User className="h-5 w-5 text-[#328d87]" />
+                Personal Information
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    id="fullName"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      type="email"
+                      id="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      type="tel"
+                      id="phone"
+                      value={phone}
+                      disabled
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Phone number cannot be changed</p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    id="address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    id="city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-2">
+                    Province/State
+                  </label>
+                  <input
+                    type="text"
+                    id="region"
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    id="country"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    id="postalCode"
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Business Information */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-[#328d87]" />
+                Business Information
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    id="companyName"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="companySize" className="block text-sm font-medium text-gray-700 mb-2">
+                    Company Size
+                  </label>
+                  <select
+                    id="companySize"
+                    value={companySize}
+                    onChange={(e) => setCompanySize(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none bg-white"
+                    required
+                  >
+                    <option value="1">1</option>
+                    <option value="2-10">2-10</option>
+                    <option value="11-50">11-50</option>
+                    <option value="51-200">51-200</option>
+                    <option value="200+">200+</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="businessAddress" className="block text-sm font-medium text-gray-700 mb-2">
+                    Business Street Address
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <input
+                      type="text"
+                      id="businessAddress"
+                      value={businessAddress}
+                      onChange={(e) => setBusinessAddress(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="businessCity" className="block text-sm font-medium text-gray-700 mb-2">
+                    Business City
+                  </label>
+                  <input
+                    type="text"
+                    id="businessCity"
+                    value={businessCity}
+                    onChange={(e) => setBusinessCity(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="businessRegion" className="block text-sm font-medium text-gray-700 mb-2">
+                    Business Province/State
+                  </label>
+                  <input
+                    type="text"
+                    id="businessRegion"
+                    value={businessRegion}
+                    onChange={(e) => setBusinessRegion(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="businessCountry" className="block text-sm font-medium text-gray-700 mb-2">
+                    Business Country
+                  </label>
+                  <input
+                    type="text"
+                    id="businessCountry"
+                    value={businessCountry}
+                    onChange={(e) => setBusinessCountry(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="businessPostalCode" className="block text-sm font-medium text-gray-700 mb-2">
+                    Business Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    id="businessPostalCode"
+                    value={businessPostalCode}
+                    onChange={(e) => setBusinessPostalCode(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="radiusKm" className="block text-sm font-medium text-gray-700 mb-2">
+                    Service Radius (km)
+                  </label>
+                  <input
+                    type="number"
+                    id="radiusKm"
+                    value={radiusKm}
+                    onChange={(e) => setRadiusKm(e.target.value)}
+                    min="1"
+                    max="500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-4 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => window.history.back()}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="px-6 py-3 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <div className="space-y-8 mt-8">
           {/* Google Business Profile */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
               <LinkIcon className="h-5 w-5 text-[#328d87]" />
               Google Business Profile
+              <BadgeCheck className="h-5 w-5 text-[#FBBC05]" />
             </h2>
 
             <div className="space-y-4">
@@ -853,7 +1146,6 @@ export default function ContractorProfilePage() {
                   <label htmlFor="googleBusinessUrl" className="block text-sm font-medium text-gray-700">
                     Google Business URL
                   </label>
-                  {/* Button shows next to label on desktop only */}
                   <button
                     type="button"
                     onClick={() => setShowGoogleInstructions(true)}
@@ -874,7 +1166,6 @@ export default function ContractorProfilePage() {
                 <p className="text-xs text-gray-500 mt-2">
                   Connect your Google Business profile to sync reviews and ratings with your homeHero account
                 </p>
-                {/* Button shows below descriptive text on mobile only */}
                 <button
                   type="button"
                   onClick={() => setShowGoogleInstructions(true)}
@@ -884,13 +1175,25 @@ export default function ContractorProfilePage() {
                   How to find this URL
                 </button>
               </div>
+
+              {googleVerified && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <BadgeCheck className="h-5 w-5" />
+                  <span className="font-medium">Google Business connected!</span>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleConnectGoogle}
                 disabled={isConnectingGoogle || !googleBusinessUrl}
                 className="w-full md:w-auto px-6 py-3 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isConnectingGoogle ? "Connecting..." : "Connect Google Business"}
+                {isConnectingGoogle
+                  ? "Connecting..."
+                  : googleVerified
+                    ? "Reconnect Google Business"
+                    : "Connect Google Business"}
               </button>
             </div>
           </div>
@@ -901,7 +1204,7 @@ export default function ContractorProfilePage() {
               <div>
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   Phone Verification
-                  <BadgeCheck className="h-6 w-6 text-[#328d87]" />
+                  <BadgeCheck className="h-5 w-5 text-[#328d87]" />
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                   Verify your phone number to build trust and increase your response rate
@@ -930,7 +1233,7 @@ export default function ContractorProfilePage() {
                   </div>
                   <div className="flex items-center gap-2 text-green-600">
                     <BadgeCheck className="h-5 w-5" />
-                    <span className="font-medium">You are verified!</span>
+                    <span className="font-medium">Phone verified!</span>
                   </div>
                 </div>
 
@@ -1053,257 +1356,6 @@ export default function ContractorProfilePage() {
             )}
           </div>
 
-          {/* Personal Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-              <User className="h-5 w-5 text-[#328d87]" />
-              Personal Information
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  id="fullName"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="md:col-span-2">
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="tel"
-                    id="phone"
-                    value={phone}
-                    disabled
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Phone number cannot be changed</p>
-              </div>
-
-              <div className="md:col-span-2">
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-                  Street Address
-                </label>
-                <input
-                  type="text"
-                  id="address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-                  City
-                </label>
-                <input
-                  type="text"
-                  id="city"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-2">
-                  Province/State
-                </label>
-                <input
-                  type="text"
-                  id="region"
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
-                  Country
-                </label>
-                <input
-                  type="text"
-                  id="country"
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
-                  Postal Code
-                </label>
-                <input
-                  type="text"
-                  id="postalCode"
-                  value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Business Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-[#328d87]" />
-              Business Information
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Company Name
-                </label>
-                <input
-                  type="text"
-                  id="companyName"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="companySize" className="block text-sm font-medium text-gray-700 mb-2">
-                  Company Size
-                </label>
-                <select
-                  id="companySize"
-                  value={companySize}
-                  onChange={(e) => setCompanySize(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none bg-white"
-                  required
-                >
-                  <option value="1">1</option>
-                  <option value="2-10">2-10</option>
-                  <option value="11-50">11-50</option>
-                  <option value="51-200">51-200</option>
-                  <option value="200+">200+</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <label htmlFor="businessAddress" className="block text-sm font-medium text-gray-700 mb-2">
-                  Business Street Address
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    id="businessAddress"
-                    value={businessAddress}
-                    onChange={(e) => setBusinessAddress(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="businessCity" className="block text-sm font-medium text-gray-700 mb-2">
-                  Business City
-                </label>
-                <input
-                  type="text"
-                  id="businessCity"
-                  value={businessCity}
-                  onChange={(e) => setBusinessCity(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="businessRegion" className="block text-sm font-medium text-gray-700 mb-2">
-                  Business Province/State
-                </label>
-                <input
-                  type="text"
-                  id="businessRegion"
-                  value={businessRegion}
-                  onChange={(e) => setBusinessRegion(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="businessCountry" className="block text-sm font-medium text-gray-700 mb-2">
-                  Business Country
-                </label>
-                <input
-                  type="text"
-                  id="businessCountry"
-                  value={businessCountry}
-                  onChange={(e) => setBusinessCountry(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="businessPostalCode" className="block text-sm font-medium text-gray-700 mb-2">
-                  Business Postal Code
-                </label>
-                <input
-                  type="text"
-                  id="businessPostalCode"
-                  value={businessPostalCode}
-                  onChange={(e) => setBusinessPostalCode(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="radiusKm" className="block text-sm font-medium text-gray-700 mb-2">
-                  Service Radius (km)
-                </label>
-                <input
-                  type="number"
-                  id="radiusKm"
-                  value={radiusKm}
-                  onChange={(e) => setRadiusKm(e.target.value)}
-                  min="1"
-                  max="500"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent outline-none"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Services Offered */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
@@ -1331,24 +1383,7 @@ export default function ContractorProfilePage() {
               </div>
             </div>
           </div>
-
-          <div className="flex justify-end gap-4">
-            <button
-              type="button"
-              onClick={() => window.history.back()}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-6 py-3 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </DashboardLayout>
   )

@@ -6,7 +6,7 @@ export function SiteFooter() {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-8">
           <Link href="/" className="flex items-center">
-            <img src="/images/logo-white.png" alt="Bidrr" className="h-8" />
+            <img src="/images/bidrr-white-logo.png" alt="Bidrr" className="h-8 w-auto" />
           </Link>
           <nav className="flex items-center gap-8">
             <Link href="/privacy" className="text-white/70 hover:text-white transition-colors">

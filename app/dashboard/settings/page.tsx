@@ -136,7 +136,7 @@ export default function UniversalSettings() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                  <p className="text-gray-900">{profileData.name || "Not set"}</p>
+                  <p className="text-gray-900">{profileData.full_name || profileData.name || "Not set"}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>

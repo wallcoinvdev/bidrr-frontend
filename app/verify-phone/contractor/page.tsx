@@ -150,6 +150,9 @@ export default function ContractorPhoneVerification() {
       console.log("[v0] Phone:", fullPhoneNumber)
       console.log("[v0] Role: contractor")
 
+      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || "unknown"
+      console.log("[v0] Hero heading variation for this conversion:", heroHeadingVariation)
+
       const signupPayload: any = {
         phone_number: fullPhoneNumber,
         verification_code: verificationCode,
@@ -171,6 +174,7 @@ export default function ContractorPhoneVerification() {
         business_postal_code: formData.business_postal_code,
         radius_km: formData.radius_km,
         services: formData.services,
+        hero_heading_variation: heroHeadingVariation,
       }
 
       const termsAccepted = sessionStorage.getItem("terms_accepted")
@@ -305,6 +309,9 @@ export default function ContractorPhoneVerification() {
       console.log("[v0] Phone:", formData.phone_number)
       console.log("[v0] Role: contractor")
 
+      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || "unknown"
+      console.log("[v0] Hero heading variation for this conversion (skip):", heroHeadingVariation)
+
       const signupPayload: any = {
         phone_number: formData.phone_number,
         verification_code: "",
@@ -328,6 +335,7 @@ export default function ContractorPhoneVerification() {
         services: formData.services,
         terms_accepted: true,
         terms_accepted_at: new Date().toISOString(),
+        hero_heading_variation: heroHeadingVariation,
       }
 
       console.log("[v0] Signup payload:", JSON.stringify(signupPayload, null, 2))
@@ -445,7 +453,7 @@ export default function ContractorPhoneVerification() {
                 <section className="mb-12">
                   <h3 className="text-2xl font-bold text-gray-900 mb-4">Agreement to Terms</h3>
                   <p className="text-gray-700 leading-relaxed mb-4">
-                    Welcome to homeHero. By accessing or using our platform, you agree to be bound by these Terms of
+                    Welcome to Bidrr. By accessing or using our platform, you agree to be bound by these Terms of
                     Service and all applicable laws and regulations. If you do not agree with any of these terms, you
                     are prohibited from using this platform.
                   </p>
@@ -454,9 +462,9 @@ export default function ContractorPhoneVerification() {
                 <section className="mb-12">
                   <h3 className="text-2xl font-bold text-gray-900 mb-4">Platform Description</h3>
                   <p className="text-gray-700 leading-relaxed mb-4">
-                    homeHero is an online marketplace that connects customers seeking home services with qualified
-                    service professionals (contractors). We provide the platform for these connections but are not a
-                    party to the actual service agreements between customers and contractors.
+                    Bidrr is an online marketplace that connects customers seeking home services with qualified service
+                    professionals (contractors). We provide the platform for these connections but are not a party to
+                    the actual service agreements between customers and contractors.
                   </p>
                 </section>
 
@@ -464,7 +472,7 @@ export default function ContractorPhoneVerification() {
                   <h3 className="text-2xl font-bold text-gray-900 mb-4">User Accounts</h3>
                   <h4 className="text-xl font-semibold text-gray-900 mb-3">Account Creation</h4>
                   <p className="text-gray-700 leading-relaxed mb-4">
-                    To use homeHero, you must create an account and provide accurate, complete information. You are
+                    To use Bidrr, you must create an account and provide accurate, complete information. You are
                     responsible for:
                   </p>
                   <ul className="list-disc pl-6 mb-6 text-gray-700 space-y-2">
@@ -555,13 +563,7 @@ export default function ContractorPhoneVerification() {
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
             <div className="flex items-center justify-between h-20">
               <Link href="/" className="flex items-center">
-                <Image
-                  src="/images/logo-white.png"
-                  alt="HomeHero"
-                  width={160}
-                  height={40}
-                  className="h-8 md:h-10 w-auto"
-                />
+                <Image src="/images/bidrr-white-logo.png" alt="Bidrr" width={140} height={35} className="h-8 w-auto" />
               </Link>
               <Link
                 href="/"

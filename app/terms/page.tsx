@@ -4,22 +4,15 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
+import { useEffect } from "react"
 
 export default function TermsPage() {
   const { user } = useAuth()
   const router = useRouter()
 
-  const handleBackToDashboard = () => {
-    if (user?.role === "admin") {
-      router.push("/dashboard/admin")
-    } else if (user?.role === "contractor") {
-      router.push("/contractor/dashboard")
-    } else if (user?.role === "homeowner") {
-      router.push("/homeowner/dashboard")
-    } else {
-      router.back()
-    }
-  }
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
 
   return (
     <div className="min-h-screen bg-white">
@@ -27,12 +20,20 @@ export default function TermsPage() {
       <header className="border-b border-gray-200 bg-white">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center">
-            <img src="/images/logo-dark-teal.png" alt="Bidrr" className="h-8" />
+            <img src="/images/bidrr-dark-teal-logo.png" alt="Bidrr" className="h-8" />
           </Link>
           <nav className="flex items-center gap-6">
             {user ? (
               <button
-                onClick={handleBackToDashboard}
+                onClick={() =>
+                  router.push(
+                    user.role === "admin"
+                      ? "/dashboard/admin"
+                      : user.role === "contractor"
+                        ? "/contractor/dashboard"
+                        : "/homeowner/dashboard",
+                  )
+                }
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -240,7 +241,7 @@ export default function TermsPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <Link href="/" className="flex items-center">
-              <img src="/images/logo-white.png" alt="Bidrr" className="h-8" />
+              <img src="/images/bidrr-white-logo.png" alt="Bidrr" className="h-8" />
             </Link>
             <nav className="flex items-center gap-8">
               <Link href="/privacy" className="text-white/70 hover:text-white transition-colors">

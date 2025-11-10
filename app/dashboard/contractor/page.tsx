@@ -278,6 +278,22 @@ export default function ContractorDashboard() {
     return date.toLocaleDateString()
   }
 
+  const markMissionAsViewed = async (missionId: number) => {
+    try {
+      await apiClient.request(`/api/missions/${missionId}/mark-viewed`, {
+        method: "POST",
+        requiresAuth: true,
+      })
+      // Update local state to reflect viewed status
+      setMissions((prevMissions) =>
+        prevMissions.map((m) => (m.id === missionId ? { ...m, viewed_by_contractor: true } : m)),
+      )
+    } catch (error) {
+      console.error("[v0] Error marking mission as viewed:", error)
+    }
+  }
+  // </CHANGE>
+
   // Mapped openMissionModal function
   const openMissionModal = (mission: any) => {
     console.log("[v0] Opening mission modal with customer data:", {
@@ -297,6 +313,8 @@ export default function ContractorDashboard() {
     setSelectedMission(mappedMission)
     setIsModalOpen(true) // Use setIsModalOpen
     notificationService.emit("mark-mission-viewed", mission.id)
+    markMissionAsViewed(mission.id)
+    // </CHANGE>
   }
 
   const closeMissionModal = () => {
@@ -1084,7 +1102,13 @@ export default function ContractorDashboard() {
                     {selectedMission.homeowner_first_name && (
                       <div className="flex items-center gap-2">
                         <p className="text-gray-900 font-medium">{selectedMission.homeowner_first_name}</p>
-                        {selectedMission.homeowner_phone_verified && <VerifiedBadge type="phone" size="sm" />}
+                        {selectedMission.homeowner_phone_verified && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-full border border-blue-200">
+                            <VerifiedBadge type="phone" size="sm" showTooltip={false} />
+                            <span className="text-xs font-medium text-blue-600">Phone verified</span>
+                          </div>
+                        )}
+                        {/* </CHANGE> */}
                       </div>
                     )}
 
@@ -1241,7 +1265,7 @@ export default function ContractorDashboard() {
                     <div>
                       <h3 className="font-semibold text-yellow-900 mb-1">Your Bid Is Being Considered</h3>
                       <p className="text-yellow-700 text-sm">
-                        Great news! The homeowner is considering your bid of $
+                        Great news! The customer is considering your bid of $
                         {selectedMission.my_bid_amount?.toLocaleString()}. You'll be notified when they make a final
                         decision.
                       </p>

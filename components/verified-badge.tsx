@@ -4,9 +4,10 @@ interface VerifiedBadgeProps {
   type: "phone" | "google"
   size?: "sm" | "md" | "lg"
   showTooltip?: boolean
+  showText?: boolean
 }
 
-export function VerifiedBadge({ type, size = "md", showTooltip = true }: VerifiedBadgeProps) {
+export function VerifiedBadge({ type, size = "md", showTooltip = true, showText = false }: VerifiedBadgeProps) {
   const sizeClasses = {
     sm: "h-4 w-4",
     md: "h-5 w-5",
@@ -15,8 +16,17 @@ export function VerifiedBadge({ type, size = "md", showTooltip = true }: Verifie
 
   const isPhone = type === "phone"
   const Icon = isPhone ? Shield : BadgeCheck
-  const colorClass = isPhone ? "text-blue-600 fill-blue-600" : "text-green-600 fill-green-600"
-  const tooltipText = isPhone ? "Verified by Phone" : "Verified with Google"
+  const colorClass = isPhone ? "text-blue-600 fill-blue-600" : "text-[#FBBC05] fill-[#FBBC05]"
+  const tooltipText = isPhone ? "Phone verified" : "Google verified"
+
+  if (showText) {
+    return (
+      <div className={`inline-flex items-center gap-1.5 ${isPhone ? "text-blue-600" : "text-[#FBBC05]"}`}>
+        <Icon className={`${sizeClasses[size]} ${colorClass} flex-shrink-0`} />
+        <span className="text-sm font-medium">{tooltipText}</span>
+      </div>
+    )
+  }
 
   return (
     <div className="relative group inline-flex">

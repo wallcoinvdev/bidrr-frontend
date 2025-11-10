@@ -28,6 +28,7 @@ interface User {
     google?: string
     yelp?: string
   }
+  google_business_url?: string // Added google_business_url field for Google verified badge persistence
   notification_frequency?: string
   bids_limit?: number
   current_bids?: number
@@ -43,7 +44,11 @@ interface User {
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<User>
+  login: (
+    email: string,
+    password: string,
+    rememberMe?: boolean,
+  ) => Promise<User | { requires_2fa: boolean; temp_token: string; phone_number: string }>
   logout: () => void
   setUser: (user: User | null) => void
   refreshUser: () => Promise<void>
@@ -91,6 +96,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "GET",
         requiresAuth: true,
       })
+
+      console.log("[v0] fetchUserProfile response:", userData)
+      console.log("[v0] google_business_url in profile:", userData?.google_business_url)
 
       const tokenData = decodeToken(token)
       if (tokenData?.impersonating_admin_id) {
@@ -253,29 +261,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth()
   }, [])
 
-  const login = async (email: string, password: string, rememberMe = false): Promise<User> => {
-    const response = await apiClient.request<{ token: string; refresh_token?: string; user: User }>(
-      "/api/users/login",
-      {
+  const login = async (
+    email: string,
+    password: string,
+    rememberMe = false,
+  ): Promise<User | { requires_2fa: boolean; temp_token: string; phone_number: string }> => {
+    console.log("[v0] ========== LOGIN FUNCTION START ==========")
+
+    try {
+      const response = await apiClient.request<{
+        token?: string
+        refresh_token?: string
+        user?: User
+        requires_2fa?: boolean
+        temp_token?: string
+        phone_number?: string
+      }>("/api/users/login", {
         method: "POST",
         body: JSON.stringify({ email, password, remember_me: rememberMe }),
-      },
-    )
+      })
 
-    localStorage.setItem("token", response.token)
-    if (response.refresh_token) {
-      localStorage.setItem("refresh_token", response.refresh_token)
+      console.log("[v0] Login API response received")
+      console.log("[v0] Response keys:", Object.keys(response))
+
+      if (response.requires_2fa && response.temp_token) {
+        console.log("[v0] 2FA required, returning 2FA data")
+        return {
+          requires_2fa: true,
+          temp_token: response.temp_token,
+          phone_number: response.phone_number || "",
+        }
+      }
+
+      console.log("[v0] User from login response:", response.user)
+      console.log("[v0] google_business_url in login response:", response.user?.google_business_url)
+
+      if (!response.token) {
+        throw new Error("Login response missing authentication token")
+      }
+
+      localStorage.setItem("token", response.token)
+      if (response.refresh_token) {
+        localStorage.setItem("refresh_token", response.refresh_token)
+      }
+
+      console.log("[v0] Token stored, now fetching full profile...")
+
+      const fullProfile = await fetchUserProfile(response.token)
+
+      console.log("[v0] Full profile fetch completed")
+      console.log("[v0] Full profile data:", fullProfile)
+      console.log("[v0] google_business_url in full profile:", fullProfile?.google_business_url)
+
+      const userData = fullProfile || response.user
+
+      console.log("[v0] Final userData to store:", userData)
+      console.log("[v0] google_business_url in final userData:", userData?.google_business_url)
+
+      if (!userData) {
+        throw new Error("Login response missing user data")
+      }
+
+      localStorage.setItem("user", JSON.stringify(userData))
+      setUser(userData)
+
+      console.log("[v0] User data stored in localStorage")
+      console.log("[v0] Verifying stored data...")
+      const storedUser = localStorage.getItem("user")
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser)
+        console.log("[v0] Verified google_business_url in stored user:", parsedUser.google_business_url)
+      }
+      console.log("[v0] ========== LOGIN FUNCTION END ==========")
+
+      return userData
+    } catch (error: any) {
+      console.error("[v0] ========== LOGIN FUNCTION ERROR ==========")
+      console.error("[v0] Error:", error)
+      console.error("[v0] Error message:", error.message)
+      throw error
     }
-
-    const userData = response.user
-    if (!userData) {
-      throw new Error("Login response missing user data")
-    }
-
-    localStorage.setItem("user", JSON.stringify(userData))
-    setUser(userData)
-
-    return userData
   }
 
   const logout = () => {

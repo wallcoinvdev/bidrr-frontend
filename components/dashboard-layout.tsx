@@ -93,10 +93,9 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
     }
 
     fetchNotificationCounts()
-    const interval = setInterval(fetchNotificationCounts, 30000)
+    const interval = setInterval(fetchNotificationCounts, 60000)
 
     const handleNotificationUpdate = () => {
-      console.log("[v0] Notification update event received, refreshing counts")
       fetchNotificationCounts()
     }
 
@@ -224,7 +223,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         >
           <div className="p-6 border-b border-[#d8e2fb]/10 flex items-center justify-between">
             <div className="flex items-center">
-              <Image src="/images/logo-white.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
+              <Image src="/images/bidrr-white-logo.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
             </div>
             <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-white/70 hover:text-white">
               <X className="h-6 w-6" />
@@ -266,7 +265,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                 className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-black text-white hover:bg-gray-900 transition-colors w-full"
               >
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                 </svg>
                 <div className="text-left">
                   <div className="text-[10px] leading-tight">Download on the</div>
@@ -312,7 +311,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
 
               <div className="flex items-center gap-3">
                 <FeedbackModal />
-                {user && (user.phone_verified || (userRole === "contractor" && (user as any).is_verified)) && (
+                {user && (user.phone_verified || (userRole === "contractor" && (user as any).google_business_url)) && (
                   <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-2">
                       {user.phone_verified && (
@@ -321,7 +320,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                           <span className="text-xs text-gray-600">Phone verified</span>
                         </div>
                       )}
-                      {userRole === "contractor" && (user as any).is_verified && (
+                      {userRole === "contractor" && (user as any).google_business_url && (
                         <div className="flex items-center gap-1.5">
                           <VerifiedBadge type="google" size="sm" showTooltip={false} />
                           <span className="text-xs text-gray-600">Google verified</span>

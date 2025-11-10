@@ -12,7 +12,7 @@ export default function PricingPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center">
-              <Image src="/images/logo-white.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
+              <Image src="/images/bidrr-white-logo.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
             </Link>
             <Link
               href="/"
@@ -29,7 +29,7 @@ export default function PricingPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
           <div className="text-center mb-16">
             <div className="inline-block px-4 py-2 bg-[#e2bb12]/20 border border-[#e2bb12]/30 rounded-full mb-6">
-              <span className="text-[#e2bb12] font-semibold text-sm">Currently in Beta</span>
+              <span className="text-[#e2bb12] font-semibold text-sm">Beta Ending Soon</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 text-[#d8e2fb]">
               Simple, transparent pricing for Contractors
@@ -41,108 +41,30 @@ export default function PricingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {/* Beta Free Tier */}
-            <div className="bg-[#03353a] border-2 border-[#e2bb12] rounded-2xl p-8 relative">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                <span className="bg-[#e2bb12] text-[#0D3D42] px-4 py-1 rounded-full text-sm font-semibold">
-                  Active Now
-                </span>
-              </div>
+            <div className="bg-[#03353a] border-2 border-[#d8e2fb]/20 rounded-2xl p-8">
               <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-[#d8e2fb] mb-2">Beta Access</h3>
+                <h3 className="text-2xl font-bold text-[#d8e2fb] mb-2">Free</h3>
                 <div className="flex items-baseline justify-center gap-2 mb-4">
-                  <span className="text-5xl font-bold text-[#d8e2fb]">Free</span>
+                  <span className="text-5xl font-bold text-[#d8e2fb]">$0</span>
+                  <span className="text-[#d8e2fb]/70">/month</span>
                 </div>
-                <p className="text-[#d8e2fb]/70">Limited time beta offer</p>
+                <p className="text-[#d8e2fb]/70">Always free</p>
               </div>
 
               <ul className="space-y-4 mb-8">
                 <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
+                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
                   <span className="text-[#d8e2fb]">
-                    <strong>5 free bids per month</strong>
+                    <strong>1 bid per month</strong>
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
+                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
                   <span className="text-[#d8e2fb]">Access to all job postings</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
+                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
                   <span className="text-[#d8e2fb]">Customer response messaging</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Access to Customer Reviews</span>
-                </li>
-              </ul>
-
-              <Link
-                href="/signup"
-                className="block w-full px-6 py-3 bg-[#e2bb12] text-[#0D3D42] rounded-lg font-semibold text-center hover:opacity-90 transition-all"
-              >
-                Get Started Free
-              </Link>
-            </div>
-
-            {/* Pro Tier (Coming Soon) */}
-            <div className="bg-[#03353a] border-2 border-[#d8e2fb]/20 rounded-2xl p-8">
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-[#d8e2fb] mb-2">Pro</h3>
-                <div className="flex items-baseline justify-center gap-2 mb-4">
-                  <span className="text-5xl font-bold text-[#d8e2fb]">$99</span>
-                  <span className="text-[#d8e2fb]/70">/month</span>
-                </div>
-                <p className="text-[#d8e2fb]/70">Coming soon after beta</p>
-              </div>
-
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">
-                    <strong>Everything from Beta</strong>
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">
-                    <strong>5 bids per month</strong>
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Bids refunded if job not secured</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Verified Badge</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Dedicated support</span>
-                </li>
-              </ul>
-
-              <button
-                disabled
-                className="w-full px-6 py-3 bg-[#d8e2fb]/10 text-[#d8e2fb]/50 rounded-lg font-semibold cursor-not-allowed"
-              >
-                Coming Soon
-              </button>
-            </div>
-          </div>
-
-          {/* Future Free Tier Info */}
-          <div className="mt-16 max-w-3xl mx-auto">
-            <div className="bg-[#03353a]/50 border border-[#d8e2fb]/20 rounded-2xl p-8">
-              <h3 className="text-2xl font-bold text-[#d8e2fb] mb-4 text-center">After Beta: Free Tier</h3>
-              <p className="text-[#d8e2fb]/70 text-center mb-6">
-                When the subscription model launches, we'll continue to offer a free tier:
-              </p>
-              <ul className="space-y-3 max-w-md mx-auto">
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">1 bid per month</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
@@ -153,6 +75,64 @@ export default function PricingPage() {
                   <span className="text-[#d8e2fb]">Basic profile features</span>
                 </li>
               </ul>
+
+              <button
+                disabled
+                className="block w-full px-6 py-3 bg-[#328d87]/30 text-[#d8e2fb]/50 rounded-lg font-semibold text-center cursor-not-allowed"
+              >
+                Coming Soon
+              </button>
+            </div>
+
+            {/* Pro Tier */}
+            <div className="bg-[#03353a] border-2 border-[#e2bb12] rounded-2xl p-8 relative">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                <span className="bg-[#e2bb12] text-[#0D3D42] px-4 py-1 rounded-full text-sm font-semibold">
+                  Most Popular
+                </span>
+              </div>
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-[#d8e2fb] mb-2">Pro</h3>
+                <div className="flex items-baseline justify-center gap-2 mb-4">
+                  <span className="text-5xl font-bold text-[#d8e2fb]">$99</span>
+                  <span className="text-[#d8e2fb]/70">/month</span>
+                </div>
+                <p className="text-[#d8e2fb]/70">Perfect for growing businesses</p>
+              </div>
+
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
+                  <span className="text-[#d8e2fb]">
+                    <strong>Everything from Free</strong>
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
+                  <span className="text-[#d8e2fb]">
+                    <strong>5 bids per month</strong>
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
+                  <span className="text-[#d8e2fb]">Bids refunded if job not secured</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
+                  <span className="text-[#d8e2fb]">Verified Badges</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
+                  <span className="text-[#d8e2fb]">Dedicated support</span>
+                </li>
+              </ul>
+
+              <button
+                disabled
+                className="block w-full px-6 py-3 bg-[#e2bb12]/30 text-[#0D3D42]/50 rounded-lg font-semibold text-center cursor-not-allowed"
+              >
+                Coming Soon
+              </button>
             </div>
           </div>
 
@@ -163,6 +143,29 @@ export default function PricingPage() {
               That's why we refund bids when you don't secure the job. We're invested in your success, not just
               collecting fees. Our platform works when you work.
             </p>
+          </div>
+
+          {/* Beta access card */}
+          <div className="mt-12 max-w-4xl mx-auto">
+            <div className="bg-[#e2bb12]/10 border-2 border-[#e2bb12] rounded-2xl p-8 text-center">
+              <div className="inline-block px-4 py-2 bg-[#e2bb12] rounded-full mb-6">
+                <span className="text-[#0D3D42] font-bold text-sm">BETA ACCESS</span>
+              </div>
+              <h3 className="text-2xl sm:text-3xl font-bold text-[#d8e2fb] mb-4">
+                Currently in Beta — All Pro Features Free
+              </h3>
+              <div className="space-y-3 text-lg text-[#d8e2fb]/80 mb-6">
+                <p>
+                  During our Beta phase, all contractors get{" "}
+                  <strong className="text-[#e2bb12]">all Pro features</strong> at no cost.
+                </p>
+                <p>
+                  Your feedback is invaluable as we refine our platform. Help us deliver a service that truly works for
+                  you — because when you succeed, we succeed.
+                </p>
+              </div>
+              <p className="text-sm text-[#d8e2fb]/60 italic">Pricing plans will take effect after Beta ends.</p>
+            </div>
           </div>
         </div>
       </main>
