@@ -123,8 +123,8 @@ export default function ContractorProfilePage() {
 
         console.log("[v0] Services state set to:", profile.services || [])
 
-        const googleSite = profile.review_sites?.find((site: any) => site.site === "google")
-        setGoogleBusinessUrl(googleSite?.url || "")
+        setGoogleBusinessUrl(profile.google_business_url || "")
+        console.log("[v0] Google Business URL loaded:", profile.google_business_url)
       } catch (err) {
         console.error("[v0] Error fetching profile:", err)
       }
@@ -165,7 +165,7 @@ export default function ContractorProfilePage() {
     try {
       console.log("[v0] Connecting Google Business with URL:", googleBusinessUrl)
 
-      const response = await apiClient.request("/api/users/profile", {
+      const profileResponse = await apiClient.request("/api/users/profile", {
         method: "PUT",
         body: JSON.stringify({
           google_business_url: googleBusinessUrl,
@@ -173,20 +173,32 @@ export default function ContractorProfilePage() {
         requiresAuth: true,
       })
 
-      console.log("[v0] Google Business connection successful:", response)
+      console.log("[v0] Google Business connected:", profileResponse)
 
       await refreshUser()
       toast({
         title: "Connected Successfully",
-        description: "Google Business connected! Reviews will be synced shortly.",
+        description: "Google Business connected and reviews synced!",
       })
-      setSuccess("Google Business connected! Reviews will be synced shortly.")
+      setSuccess("Google Business connected successfully! Your reviews will appear shortly.")
     } catch (err) {
       console.error("[v0] Google Business connection error:", err)
 
       const errorMessage = err instanceof Error ? err.message : String(err)
 
-      if (errorMessage.includes("Could not find business") || errorMessage.includes("Invalid")) {
+      if (errorMessage.includes("Could not extract place_id") || errorMessage.includes("Failed to extract")) {
+        toast({
+          title: "Unable to Extract Place ID",
+          description:
+            "We couldn't extract the Place ID from this URL. Please ensure you're copying the URL from Google Maps in a web browser (not the mobile app).",
+          variant: "destructive",
+          action: {
+            label: "How to find URL",
+            onClick: () => setShowGoogleInstructions(true),
+          },
+        })
+        setError("Unable to extract Place ID from URL. Please follow the instructions to get the correct URL format.")
+      } else if (errorMessage.includes("Could not find business") || errorMessage.includes("Invalid")) {
         toast({
           title: "Unable to Connect",
           description:
