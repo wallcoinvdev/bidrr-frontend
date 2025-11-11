@@ -49,13 +49,9 @@ export default function BillingPage() {
       }
       setError("")
 
-      console.log("[v0] Fetching billing data from /api/admin/billing")
       const data = await apiClient.request<BillingData>("/api/admin/billing", { requiresAuth: true })
-      console.log("[v0] Billing data received:", data)
       setBillingData(data)
     } catch (error: any) {
-      console.error("[v0] Error fetching billing data:", error)
-      console.error("[v0] Error details:", { message: error.message, response: error.response, status: error.status })
       setError(error.message || "Failed to load billing information")
     } finally {
       setLoading(false)

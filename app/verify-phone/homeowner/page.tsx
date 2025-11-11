@@ -110,6 +110,7 @@ export default function HomeownerPhoneVerification() {
           phone_number: fullPhoneNumber,
           role: "homeowner",
         }),
+        requiresAuth: false, // This endpoint doesn't require authentication
       })
 
       console.log("[v0] ✅ Verification code sent successfully")
@@ -190,9 +191,7 @@ export default function HomeownerPhoneVerification() {
         },
         body: JSON.stringify({
           phone_number: fullPhoneNumber,
-          role: "homeowner",
-          verification_code: verificationCode,
-          form_data: formData,
+          code: verificationCode, // Changed from verification_code to code
         }),
       })
 
@@ -714,53 +713,57 @@ export default function HomeownerPhoneVerification() {
                       <select
                         value={countryCode}
                         onChange={(e) => setCountryCode(e.target.value)}
-                        className="w-20 sm:w-28 px-1 sm:px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent outline-none transition-all bg-white text-sm cursor-pointer"
+                        className="w-20 sm:w-28 px-1 sm:px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-[#03353a]/100"
                       >
-                        {/* <option value="+1-US">🇺🇸 +1</option> */}
-                        {/* <option value="+44-GB">🇬🇧 +44</option> */}
-                        <option value="+1-CA">🇨🇦 +1</option>
-                        {/* <option value="+61-AU">🇦🇺 +61</option> */}
-                        {/* <option value="+64-NZ">🇳🇿 +64</option> */}
+                        <option value="+1-CA">Canada (+1)</option>
+                        <option value="+1-US">United States (+1)</option>
+                        {/* Add more country codes as needed */}
                       </select>
                       <input
                         type="tel"
                         id="phone"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                        placeholder="5551234567"
-                        maxLength={10}
-                        className="flex-1 min-w-0 px-3 sm:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent outline-none transition-all"
-                        required
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-[#03353a]/100"
+                        placeholder="Enter your phone number"
                       />
                     </div>
                   </div>
-
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      className="h-4 w-4 text-[#03353a] focus:ring-[#03353a] focus:ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="terms" className="ml-3 text-sm text-gray-700">
+                      I accept the{" "}
+                      <button
+                        onClick={() => setShowTermsModal(true)}
+                        className="text-[#03353a] font-medium hover:underline"
+                      >
+                        Terms of Service
+                      </button>
+                    </label>
+                  </div>
                   <button
                     type="submit"
+                    className="w-full px-4 py-3 bg-[#03353a] text-white text-sm font-medium rounded-lg hover:bg-[#03353a]/90 transition-colors"
                     disabled={isLoading}
-                    className="w-full px-6 py-3 bg-[#03353a] text-white rounded-lg font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isLoading ? "Sending Code..." : "Send Verification Code"}
+                    {isLoading ? "Loading..." : "Send Verification Code"}
                   </button>
-
                   <button
-                    type="button"
                     onClick={handleSkip}
-                    disabled={isSkipping}
-                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-gray-200 text-[#03353a] text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors mt-4"
+                    disabled={isLoading}
                   >
-                    {isSkipping ? "Loading..." : "Skip for now"}
+                    {isLoading ? "Loading..." : "Skip for now"}
                   </button>
-
-                  <p className="text-center text-sm text-gray-600 mt-4">
-                    Have an account already?{" "}
-                    <Link href="/login" className="text-[#328d87] hover:underline font-medium">
-                      Log in
-                    </Link>
-                  </p>
                 </form>
               ) : (
-                <form onSubmit={handleVerifyCode} className="space-y-6">
+                <form onSubmit={handleVerifyCode} className="space-y-4">
                   <div>
                     <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-2">
                       Verification Code
@@ -769,59 +772,17 @@ export default function HomeownerPhoneVerification() {
                       type="text"
                       id="code"
                       value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-                      placeholder="123456"
-                      maxLength={6}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent outline-none transition-all text-center text-2xl tracking-widest"
-                      required
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-[#03353a]/100"
+                      placeholder="Enter the 6-digit code"
                     />
                   </div>
-
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      checked={acceptedTerms}
-                      onChange={(e) => setAcceptedTerms(e.target.checked)}
-                      className="mt-1 h-4 w-4 text-[#03353a] border-gray-300 rounded focus:ring-[#03353a]"
-                      required
-                    />
-                    <label htmlFor="terms" className="text-sm text-gray-700">
-                      I agree to the{" "}
-                      <button
-                        type="button"
-                        onClick={() => setShowTermsModal(true)}
-                        className="text-[#328d87] hover:underline font-medium"
-                      >
-                        Terms of Service
-                      </button>{" "}
-                      for using Bidrr
-                    </label>
-                  </div>
-
                   <button
                     type="submit"
-                    disabled={isLoading || !acceptedTerms}
-                    className="w-full px-6 py-3 bg-[#03353a] text-white rounded-lg font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-[#03353a] text-white text-sm font-medium rounded-lg hover:bg-[#03353a]/90 transition-colors"
+                    disabled={isLoading}
                   >
-                    {isLoading ? "Verifying..." : "Verify & Continue"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setStep("phone")}
-                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                  >
-                    Change phone number
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSkip}
-                    disabled={isSkipping}
-                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSkipping ? "Loading..." : "Skip for now"}
+                    {isLoading ? "Loading..." : "Verify Code"}
                   </button>
                 </form>
               )}

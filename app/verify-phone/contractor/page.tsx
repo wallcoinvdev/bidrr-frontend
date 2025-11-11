@@ -85,6 +85,7 @@ export default function ContractorPhoneVerification() {
           phone_number: fullPhoneNumber,
           role: "contractor",
         }),
+        requiresAuth: false, // This endpoint doesn't require authentication
       })
 
       console.log("[v0] Verification code sent successfully")
@@ -153,9 +154,31 @@ export default function ContractorPhoneVerification() {
       const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || "unknown"
       console.log("[v0] Hero heading variation for this conversion:", heroHeadingVariation)
 
+      console.log("[v0] Step 1: Verifying phone code")
+      const verifyResponse = await fetch(`${API_BASE_URL}/api/users/verify-phone`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify({
+          phone_number: fullPhoneNumber,
+          code: verificationCode, // Changed from verification_code to code
+        }),
+      })
+
+      if (!verifyResponse.ok) {
+        const verifyError = await verifyResponse.json()
+        console.error("[v0] ❌ Phone verification failed:", verifyError)
+        throw new Error(verifyError.error || "Phone verification failed")
+      }
+
+      const verifyResult = await verifyResponse.json()
+      console.log("[v0] ✅ Phone verified successfully")
+
+      console.log("[v0] Step 2: Creating contractor account")
       const signupPayload: any = {
         phone_number: fullPhoneNumber,
-        verification_code: verificationCode,
         password: formData.password,
         role: "contractor",
         full_name: formData.full_name,
