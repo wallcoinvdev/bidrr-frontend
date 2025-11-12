@@ -715,9 +715,7 @@ export default function HomeownerPhoneVerification() {
                         onChange={(e) => setCountryCode(e.target.value)}
                         className="w-20 sm:w-28 px-1 sm:px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-[#03353a]/100"
                       >
-                        <option value="+1-CA">Canada (+1)</option>
-                        <option value="+1-US">United States (+1)</option>
-                        {/* Add more country codes as needed */}
+                        <option value="+1-CA">🇨🇦 +1</option>
                       </select>
                       <input
                         type="tel"
