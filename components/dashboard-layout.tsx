@@ -3,8 +3,8 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname, useRouter } from "next/navigation"
-import { Home, MessageSquare, Settings, LogOut, FileText, Star, Menu, X, AlertTriangle } from "lucide-react"
+import { usePathname, useRouter } from 'next/navigation'
+import { Home, MessageSquare, Settings, LogOut, FileText, Star, Menu, X, AlertTriangle } from 'lucide-react'
 import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect, useRef } from "react"
 import { apiClient } from "@/lib/api-client"
@@ -31,6 +31,10 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
   const [imageLoadError, setImageLoadError] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const notificationsRef = useRef<HTMLDivElement>(null)
   const [notificationCounts, setNotificationCounts] = useState<NotificationCounts>({
     dashboard: 0,
     reviews: 0,
@@ -38,6 +42,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   })
   const notificationFetchInitialized = useRef(false)
   const notificationFetchInProgress = useRef(false)
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)
 
   useEffect(() => {
     if (!user?.id) return
@@ -99,13 +104,53 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
       fetchNotificationCounts()
     }
 
+    const handleReviewsPageViewed = (event: any) => {
+      const count = event.detail?.count || 0
+      if (count > 0) {
+        setNotificationCounts((prev) => ({
+          ...prev,
+          reviews: 0,
+        }))
+      }
+    }
+
     window.addEventListener("notificationUpdated", handleNotificationUpdate)
+    window.addEventListener("reviewsPageViewed", handleReviewsPageViewed as EventListener)
 
     return () => {
       clearInterval(interval)
       window.removeEventListener("notificationUpdated", handleNotificationUpdate)
+      window.removeEventListener("reviewsPageViewed", handleReviewsPageViewed as EventListener)
     }
   }, [userRole])
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const data = await apiClient.request<any[]>("/api/notifications", { requiresAuth: true })
+        setNotifications(data)
+        setUnreadCount(data.filter((n) => !n.is_read).length)
+      } catch (error) {
+        console.error("Error fetching notifications:", error)
+      }
+    }
+
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 60000)
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotifications(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [])
 
   useEffect(() => {
     if (pathname === "/dashboard/homeowner" || pathname === "/dashboard/contractor") {
@@ -183,172 +228,355 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   }
 
   const handleAppStoreClick = () => {
-    toast({
+    console.log("[v0] App Store/Google Play button clicked")
+    console.log("[v0] Toast function exists:", typeof toast)
+    console.log("[v0] About to call toast with:", {
       title: "Coming Soon",
       description: "Our mobile app will be available soon on the App Store and Google Play!",
+      duration: 5000,
     })
+    const result = toast({
+      variant: "default",
+      title: "Coming Soon",
+      description: "Our mobile app will be available soon on the App Store and Google Play!",
+      duration: 5000,
+    })
+    console.log("[v0] Toast result:", result)
+    console.log("[v0] Toast called successfully")
+  }
+
+  const handleNotificationClick = async (notification: any) => {
+    try {
+      if (!notification.is_read) {
+        await apiClient.request(`/api/notifications/${notification.id}/mark-read`, {
+          method: "POST",
+          requiresAuth: true,
+        })
+        setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)))
+        setUnreadCount((prev) => Math.max(0, prev - 1))
+        
+        if (notification.type === "new_review") {
+          setNotificationCounts((prev) => ({
+            ...prev,
+            reviews: Math.max(0, prev.reviews - 1),
+          }))
+        } else if (notification.type === "new_bid") {
+          setNotificationCounts((prev) => ({
+            ...prev,
+            dashboard: Math.max(0, prev.dashboard - 1),
+          }))
+        }
+      }
+
+      if (notification.mission_id) {
+        if (userRole === "homeowner" && notification.type === "new_bid") {
+          router.push(`/dashboard/homeowner/jobs/${notification.mission_id}/bids`)
+        } else if (userRole === "contractor") {
+          router.push(`/dashboard/contractor`)
+        }
+      }
+
+      setShowNotifications(false)
+    } catch (error) {
+      console.error("Error handling notification:", error)
+    }
+  }
+
+  const handleBellClick = async () => {
+    const isOpening = !showNotificationDropdown
+    setShowNotificationDropdown(isOpening)
+    
+    // When opening the dropdown, mark all notifications as viewed
+    if (isOpening && unreadCount > 0) {
+      try {
+        await apiClient.request("/api/notifications/mark-viewed", {
+          method: "PUT",
+          requiresAuth: true,
+        })
+        
+        // Clear badge count immediately
+        setUnreadCount(0)
+        setNotificationCounts({
+          dashboard: 0,
+          reviews: 0,
+          messages: 0,
+        })
+        
+        // Mark all notifications as read locally
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+      } catch (error) {
+        console.error("Error marking notifications as viewed:", error)
+        // Clear locally even if API fails
+        setUnreadCount(0)
+        setNotificationCounts({
+          dashboard: 0,
+          reviews: 0,
+          messages: 0,
+        })
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+      }
+    }
+  }
+
+  const handleClearAll = async () => {
+    try {
+      await apiClient.request("/api/notifications/clear-all", {
+        method: "DELETE",
+        requiresAuth: true,
+      })
+      
+      // Clear all notifications permanently
+      setNotifications([])
+      setUnreadCount(0)
+      setNotificationCounts({
+        dashboard: 0,
+        reviews: 0,
+        messages: 0,
+      })
+    } catch (error) {
+      console.error("Error clearing notifications:", error)
+      // Clear locally even if API fails
+      setNotifications([])
+      setUnreadCount(0)
+      setNotificationCounts({
+        dashboard: 0,
+        reviews: 0,
+        messages: 0,
+      })
+    }
+  }
+
+  const formatNotificationTime = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return "Just now"
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString()
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50">
       {isImpersonating && (
-        <div className="bg-yellow-400 text-gray-900 px-4 py-3 flex items-center justify-between gap-4 z-50 shadow-md">
+        <div className="bg-yellow-500 text-gray-900 px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm font-semibold">Admin Mode: Viewing as {user?.full_name || user?.email}</span>
+            <AlertTriangle className="w-5 h-5" />
+            <span className="font-medium">
+              Admin Mode: Viewing as {user?.full_name || user?.email || `User #${user?.id}`}
+            </span>
           </div>
           <button
             onClick={exitImpersonation}
-            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors flex-shrink-0 shadow-sm"
+            className="px-4 py-1 bg-gray-900 text-white rounded hover:bg-gray-800 transition-colors text-sm font-medium"
           >
             Exit to Admin Panel
           </button>
         </div>
       )}
 
-      <div className="flex flex-1">
+      <div className="flex h-screen">
         {isMobileMenuOpen && (
           <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
         )}
 
         <aside
-          className={`
-          fixed md:static inset-y-0 left-0 z-50
-          w-64 bg-[#0D3D42] border-r border-[#d8e2fb]/10 flex flex-col
-          transform transition-transform duration-300 ease-in-out
-          ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
-          md:translate-x-0
-          ${isImpersonating ? "top-[52px] md:top-[52px]" : "top-0"}
-        `}
+          className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-[#03353a] via-[#0d3d42] to-[#328d87] text-white transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static ${
+            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
         >
-          <div className="p-6 border-b border-[#d8e2fb]/10 flex items-center justify-between">
-            <div className="flex items-center">
-              <Image src="/images/bidrr-white-logo.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
+          <div className="flex flex-col h-full">
+            <div className="p-6 flex items-center justify-between">
+              <Image src="/images/bidrr-white-logo.png" alt="Bidrr" width={120} height={40} className="h-8 w-auto" />
+              <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-white/70 hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
             </div>
-            <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-white/70 hover:text-white">
-              <X className="h-6 w-6" />
-            </button>
-          </div>
 
-          <nav className="flex-1 p-4 space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href
-              const badgeCount = getBadgeCount(item.badge)
+            <nav className="flex-1 px-4 space-y-2">
+              {navItems.map((item) => {
+                const Icon = item.icon
+                const isActive = pathname === item.href
+                const badgeCount = getBadgeCount(item.badge)
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-[#328d87] text-white"
-                      : "text-[#d8e2fb]/70 hover:bg-[#0D3D42]/50 hover:text-[#d8e2fb]"
-                  }`}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                      isActive ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className="w-5 h-5" />
+                      <span>{item.label}</span>
+                    </div>
+                    {badgeCount > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[1.5rem] text-center">
+                        {badgeCount}
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
+            </nav>
+
+            <div className="p-4 space-y-4 border-t border-white/10">
+              <div className="space-y-2 md:hidden">
+                <button
+                  onClick={handleAppStoreClick}
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-left text-sm"
                 >
-                  <Icon className="h-5 w-5" />
-                  <span className="font-medium flex-1">{item.label}</span>
-                  {badgeCount > 0 && (
-                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
-                      {badgeCount}
-                    </span>
-                  )}
-                </Link>
-              )
-            })}
-          </nav>
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                  </svg>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-white/70">Download on the</span>
+                    <span className="font-semibold">App Store</span>
+                  </div>
+                </button>
 
-          <div className="p-4 border-t border-[#d8e2fb]/10 lg:hidden">
-            <div className="space-y-2">
-              <button
-                onClick={handleAppStoreClick}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-black text-white hover:bg-gray-900 transition-colors w-full"
-              >
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-                </svg>
-                <div className="text-left">
-                  <div className="text-[10px] leading-tight">Download on the</div>
-                  <div className="text-sm font-semibold leading-tight">App Store</div>
-                </div>
-              </button>
+                <button
+                  onClick={handleAppStoreClick}
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-left text-sm"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,11.15L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
+                  </svg>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-white/70">GET IT ON</span>
+                    <span className="font-semibold">Google Play</span>
+                  </div>
+                </button>
+              </div>
 
               <button
-                onClick={handleAppStoreClick}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-black text-white hover:bg-gray-900 transition-colors w-full"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/5 hover:text-white rounded-lg transition-colors"
               >
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
-                </svg>
-                <div className="text-left">
-                  <div className="text-[10px] leading-tight">GET IT ON</div>
-                  <div className="text-sm font-semibold leading-tight">Google Play</div>
-                </div>
+                <LogOut className="w-5 h-5" />
+                <span>Logout</span>
               </button>
             </div>
-          </div>
-
-          <div className="p-4 border-t border-[#d8e2fb]/10">
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#d8e2fb]/70 hover:bg-[#0D3D42]/50 hover:text-[#d8e2fb] transition-colors w-full"
-            >
-              <LogOut className="h-5 w-5" />
-              <span className="font-medium">Logout</span>
-            </button>
           </div>
         </aside>
 
-        <main className="flex-1 overflow-auto w-full">
-          <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
-            <div className="flex items-center justify-between md:justify-end gap-3">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <header className="bg-white border-b border-gray-200 px-6 py-4">
+            <div className="flex items-center justify-between">
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
                 className="md:hidden text-gray-700 hover:bg-gray-100 p-2 rounded-lg transition-colors"
               >
-                <Menu className="h-6 w-6" />
+                <Menu className="w-6 h-6" />
               </button>
 
-              <div className="flex items-center gap-3">
-                <FeedbackModal />
-                {user && (user.phone_verified || (userRole === "contractor" && (user as any).google_business_url)) && (
-                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-2">
-                      {user.phone_verified && (
-                        <div className="flex items-center gap-1.5">
-                          <VerifiedBadge type="phone" size="sm" showTooltip={false} />
-                          <span className="text-xs text-gray-600">Phone verified</span>
+              <div className="flex items-center gap-4 ml-auto">
+                <div className="relative">
+                  <button
+                    onClick={handleBellClick}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
+                  >
+                    <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {showNotificationDropdown && (
+                    <div className="fixed left-0 right-0 top-[72px] bg-white border-b border-gray-200 shadow-lg p-4 z-[9998] max-h-[80vh] overflow-y-auto sm:absolute sm:top-12 sm:left-auto sm:right-0 sm:w-80 sm:rounded-lg sm:border">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-lg">Notifications</h3>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleClearAll}
+                            className="text-sm text-[#0F766E] hover:text-[#0d5f57]"
+                          >
+                            Clear All
+                          </button>
+                          <button
+                            onClick={() => setShowNotificationDropdown(false)}
+                            className="p-1 hover:bg-gray-100 rounded transition-colors"
+                            aria-label="Close notifications"
+                          >
+                            <X className="h-5 w-5 text-gray-600" />
+                          </button>
                         </div>
-                      )}
-                      {userRole === "contractor" && (user as any).google_business_url && (
-                        <div className="flex items-center gap-1.5">
-                          <VerifiedBadge type="google" size="sm" showTooltip={false} />
-                          <span className="text-xs text-gray-600">Google verified</span>
-                        </div>
-                      )}
+                      </div>
+                      <div className="space-y-3">
+                        {notifications.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">You have no new notifications</p>
+                        ) : (
+                          notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              onClick={() => handleNotificationClick(notification)}
+                              className={`p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer ${
+                                notification.is_read ? "bg-white" : "bg-gray-50"
+                              }`}
+                            >
+                              <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                              <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                              <p className="text-xs text-gray-400 mt-1">{formatNotificationTime(notification.created_at)}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
+                  )}
+                </div>
+
+                <FeedbackModal />
+
+                {user && (
+                  <div className="flex items-center gap-2">
+                    {user.phone_verified && (
+                      <div className="flex items-center gap-1 text-sm">
+                        <VerifiedBadge type="phone" size="sm" showLabel={false} />
+                        <span className="text-gray-600 hidden sm:inline">Phone verified</span>
+                      </div>
+                    )}
+                    {userRole === "contractor" && user?.google_business_url && (
+                      <div className="flex items-center gap-1 text-sm">
+                        <VerifiedBadge type="google" size="sm" showLabel={false} />
+                        <span className="text-gray-600 hidden sm:inline">Google verified</span>
+                      </div>
+                    )}
                   </div>
                 )}
+
                 <button
                   onClick={handleProfileClick}
-                  className="w-10 h-10 rounded-full bg-[#328d87] flex items-center justify-center text-white hover:opacity-90 transition-opacity overflow-hidden"
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                 >
                   {profilePhoto && !imageLoadError ? (
                     <img
                       src={profilePhoto || "/placeholder.svg"}
                       alt="Profile"
-                      className="w-full h-full object-cover"
+                      className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
                       onError={() => setImageLoadError(true)}
                     />
                   ) : (
-                    <span className="text-sm font-semibold">{getUserInitials()}</span>
+                    <div className="w-10 h-10 rounded-full bg-[#03353a] text-white flex items-center justify-center font-semibold border-2 border-gray-200">
+                      {getUserInitials()}
+                    </div>
                   )}
                 </button>
               </div>
             </div>
-          </div>
-          <div className="container mx-auto px-4 md:px-6 py-6 md:py-8 max-w-7xl">{children}</div>
-        </main>
+          </header>
+
+          <main className="flex-1 overflow-auto p-6">{children}</main>
+        </div>
       </div>
     </div>
   )

@@ -176,7 +176,7 @@ export const SERVICES = [
   "Windows & Doors Repair",
   "Wine Cellar Maintenance",
   "Yard Work",
-].sort() // Alphabetically sorted
+].sort()
 
 // Services that require structure details (house size, stories, property type)
 export const SERVICES_REQUIRING_STRUCTURE_DETAILS = [

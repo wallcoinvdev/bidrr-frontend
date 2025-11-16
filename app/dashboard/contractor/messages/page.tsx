@@ -1,12 +1,25 @@
 "use client"
 
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Filter, Send, AlertCircle, X, Trash2 } from "lucide-react"
+import { Send, MoreVertical } from 'lucide-react'
 import { useState, useEffect } from "react"
 import { apiClient, ApiError } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
 import { containsContactInfo } from "@/lib/contact-validation"
-import { ReportUserModal } from "@/components/report-user-modal"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Conversation {
   id: number
@@ -17,8 +30,8 @@ interface Conversation {
   last_message?: string
   last_message_at?: string
   unread_count: number
-  can_send: boolean // Added backend can_send flag
-  bid_status?: "pending" | "considering" | "accepted" | "rejected" // Added bid status
+  can_send: boolean
+  bid_status?: "pending" | "considering" | "accepted" | "rejected"
 }
 
 interface Message {
@@ -38,21 +51,20 @@ export default function MessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messageText, setMessageText] = useState("")
   const [showFilters, setShowFilters] = useState(false)
-  const [filters, setFilters] = useState({
-    status: "all",
-    dateRange: "all",
-  })
+  const [filters, setFilters] = useState({ status: "all", dateRange: "all" })
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [sending, setSending] = useState(false)
   const [canSendMessage, setCanSendMessage] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null) // Added error state for inline error display
-  const [showReportModal, setShowReportModal] = useState(false) // Added state for report user modal
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showReportModal, setShowReportModal] = useState(false)
   const [deletingConversation, setDeletingConversation] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false) // Added missing showDeleteDialog state
   const { toast } = useToast()
+
+  const [showMobileChat, setShowMobileChat] = useState(false)
 
   useEffect(() => {
     fetchConversations()
@@ -66,123 +78,71 @@ export default function MessagesPage() {
 
   const fetchConversations = async () => {
     try {
-      console.log("[v0] Fetching contractor conversations...")
       setLoading(true)
-
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout")), 10000))
-
-      const fetchPromise = apiClient.request<Conversation[]>("/api/conversations", { requiresAuth: true })
-
-      const data = (await Promise.race([fetchPromise, timeoutPromise])) as Conversation[]
-
-      console.log("[v0] Contractor conversations fetched:", data)
-      console.log("[v0] Number of conversations:", data.length)
+      const data = await apiClient.request<Conversation[]>("/api/conversations", { requiresAuth: true })
       setConversations(data)
     } catch (error) {
-      console.error("[v0] Error fetching contractor conversations:", error)
-      if (error instanceof Error && error.message === "Request timeout") {
-        console.error("[v0] API request timed out after 10 seconds")
-      }
+      console.error("Error fetching conversations:", error)
       setConversations([])
     } finally {
-      console.log("[v0] Setting loading to false")
       setLoading(false)
     }
   }
 
   const fetchMessages = async (conversationId: number) => {
     try {
-      console.log("[v0] Fetching messages for conversation:", conversationId)
       setLoadingMessages(true)
-
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout")), 10000))
-
-      const fetchPromise = apiClient.request<MessagesResponse>(`/api/conversations/${conversationId}/messages`, {
+      const data = await apiClient.request<MessagesResponse>(`/api/conversations/${conversationId}/messages`, {
         requiresAuth: true,
       })
-
-      const data = (await Promise.race([fetchPromise, timeoutPromise])) as MessagesResponse
-
-      console.log("[v0] Contractor messages fetched:", data)
-
       setMessages(data.messages)
       setCanSendMessage(data.can_send)
-
-      console.log("[v0] Backend can_send flag:", data.can_send)
-
-      // Always call mark as read when viewing a conversation
-      console.log("[v0] Calling markConversationAsRead for conversation:", conversationId)
       await markConversationAsRead(conversationId)
     } catch (error) {
-      console.error("[v0] Error fetching contractor messages:", error)
-      if (error instanceof Error && error.message === "Request timeout") {
-        console.error("[v0] API request timed out after 10 seconds")
-      }
+      console.error("Error fetching messages:", error)
       setMessages([])
       setCanSendMessage(false)
     } finally {
-      console.log("[v0] Setting loadingMessages to false")
       setLoadingMessages(false)
     }
   }
 
   const markConversationAsRead = async (conversationId: number) => {
     try {
-      console.log("[v0] Marking contractor conversation as read:", conversationId)
-
-      const response = await apiClient.request(`/api/conversations/${conversationId}/mark-read`, {
+      await apiClient.request(`/api/conversations/${conversationId}/mark-read`, {
         method: "PUT",
         requiresAuth: true,
       })
-
-      console.log("[v0] Mark as read response:", response)
-
-      // Update local state: set unread_count to 0 for this conversation
       setConversations((prev) => prev.map((conv) => (conv.id === conversationId ? { ...conv, unread_count: 0 } : conv)))
-
-      // Dispatch event to update badge count in sidebar
-      console.log("[v0] Dispatching notificationUpdated event")
       window.dispatchEvent(new CustomEvent("notificationUpdated"))
-
-      console.log("[v0] Contractor conversation marked as read successfully:", conversationId)
     } catch (error) {
-      console.error("[v0] Error marking contractor conversation as read:", error)
+      console.error("Error marking conversation as read:", error)
     }
   }
 
   const handleSendMessage = async () => {
     if (!selectedConversation || !messageText.trim() || sending) return
 
-    setErrorMessage(null) // Clear any previous error messages
+    setErrorMessage(null)
 
     const isBidAccepted = selectedConversation.bid_status === "accepted"
     if (!canSendMessage && !isBidAccepted) {
-      const message =
-        "You have already responded to the customer's last message. Please wait for them to reply before sending another message."
+      const message = "You have already responded to the customer's last message. Please wait for them to reply."
       setErrorMessage(message)
-      toast({
-        title: "Cannot send message",
-        description: message,
-        variant: "destructive",
-      })
+      toast({ title: "Cannot send message", description: message, variant: "destructive" })
       return
     }
 
     const contactCheck = containsContactInfo(messageText)
     if (contactCheck.hasContact) {
-      const message = `Please do not include ${contactCheck.type === "email" ? "email addresses" : "phone numbers"} in your messages. Contact information is only shared after bid acceptance.`
+      const message = `Please do not include ${contactCheck.type === "email" ? "email addresses" : "phone numbers"} in your messages.`
       setErrorMessage(message)
-      toast({
-        title: "Cannot send message",
-        description: message,
-        variant: "destructive",
-      })
+      toast({ title: "Cannot send message", description: message, variant: "destructive" })
       return
     }
 
     try {
       setSending(true)
-      console.log("[v0] Sending contractor message:", messageText)
       await apiClient.request(`/api/conversations/${selectedConversation.id}/messages`, {
         method: "POST",
         body: JSON.stringify({ content: messageText }),
@@ -192,64 +152,18 @@ export default function MessagesPage() {
       await fetchMessages(selectedConversation.id)
       await fetchConversations()
     } catch (error) {
-      if (error instanceof ApiError) {
-        if (error.statusCode === 403) {
-          const message = error.errorData?.message || "You cannot send more messages at this time."
-          setErrorMessage(message)
-          toast({
-            title: "Message limit reached",
-            description: message,
-            variant: "destructive",
-          })
-          await fetchMessages(selectedConversation.id)
-          return
-        } else if (error.errorData) {
-          const errorData =
-            typeof error.errorData === "object" ? error.errorData : { error: "Error", message: error.errorData }
-          const message = errorData.message || "Please try again."
-          setErrorMessage(message)
-          toast({
-            title: errorData.error || "Failed to send message",
-            description: message,
-            variant: "destructive",
-          })
-          return
-        } else {
-          const message = error.message || "Please try again."
-          setErrorMessage(message)
-          toast({
-            title: "Failed to send message",
-            description: message,
-            variant: "destructive",
-          })
-          return
-        }
-      } else if (error instanceof Error) {
-        const message = error.message || "Please try again."
+      if (error instanceof ApiError && error.statusCode === 403) {
+        const message = error.errorData?.message || "You cannot send more messages at this time."
         setErrorMessage(message)
-        toast({
-          title: "Failed to send message",
-          description: message,
-          variant: "destructive",
-        })
-        return
-      } else {
-        const message = "Please try again."
-        setErrorMessage(message)
-        toast({
-          title: "Failed to send message",
-          description: message,
-          variant: "destructive",
-        })
-        return
+        toast({ title: "Message limit reached", description: message, variant: "destructive" })
       }
     } finally {
       setSending(false)
     }
   }
 
-  const handleDeleteConversation = async () => {
-    if (!selectedConversation || deletingConversation) return
+  const deleteConversation = async () => {
+    if (!selectedConversation) return
 
     try {
       setDeletingConversation(true)
@@ -257,20 +171,19 @@ export default function MessagesPage() {
         method: "DELETE",
         requiresAuth: true,
       })
-
-      setConversations((prev) => prev.filter((conv) => conv.id !== selectedConversation.id))
       setSelectedConversation(null)
+      setMessages([])
+      fetchConversations()
       setShowDeleteDialog(false)
-
       toast({
-        title: "Conversation deleted",
-        description: "The conversation has been removed from your view.",
+        title: "Success",
+        description: "Conversation deleted successfully",
       })
     } catch (error) {
-      console.error("[v0] Error deleting conversation:", error)
+      console.error("Error deleting conversation:", error)
       toast({
-        title: "Feature not available",
-        description: "The delete conversation feature needs to be added to the backend. Please contact support.",
+        title: "Error",
+        description: "Failed to delete conversation",
         variant: "destructive",
       })
     } finally {
@@ -292,461 +205,185 @@ export default function MessagesPage() {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
   }
 
-  const handleReportSuccess = (userName: string, category: string) => {
-    toast({
-      title: "Report Submitted",
-      description: `You have reported ${userName} for ${category.toLowerCase()}. Your report has been sent to our admin team for review.`,
-      duration: 6000,
-      className: "bg-red-50 border-red-200 border",
-    })
-  }
-
   return (
     <DashboardLayout userRole="contractor">
-      {/* Mobile modal view matching homeowner messages layout */}
-      {selectedConversation && (
-        <div className="md:hidden fixed inset-0 bg-white z-50 flex flex-col">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold text-gray-900 truncate">{selectedConversation.homeowner_name}</h2>
-              <p className="text-sm text-gray-600 truncate">{selectedConversation.mission_title}</p>
-            </div>
-            <div className="flex items-center gap-2 ml-4">
-              <button
-                onClick={() => setShowDeleteDialog(true)}
-                className="p-2 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                title="Delete conversation"
-              >
-                <Trash2 className="h-5 w-5 text-red-600" />
-              </button>
-              <button
-                onClick={() => setSelectedConversation(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-              >
-                <X className="h-6 w-6 text-gray-600" />
-              </button>
-            </div>
+      <div className="flex h-[calc(100vh-80px)] gap-4 overflow-hidden">
+        {/* Left Panel - Conversations List - Hidden on mobile when chat is open */}
+        <Card className={`${showMobileChat ? "hidden md:flex" : "flex"} w-full md:w-80 flex-col overflow-hidden`}>
+          <div className="p-4 sm:p-6 border-b flex-shrink-0">
+            <h2 className="text-xl sm:text-2xl font-bold">Messages</h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-            {loadingMessages ? (
-              <div className="text-center text-gray-500">Loading messages...</div>
-            ) : messages.length === 0 ? (
-              <div className="text-center text-gray-400 text-sm">No messages in this conversation yet</div>
-            ) : (
-              messages.map((msg) => {
-                const isContractor = msg.sender_id !== selectedConversation.homeowner_id
-                return (
-                  <div key={msg.id} className={`flex ${isContractor ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[75%] rounded-lg p-3 ${
-                        isContractor ? "bg-[#328d87] text-white" : "bg-white text-gray-900 border border-gray-200"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
-                      <p className={`text-xs mt-1 ${isContractor ? "text-white/70" : "text-gray-500"}`}>
-                        {new Date(msg.created_at).toLocaleTimeString("en-US", {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          <div className="p-4 border-t border-gray-200 bg-white">
-            {errorMessage && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-900">{errorMessage}</p>
-              </div>
-            )}
-            {!canSendMessage && selectedConversation.bid_status !== "accepted" && (
-              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm text-amber-900">
-                  You have already responded to the customer's last message. Please wait for them to reply before
-                  sending another message.
-                </p>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={messageText}
-                onChange={(e) => {
-                  setMessageText(e.target.value)
-                  if (errorMessage) setErrorMessage(null)
-                }}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSendMessage()
-                  }
-                }}
-                placeholder={
-                  canSendMessage || selectedConversation.bid_status === "accepted"
-                    ? "Type your message..."
-                    : "Wait for customer to reply before responding"
-                }
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                disabled={sending || (!canSendMessage && selectedConversation.bid_status !== "accepted")}
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={
-                  !messageText.trim() || sending || (!canSendMessage && selectedConversation.bid_status !== "accepted")
-                }
-                className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity flex-shrink-0"
-              >
-                <Send className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="p-4 border-t border-gray-200 bg-blue-50">
-            <p className="text-xs text-gray-700">
-              <strong>Note:</strong> You can send an initial message with a bid. After that, you can only respond once
-              to customer messages to prevent spam. Once your bid is accepted, you can message freely.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile conversation list */}
-      <div className="md:hidden flex flex-col h-[calc(100vh-8rem)]">
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">Messages</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {loading ? (
-              <div className="p-4 text-center text-gray-500">Loading conversations...</div>
+              <div className="p-6 text-center text-muted-foreground">Loading conversations...</div>
             ) : conversations.length === 0 ? (
-              <div className="p-4 text-center">
-                <p className="text-gray-500 text-sm">No messages yet</p>
-                <p className="text-gray-400 text-xs mt-2">Messages from customers will appear here</p>
-              </div>
+              <div className="p-6 text-center text-muted-foreground">No conversations yet</div>
             ) : (
               conversations.map((conv) => (
                 <button
                   key={conv.id}
-                  onClick={() => setSelectedConversation(conv)}
-                  className="w-full p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                  onClick={() => {
+                    setSelectedConversation(conv)
+                    setShowMobileChat(true)
+                  }}
+                  className={`w-full p-4 text-left border-b hover:bg-muted/50 transition-colors ${
+                    selectedConversation?.id === conv.id ? "bg-muted" : ""
+                  }`}
                 >
-                  <div className="flex items-start justify-between mb-1">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{conv.homeowner_name}</h3>
-                      <p className="text-xs text-gray-500 mt-1 truncate">{conv.mission_title}</p>
-                    </div>
-                    {conv.unread_count > 0 && (
-                      <div className="w-5 h-5 bg-[#328d87] rounded-full flex items-center justify-center flex-shrink-0 ml-2">
-                        <span className="text-xs text-white font-bold">{conv.unread_count}</span>
-                      </div>
-                    )}
-                  </div>
+                  <div className="font-semibold text-sm mb-1 truncate">{conv.homeowner_name}</div>
+                  <div className="text-xs text-muted-foreground mb-2 truncate">{conv.mission_title}</div>
                   {conv.last_message && (
-                    <>
-                      <p className="text-sm text-gray-600 truncate">{conv.last_message}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {conv.last_message_at ? formatTimestamp(conv.last_message_at) : ""}
-                      </p>
-                    </>
+                    <div className="text-sm text-foreground mb-1 line-clamp-1 break-words">{conv.last_message}</div>
                   )}
-                  {!conv.last_message && <p className="text-sm text-gray-400 italic">Click to view messages</p>}
+                  {conv.last_message_at && (
+                    <div className="text-xs text-muted-foreground">{formatTimestamp(conv.last_message_at)}</div>
+                  )}
+                  {conv.unread_count > 0 && (
+                    <span className="inline-block mt-2 bg-teal-600 text-white text-xs px-2 py-0.5 rounded-full">
+                      {conv.unread_count}
+                    </span>
+                  )}
                 </button>
               ))
             )}
           </div>
-          <div className="p-4 border-t border-gray-200 bg-blue-50">
-            <p className="text-xs text-gray-700">
-              <strong>Note:</strong> You can send an initial message with a bid. After that, you can only respond once
-              to customer messages to prevent spam. Once your bid is accepted, you can message freely.
+
+          <div className="p-3 sm:p-4 border-t bg-muted/30 flex-shrink-0">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold">Note:</span> You can send an initial message with a bid or respond to customer messages. Once a bid is accepted, messaging becomes unrestricted.
             </p>
           </div>
-        </div>
-      </div>
+        </Card>
 
-      {/* Desktop view */}
-      <div className="hidden md:block space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Messages</h1>
-          <p className="text-gray-600 mt-2">Communicate with your customers</p>
-        </div>
-
-        <div
-          className="bg-white rounded-xl border border-gray-200 overflow-hidden"
-          style={{ height: "calc(100vh - 250px)" }}
+        {/* Right Panel - Chat View - Full width on mobile when conversation selected */}
+        <Card
+          className={`${!showMobileChat && selectedConversation ? "hidden md:flex" : "flex"} flex-1 flex-col overflow-hidden`}
         >
-          <div className="flex h-full">
-            {/* Conversations List */}
-            <div className="w-80 border-r border-gray-200 flex flex-col">
-              <div className="p-4 border-b border-gray-200">
+          {selectedConversation ? (
+            <>
+              <div className="p-4 sm:p-6 border-b flex items-center justify-between flex-shrink-0">
                 <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={() => setShowMobileChat(false)}
+                  className="md:hidden mr-2 p-2 hover:bg-muted rounded-lg flex-shrink-0"
                 >
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-gray-600" />
-                    <span className="text-sm text-gray-700">Filters</span>
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {filters.status !== "all" || filters.dateRange !== "all" ? "Active" : "None"}
-                  </span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
                 </button>
-
-                {showFilters && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
-                    <div>
-                      <label className="text-xs font-medium text-gray-700 mb-1 block">Status</label>
-                      <select
-                        value={filters.status}
-                        onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#328d87]"
-                      >
-                        <option value="all">All Messages</option>
-                        <option value="read">Read</option>
-                        <option value="unread">Unread</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-700 mb-1 block">Date Range</label>
-                      <select
-                        value={filters.dateRange}
-                        onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#328d87]"
-                      >
-                        <option value="all">All Time</option>
-                        <option value="today">Today</option>
-                        <option value="week">This Week</option>
-                        <option value="month">This Month</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-sm font-semibold truncate">{selectedConversation.homeowner_name}</h2>
+                  <p className="text-xs text-muted-foreground truncate">{selectedConversation.mission_title}</p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="flex-shrink-0">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem className="text-red-600 focus:text-red-600">Report User</DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-600"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      Delete Conversation
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
-              <div className="flex-1 overflow-y-auto">
-                {loading ? (
-                  <div className="p-8 text-center">
-                    <div className="text-gray-500 mb-2">Loading conversations...</div>
-                    <div className="text-xs text-gray-400">If this takes too long, please refresh the page</div>
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4">
+                {loadingMessages ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm sm:text-base px-4">
+                    Loading messages...
                   </div>
-                ) : conversations.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <p className="text-gray-500 text-sm">No messages yet</p>
-                    <p className="text-gray-400 text-xs mt-2">Messages from customers will appear here</p>
+                ) : messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm sm:text-base px-4">
+                    No messages yet. Start the conversation!
                   </div>
                 ) : (
-                  conversations.map((conv) => (
-                    <button
-                      key={conv.id}
-                      onClick={() => setSelectedConversation(conv)}
-                      className={`w-full p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors text-left ${
-                        selectedConversation?.id === conv.id ? "bg-gray-50" : ""
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-1">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{conv.homeowner_name}</h3>
-                          <p className="text-xs text-gray-500 mt-1">{conv.mission_title}</p>
-                        </div>
-                        {conv.unread_count > 0 && (
-                          <div className="w-5 h-5 bg-[#328d87] rounded-full flex items-center justify-center">
-                            <span className="text-xs text-white font-bold">{conv.unread_count}</span>
-                          </div>
-                        )}
-                      </div>
-                      {conv.last_message && (
-                        <>
-                          <p className="text-sm text-gray-600 truncate">{conv.last_message}</p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {conv.last_message_at ? formatTimestamp(conv.last_message_at) : ""}
+                  messages.map((msg) => {
+                    const isContractor = msg.sender_id !== selectedConversation.homeowner_id
+                    return (
+                      <div key={msg.id} className={`flex ${isContractor ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`max-w-[85%] sm:max-w-[70%] rounded-lg p-3 ${
+                            isContractor ? "bg-teal-600 text-white" : "bg-muted text-foreground"
+                          }`}
+                        >
+                          <p className="text-sm break-words overflow-wrap-anywhere">{msg.content}</p>
+                          <p className={`text-xs mt-1 ${isContractor ? "text-teal-100" : "text-muted-foreground"}`}>
+                            {new Date(msg.created_at).toLocaleTimeString("en-US", {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
                           </p>
-                        </>
-                      )}
-                      {!conv.last_message && <p className="text-sm text-gray-400 italic">Click to view messages</p>}
-                    </button>
-                  ))
+                        </div>
+                      </div>
+                    )
+                  })
                 )}
               </div>
 
-              <div className="p-4 bg-blue-50 border-t border-blue-100">
-                <p className="text-xs text-blue-900 leading-relaxed">
-                  <strong>Note:</strong> You can send an initial message with a bid. After that, you can only respond
-                  once to customer messages to prevent spam. Once your bid is accepted, you can message freely.
-                </p>
-              </div>
-            </div>
-
-            {/* Message Thread */}
-            <div className="flex-1 flex flex-col">
-              {selectedConversation === null ? (
-                <div className="flex-1 flex items-center justify-center text-gray-400">
-                  <div className="text-center">
-                    <p className="text-lg font-medium">Select a conversation</p>
-                    <p className="text-sm mt-2">Choose a message from the left to start chatting</p>
+              <div className="p-3 sm:p-6 border-t flex-shrink-0">
+                {errorMessage && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-800">{errorMessage}</p>
                   </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    value={messageText}
+                    onChange={(e) => {
+                      setMessageText(e.target.value)
+                      if (errorMessage) setErrorMessage(null)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSendMessage()
+                      }
+                    }}
+                    placeholder="Type a message..."
+                    className="flex-1 min-w-0"
+                    disabled={sending || (!canSendMessage && selectedConversation.bid_status !== "accepted")}
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    size="icon"
+                    className="bg-teal-600 hover:bg-teal-700 flex-shrink-0"
+                    disabled={sending || !messageText.trim()}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
                 </div>
-              ) : (
-                <>
-                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-xl font-bold text-gray-900">{selectedConversation.homeowner_name}</h2>
-                      <p className="text-sm text-gray-600">{selectedConversation.mission_title}</p>
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      <button
-                        onClick={() => setShowDeleteDialog(true)}
-                        className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium flex items-center gap-2"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => setShowReportModal(true)}
-                        className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
-                      >
-                        Report User
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Messages */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                    {loadingMessages ? (
-                      <div className="text-center text-gray-500">Loading messages...</div>
-                    ) : messages.length === 0 ? (
-                      <div className="text-center text-gray-400 text-sm">No messages in this conversation yet</div>
-                    ) : (
-                      messages.map((msg) => {
-                        const isContractor = msg.sender_id !== selectedConversation.homeowner_id
-                        return (
-                          <div key={msg.id} className={`flex ${isContractor ? "justify-end" : "justify-start"}`}>
-                            <div
-                              className={`max-w-[70%] rounded-lg p-3 ${
-                                isContractor ? "bg-[#328d87] text-white" : "bg-gray-100 text-gray-900"
-                              }`}
-                            >
-                              <p className="whitespace-pre-wrap">{msg.content}</p>
-                              <p className={`text-xs mt-1 ${isContractor ? "text-white/70" : "text-gray-500"}`}>
-                                {new Date(msg.created_at).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </p>
-                            </div>
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-
-                  {/* Message Input */}
-                  <div className="p-4 border-t border-gray-200">
-                    {errorMessage && (
-                      <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                        <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-red-900">{errorMessage}</p>
-                      </div>
-                    )}
-                    {!canSendMessage && selectedConversation.bid_status !== "accepted" && (
-                      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-sm text-amber-900">
-                          You have already responded to the customer's last message. Please wait for them to reply
-                          before sending another message.
-                        </p>
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={messageText}
-                        onChange={(e) => {
-                          setMessageText(e.target.value)
-                          if (errorMessage) setErrorMessage(null)
-                        }}
-                        onKeyPress={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSendMessage()
-                          }
-                        }}
-                        placeholder={
-                          canSendMessage || selectedConversation.bid_status === "accepted"
-                            ? "Type your message..."
-                            : "Wait for customer to reply before responding"
-                        }
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#328d87] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        disabled={sending || (!canSendMessage && selectedConversation.bid_status !== "accepted")}
-                      />
-                      <button
-                        onClick={() => {
-                          handleSendMessage().catch((err) => {
-                            console.error("[v0] Unhandled error in handleSendMessage:", err)
-                          })
-                        }}
-                        disabled={
-                          !messageText.trim() ||
-                          sending ||
-                          (!canSendMessage && selectedConversation.bid_status !== "accepted")
-                        }
-                        className="px-6 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                      >
-                        <Send className="h-4 w-4" />
-                        Send
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm sm:text-base p-4 text-center">
+              Select a conversation to view messages
             </div>
-          </div>
-        </div>
+          )}
+        </Card>
       </div>
 
-      {/* Report User Modal */}
-      {selectedConversation && (
-        <ReportUserModal
-          isOpen={showReportModal}
-          onClose={() => setShowReportModal(false)}
-          reportedUserId={selectedConversation.homeowner_id}
-          reportedUserName={selectedConversation.homeowner_name}
-          reportedUserRole="homeowner"
-          conversationId={selectedConversation.id}
-          onReportSuccess={handleReportSuccess}
-        />
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      {showDeleteDialog && selectedConversation && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Conversation?</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              This will remove the conversation from your view only. The homeowner will still be able to see it. This
-              action cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowDeleteDialog(false)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConversation}
-                disabled={deletingConversation}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-              >
-                {deletingConversation ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteConversation} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }

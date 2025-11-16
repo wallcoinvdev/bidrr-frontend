@@ -1,37 +1,40 @@
 "use client"
 
-import { Users, Search, Ban, CheckCircle, Loader2, AlertCircle, UserCog } from "lucide-react"
 import { useState, useEffect } from "react"
+import { useRouter } from 'next/navigation'
 import { apiClient } from "@/lib/api-client"
-import { useAuth } from "@/lib/auth-context"
-import { VerifiedBadge } from "@/components/verified-badge"
+import { Loader2, Search, Ban, CheckCircle, UserCog } from 'lucide-react'
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 
 interface User {
   id: number
-  email: string
   name: string
+  email: string
   phone_number: string
+  role: string
   city: string
   region: string
-  role: string
-  created_at: string
-  is_banned: boolean
   phone_verified: boolean
-  is_admin: boolean
+  is_verified: boolean
+  is_banned: boolean
   company_name?: string
-  is_verified?: boolean
 }
 
-export default function AdminUsers() {
+interface Stats {
+  totalUsers: number
+  homeowners: number
+  contractors: number
+}
+
+export default function UsersPage() {
+  const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
-  const { impersonateUser } = useAuth()
-  const [showImpersonateDialog, setShowImpersonateDialog] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<{ id: number; name: string } | null>(null)
+  const [stats, setStats] = useState<Stats>({ totalUsers: 0, homeowners: 0, contractors: 0 })
+  const router = useRouter()
 
   useEffect(() => {
     fetchUsers()
@@ -39,257 +42,281 @@ export default function AdminUsers() {
 
   useEffect(() => {
     filterUsers()
-  }, [users, searchQuery, roleFilter])
+  }, [users, searchTerm, roleFilter])
 
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      setError("")
-      const data = await apiClient.request<{ users: User[] }>("/api/admin/users", { requiresAuth: true })
+      const data = await apiClient.request<{ users: User[] }>("/api/admin/users", {
+        requiresAuth: true,
+      })
       setUsers(data.users)
+
+      // Calculate stats
+      const totalUsers = data.users.length
+      const homeowners = data.users.filter((u) => u.role === "homeowner").length
+      const contractors = data.users.filter((u) => u.role === "contractor").length
+      setStats({ totalUsers, homeowners, contractors })
     } catch (error: any) {
-      setError(error.message || "Failed to load users")
+      console.error("Error fetching users:", error)
     } finally {
       setLoading(false)
     }
   }
 
   const filterUsers = () => {
-    let filtered = [...users]
+    let filtered = users
+
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (user) =>
+          user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.phone_number?.includes(searchTerm) ||
+          user.id.toString().includes(searchTerm),
+      )
+    }
 
     if (roleFilter !== "all") {
       filtered = filtered.filter((user) => user.role === roleFilter)
     }
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(
-        (user) =>
-          user.name.toLowerCase().includes(query) ||
-          user.email.toLowerCase().includes(query) ||
-          user.phone_number.includes(query) ||
-          user.id.toString().includes(query),
-      )
-    }
-
     setFilteredUsers(filtered)
   }
 
-  const toggleBanUser = async (userId: number, currentBanStatus: boolean) => {
+  const handleImpersonate = async (userId: number) => {
+    const targetUser = users.find((u) => u.id === userId)
+    if (!targetUser) return
+
+    if (!confirm(`Are you sure you want to switch to ${targetUser.name}'s account?`)) {
+      return
+    }
+
     try {
-      await apiClient.post(`/api/admin/users/${userId}/ban`, { is_banned: !currentBanStatus })
-      fetchUsers()
-    } catch (error: any) {
-      console.error("[v0] Error toggling ban status:", error)
-      alert("Failed to update ban status")
+      const response = await apiClient.request<{ token: string; user: any }>(`/api/admin/impersonate/${userId}`, {
+        method: "POST",
+        requiresAuth: true,
+      })
+
+      // Save both tokens
+      const currentToken = localStorage.getItem("token")
+      if (currentToken) {
+        localStorage.setItem("admin_token", currentToken)
+      }
+
+      // Save the new token and user data
+      localStorage.setItem("token", response.token)
+      localStorage.setItem("user", JSON.stringify(response.user))
+
+      // Redirect based on role
+      if (response.user.role === "contractor") {
+        window.location.href = "/dashboard/contractor"
+      } else if (response.user.role === "homeowner") {
+        window.location.href = "/dashboard/homeowner"
+      } else {
+        window.location.href = "/"
+      }
+    } catch (error) {
+      console.error("Error impersonating user:", error)
+      alert("Failed to impersonate user")
     }
   }
 
-  const toggleVerifyUser = async (userId: number, currentVerifyStatus: boolean) => {
+  const handleBanToggle = async (userId: number, currentlyBanned: boolean) => {
+    const action = currentlyBanned ? "unban" : "ban"
+    if (!confirm(`Are you sure you want to ${action} user #${userId}?`)) {
+      return
+    }
+
     try {
-      await apiClient.post(`/api/admin/users/${userId}/verify`, { is_verified: !currentVerifyStatus })
-      fetchUsers()
-    } catch (error: any) {
-      console.error("[v0] Error toggling verify status:", error)
-      alert("Failed to update verification status")
+      // Backend expects /api/admin/users/:id/ban with is_banned in body
+      await apiClient.request(`/api/admin/users/${userId}/ban`, {
+        method: "POST",
+        requiresAuth: true,
+        body: JSON.stringify({
+          is_banned: !currentlyBanned,
+          reason: currentlyBanned ? null : "Banned by admin",
+        }),
+      })
+      fetchUsers() // Refresh the list
+    } catch (error) {
+      console.error(`Error ${action}ning user:`, error)
+      alert(`Failed to ${action} user`)
     }
   }
 
-  const handleSwitchToUser = async (userId: number, userName: string) => {
-    setSelectedUser({ id: userId, name: userName })
-    setShowImpersonateDialog(true)
-  }
+  const handleVerifyToggle = async (userId: number, currentlyVerified: boolean) => {
+    const action = currentlyVerified ? "unverify" : "verify"
+    if (!confirm(`Are you sure you want to ${action} user #${userId}?`)) {
+      return
+    }
 
-  const confirmImpersonation = async () => {
-    if (selectedUser) {
-      setShowImpersonateDialog(false)
-      await impersonateUser(selectedUser.id)
+    try {
+      await apiClient.request(`/api/admin/users/${userId}/${action}`, {
+        method: "POST",
+        requiresAuth: true,
+      })
+      fetchUsers() // Refresh the list
+    } catch (error) {
+      console.error(`Error ${action}ing user:`, error)
+      alert(`Failed to ${action} user`)
     }
   }
 
-  const cancelImpersonation = () => {
-    setShowImpersonateDialog(false)
-    setSelectedUser(null)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-[#0F3D3E]" />
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-        <p className="text-gray-600 mt-2">View, search, and manage platform users</p>
+        <h1 className="text-4xl font-bold text-gray-900">User Management</h1>
+        <p className="text-gray-500 mt-2">View, search, and manage platform users</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-600 mb-1">Total Users</p>
-          <p className="text-2xl font-bold text-gray-900">{users.length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-600 mb-1">Homeowners</p>
-          <p className="text-2xl font-bold text-green-600">{users.filter((u) => u.role === "homeowner").length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-600 mb-1">Contractors</p>
-          <p className="text-2xl font-bold text-purple-600">{users.filter((u) => u.role === "contractor").length}</p>
-        </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="p-6 bg-white border border-gray-200 shadow-sm">
+          <p className="text-sm text-gray-600 mb-2">Total Users</p>
+          <p className="text-4xl font-bold text-gray-900">{stats.totalUsers}</p>
+        </Card>
+
+        <Card className="p-6 bg-white border border-gray-200 shadow-sm">
+          <p className="text-sm text-gray-600 mb-2">Homeowners</p>
+          <p className="text-4xl font-bold text-green-600">{stats.homeowners}</p>
+        </Card>
+
+        <Card className="p-6 bg-white border border-gray-200 shadow-sm">
+          <p className="text-sm text-gray-600 mb-2">Contractors</p>
+          <p className="text-4xl font-bold text-purple-600">{stats.contractors}</p>
+        </Card>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by name, email, phone, or user ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Roles</option>
-            <option value="homeowner">Homeowners</option>
-            <option value="contractor">Contractors</option>
-          </select>
+      {/* Search and Filter */}
+      <div className="flex gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name, email, phone, or user ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent"
+          />
         </div>
+
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent bg-white min-w-[140px]"
+        >
+          <option value="all">All Roles</option>
+          <option value="homeowner">Homeowner</option>
+          <option value="contractor">Contractor</option>
+        </select>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-red-900 mb-1">Error Loading Users</h3>
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          </div>
-        </div>
-      ) : filteredUsers.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Users Found</h3>
-          <p className="text-gray-600">No users match your search criteria.</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">User ID</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Name</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Phone</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Location</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Role</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm text-gray-900">#{user.id}</td>
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                      <div className="flex items-center gap-2">
-                        {user.name}
-                        {user.phone_verified && <VerifiedBadge type="phone" size="sm" />}
-                        {user.role === "contractor" && user.is_verified && <VerifiedBadge type="google" size="sm" />}
-                      </div>
-                      {user.role === "contractor" && user.company_name && (
-                        <div className="text-xs text-gray-500 mt-1">{user.company_name}</div>
+      {/* Users Table */}
+      <Card className="bg-white border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">User ID</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Phone</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Location</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    <span className="text-gray-900 font-medium">#{user.id}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-900 font-medium">{user.name}</span>
+                      {user.phone_verified && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full" title="Phone Verified"></div>
                       )}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{user.email}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{user.phone_number}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {user.city && user.region ? `${user.city}, ${user.region}` : "N/A"}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          user.is_admin
-                            ? "bg-red-100 text-red-700"
-                            : user.role === "homeowner"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-purple-100 text-purple-700"
-                        }`}
+                      {user.is_verified && <div className="w-2 h-2 bg-yellow-500 rounded-full" title="Verified"></div>}
+                    </div>
+                    {user.company_name && <p className="text-sm text-gray-500">{user.company_name}</p>}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-gray-700">{user.email}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-gray-700">{user.phone_number}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-gray-700">
+                      {user.city}, {user.region}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <Badge
+                      className={
+                        user.role === "contractor" ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"
+                      }
+                    >
+                      {user.role}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-2">
+                      {user.is_verified && <CheckCircle className="w-5 h-5 text-green-500" title="Verified" />}
+                      {user.is_banned && <Ban className="w-5 h-5 text-red-500" title="Banned" />}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    {/* Action buttons for verify, ban, and impersonate */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleVerifyToggle(user.id, user.is_verified)}
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-green-600"
+                        title={user.is_verified ? "Unverify user" : "Verify user"}
                       >
-                        {user.is_admin ? "admin" : user.role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        {user.role === "contractor" && (
-                          <button
-                            onClick={() => toggleVerifyUser(user.id, user.is_verified || false)}
-                            className={`p-1 rounded hover:bg-gray-100 ${
-                              user.is_verified ? "text-green-600" : "text-gray-400"
-                            }`}
-                            title={user.is_verified ? "Remove Google verification" : "Verify with Google"}
-                          >
-                            <CheckCircle className="h-5 w-5" />
-                          </button>
+                        {user.is_verified ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <CheckCircle className="w-5 h-5" />
                         )}
-                        <button
-                          onClick={() => toggleBanUser(user.id, user.is_banned)}
-                          className={`p-1 rounded hover:bg-gray-100 ${user.is_banned ? "text-red-600" : "text-gray-400"}`}
-                          title={user.is_banned ? "Unban user" : "Ban user"}
-                        >
-                          <Ban className="h-5 w-5" />
-                        </button>
-                        {!user.is_admin && (
-                          <button
-                            onClick={() => handleSwitchToUser(user.id, user.name)}
-                            className="p-1 rounded hover:bg-gray-100 text-[#328d87]"
-                            title="Switch to this user's account"
-                          >
-                            <UserCog className="h-5 w-5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                      </button>
 
-      {showImpersonateDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Switch to User Account</h3>
-            <p className="text-gray-600 mb-6">
-              Switch to <strong>{selectedUser?.name}</strong>'s account? You will be able to exit back to the admin
-              panel at any time.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={cancelImpersonation}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmImpersonation}
-                className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:bg-[#2a7570] transition-colors"
-              >
-                Switch to Account
-              </button>
-            </div>
-          </div>
+                      <button
+                        onClick={() => handleBanToggle(user.id, user.is_banned)}
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-red-600"
+                        title={user.is_banned ? "Unban user" : "Ban user"}
+                      >
+                        {user.is_banned ? <Ban className="w-5 h-5 text-red-600" /> : <Ban className="w-5 h-5" />}
+                      </button>
+
+                      <button
+                        onClick={() => handleImpersonate(user.id)}
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-[#0F3D3E]"
+                        title="Switch to this user's account"
+                      >
+                        <UserCog className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </Card>
     </div>
   )
 }

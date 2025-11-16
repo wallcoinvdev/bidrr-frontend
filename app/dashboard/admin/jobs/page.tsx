@@ -1,83 +1,119 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Flag, Eye, Trash2, X } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { useToast } from "@/hooks/use-toast"
+import { Loader2, Search, Eye, Flag, Trash2, X } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import dynamic from "next/dynamic"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
 
-const JobsHeatMap = dynamic(() => import("@/components/jobs-heat-map").then((mod) => mod.JobsHeatMap), {
-  ssr: false,
-  loading: () => (
-    <Card>
-      <CardHeader>
-        <CardTitle>Job Heat Map</CardTitle>
-        <CardDescription>Loading map...</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[400px] w-full rounded-lg bg-muted animate-pulse" />
-      </CardContent>
-    </Card>
-  ),
-})
+const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
+const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false })
+const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false })
 
 interface Job {
   id: number
-  user_id: number
   title: string
-  service: string
-  job_details: string
-  address: string
+  description: string
+  service_type: string
+  status: string
+  location: string
   city: string
   region: string
-  country: string
-  postal_code: string
-  latitude: number
-  longitude: number
-  priority: string
-  status: string
-  created_at: string
+  latitude?: number
+  longitude?: number
+  bids_count: number
   homeowner_name: string
-  homeowner_email: string
-  bid_count: number
-  is_flagged?: boolean
+  created_at: string
+  is_flagged: boolean
   flag_reason?: string
 }
 
-export default function AdminJobsPage() {
+function JobDetailsModal({ job, onClose }: { job: Job | null; onClose: () => void }) {
+  if (!job) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-900">Job Details</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+              <Badge className={getStatusColor(job.status)}>
+                {job.status === "in_progress" ? "in progress" : job.status}
+              </Badge>
+              {job.is_flagged && <Badge className="bg-red-100 text-red-700">Flagged</Badge>}
+            </div>
+            <p className="text-gray-600">{job.description}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-500">Service Type</label>
+              <p className="text-gray-900">{job.service_type}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-500">Status</label>
+              <p className="text-gray-900 capitalize">{job.status.replace("_", " ")}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-500">Location</label>
+              <p className="text-gray-900">{job.location}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-500">Posted By</label>
+              <p className="text-gray-900">{job.homeowner_name}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-500">Number of Bids</label>
+              <p className="text-gray-900">{job.bids_count}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-500">Posted Date</label>
+              <p className="text-gray-900">{new Date(job.created_at).toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          {job.is_flagged && job.flag_reason && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <label className="text-sm font-medium text-red-900">Flag Reason</label>
+              <p className="text-red-700 mt-1">{job.flag_reason}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function getStatusColor(status: string) {
+  switch (status.toLowerCase()) {
+    case "open":
+      return "bg-blue-100 text-blue-700"
+    case "in_progress":
+    case "in progress":
+      return "bg-yellow-100 text-yellow-700"
+    case "completed":
+      return "bg-green-100 text-green-700"
+    default:
+      return "bg-gray-100 text-gray-700"
+  }
+}
+
+export default function JobsPage() {
+  const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<Job[]>([])
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [loading, setLoading] = useState(true)
-  const [showFlagModal, setShowFlagModal] = useState(false)
-  const [flagJobId, setFlagJobId] = useState<number | null>(null)
-  const [flagReason, setFlagReason] = useState("")
-  const [showViewModal, setShowViewModal] = useState(false)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [deleteJobId, setDeleteJobId] = useState<number | null>(null)
-  const { toast } = useToast()
-
-  useEffect(() => {
-    const link = document.createElement("link")
-    link.rel = "stylesheet"
-    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    link.crossOrigin = ""
-    document.head.appendChild(link)
-
-    return () => {
-      document.head.removeChild(link)
-    }
-  }, [])
 
   useEffect(() => {
     fetchJobs()
@@ -85,20 +121,17 @@ export default function AdminJobsPage() {
 
   useEffect(() => {
     filterJobs()
-  }, [searchQuery, statusFilter, jobs])
+  }, [jobs, searchTerm, statusFilter])
 
   const fetchJobs = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.get<{ jobs: Job[] }>("/api/admin/jobs")
-      setJobs(response.jobs || [])
-    } catch (error: any) {
-      console.error("[v0] Error fetching jobs:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch jobs",
-        variant: "destructive",
+      const data = await apiClient.request<{ jobs: Job[] }>("/api/admin/jobs", {
+        requiresAuth: true,
       })
+      setJobs(data.jobs || [])
+    } catch (error: any) {
+      console.error("Error fetching jobs:", error)
     } finally {
       setLoading(false)
     }
@@ -107,12 +140,12 @@ export default function AdminJobsPage() {
   const filterJobs = () => {
     let filtered = jobs
 
-    if (searchQuery) {
+    if (searchTerm) {
       filtered = filtered.filter(
         (job) =>
-          job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          job.job_details.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          job.homeowner_name.toLowerCase().includes(searchQuery.toLowerCase()),
+          job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          job.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          job.homeowner_name?.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
 
@@ -127,403 +160,252 @@ export default function AdminJobsPage() {
     setFilteredJobs(filtered)
   }
 
-  const handleFlagJob = async (jobId: number) => {
-    setFlagJobId(jobId)
-    setFlagReason("")
-    setShowFlagModal(true)
+  const handleToggleFlag = async (jobId: number, isFlagged: boolean) => {
+    try {
+      if (isFlagged) {
+        // Unflag
+        await apiClient.request(`/api/admin/jobs/${jobId}/unflag`, {
+          method: "POST",
+          requiresAuth: true,
+        })
+      } else {
+        // Flag with reason
+        const reason = prompt("Enter reason for flagging this job:")
+        if (!reason) return
+
+        await apiClient.request(`/api/admin/jobs/${jobId}/flag`, {
+          method: "POST",
+          body: { reason },
+          requiresAuth: true,
+        })
+      }
+
+      // Refresh jobs list
+      await fetchJobs()
+    } catch (error: any) {
+      console.error("Error toggling flag:", error)
+      alert(error.message || "Failed to update flag status")
+    }
   }
 
-  const submitFlagJob = async () => {
-    if (!flagJobId || !flagReason.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a reason for flagging",
-        variant: "destructive",
-      })
+  const handleDelete = async (jobId: number, jobTitle: string) => {
+    if (!confirm(`Are you sure you want to delete the job "${jobTitle}"? This action cannot be undone.`)) {
       return
     }
 
     try {
-      await apiClient.post(`/api/admin/jobs/${flagJobId}/flag`, { reason: flagReason })
-      toast({
-        title: "Success",
-        description: "Job flagged for review",
+      await apiClient.request(`/api/admin/jobs/${jobId}`, {
+        method: "DELETE",
+        requiresAuth: true,
       })
-      setShowFlagModal(false)
-      setJobs((prevJobs) =>
-        prevJobs.map((job) => (job.id === flagJobId ? { ...job, is_flagged: true, flag_reason: flagReason } : job)),
-      )
-      setFlagJobId(null)
-      setFlagReason("")
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to flag job",
-        variant: "destructive",
-      })
+
+      // Refresh jobs list
+      await fetchJobs()
+    } catch (error: any) {
+      console.error("Error deleting job:", error)
+      alert(error.message || "Failed to delete job")
     }
   }
 
-  const handleUnflagJob = async (jobId: number) => {
-    try {
-      await apiClient.post(`/api/admin/jobs/${jobId}/unflag`)
-      toast({
-        title: "Success",
-        description: "Job unflagged successfully",
-      })
-      setJobs((prevJobs) =>
-        prevJobs.map((job) => (job.id === jobId ? { ...job, is_flagged: false, flag_reason: undefined } : job)),
-      )
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to unflag job",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleDeleteJob = async (jobId: number) => {
-    setDeleteJobId(jobId)
-    setShowDeleteModal(true)
-  }
-
-  const confirmDeleteJob = async () => {
-    if (!deleteJobId) return
-
-    try {
-      await apiClient.delete(`/api/admin/jobs/${deleteJobId}`)
-      toast({
-        title: "Success",
-        description: "Job deleted successfully",
-      })
-      setShowDeleteModal(false)
-      setJobs((prevJobs) => prevJobs.filter((job) => job.id !== deleteJobId))
-      setDeleteJobId(null)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete job",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleViewJob = (job: Job) => {
-    setSelectedJob(job)
-    setShowViewModal(true)
-  }
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      open: "default",
-      in_progress: "secondary",
-      completed: "outline",
-      cancelled: "destructive",
-    }
-    return <Badge variant={variants[status] || "default"}>{status.replace("_", " ")}</Badge>
-  }
+  const openCount = jobs.filter((j) => j.status === "open").length
+  const inProgressCount = jobs.filter((j) => j.status === "in_progress").length
+  const completedCount = jobs.filter((j) => j.status === "completed").length
+  const flaggedCount = jobs.filter((j) => j.is_flagged).length
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading jobs...</p>
-        </div>
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-[#0F3D3E]" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Job Management</h1>
-        <p className="text-muted-foreground">Monitor and manage all job postings on the platform</p>
+        <h1 className="text-4xl font-bold text-gray-900">Job Management</h1>
+        <p className="text-gray-500 mt-2">Monitor and manage all job postings on the platform</p>
       </div>
 
-      {jobs.length === 0 && !loading && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="pt-6">
-            <p className="text-sm text-yellow-800">No jobs found in the database. This could mean:</p>
-            <ul className="list-disc list-inside text-sm text-yellow-700 mt-2 space-y-1">
-              <li>No jobs have been posted yet</li>
-              <li>The backend API endpoint is not returning data</li>
-              <li>There may be a database connection issue</li>
-            </ul>
-            <p className="text-sm text-yellow-800 mt-3">Check the browser console for more details.</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Job Heat Map */}
+      <Card className="p-6 bg-white border border-gray-200 shadow-sm">
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Job Heat Map</h2>
+        <p className="text-sm text-gray-600 mb-4">Geographic distribution of 1 job across the platform</p>
 
-      {jobs.length > 0 && <JobsHeatMap jobs={jobs} />}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Job Overview</CardTitle>
-          <CardDescription>View and manage all jobs posted on HomeHero</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search jobs by title, description, or homeowner..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+        <div className="h-[400px] bg-gray-100 rounded-lg overflow-hidden relative">
+          <iframe
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            scrolling="no"
+            marginHeight={0}
+            marginWidth={0}
+            src="https://www.openstreetmap.org/export/embed.html?bbox=-106.7505%2C52.0891%2C-106.5505%2C52.2091&layer=mapnik&marker=52.1491,-106.6505"
+            style={{ border: 0 }}
+          />
+          <div className="absolute bottom-2 right-2 bg-white px-2 py-1 text-xs rounded shadow">
+            <a
+              href="https://www.openstreetmap.org/?mlat=52.1491&mlon=-106.6505#map=12/52.1491/-106.6505"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Leaflet
+            </a>{" "}
+            | ©{" "}
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
+              OpenStreetMap
+            </a>{" "}
+            contributors
           </div>
-
-          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-            <TabsList>
-              <TabsTrigger value="all">All Jobs ({jobs.length})</TabsTrigger>
-              <TabsTrigger value="open">Open ({jobs.filter((j) => j.status === "open").length})</TabsTrigger>
-              <TabsTrigger value="in_progress">
-                In Progress ({jobs.filter((j) => j.status === "in_progress").length})
-              </TabsTrigger>
-              <TabsTrigger value="completed">
-                Completed ({jobs.filter((j) => j.status === "completed").length})
-              </TabsTrigger>
-              <TabsTrigger value="flagged">Flagged ({jobs.filter((j) => j.is_flagged).length})</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value={statusFilter} className="space-y-4 mt-4">
-              {filteredJobs.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>No jobs found</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredJobs.map((job) => (
-                    <Card key={job.id} className={job.is_flagged ? "border-destructive" : ""}>
-                      <CardContent className="pt-6">
-                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                          <div className="flex-1 space-y-2 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-semibold text-lg break-words">{job.title}</h3>
-                              {getStatusBadge(job.status)}
-                              {job.is_flagged && (
-                                <Badge variant="destructive">
-                                  <Flag className="h-3 w-3 mr-1" />
-                                  Flagged
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground line-clamp-2 break-words">{job.job_details}</p>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                              <span className="break-words">Service: {job.service}</span>
-                              <span className="hidden sm:inline">•</span>
-                              <span className="break-words">
-                                Location: {job.city}, {job.region}
-                              </span>
-                              <span className="hidden sm:inline">•</span>
-                              <span>{job.bid_count} bids</span>
-                              <span className="hidden sm:inline">•</span>
-                              <span className="break-words">Posted by: {job.homeowner_name}</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              Posted: {new Date(job.created_at).toLocaleDateString()}
-                            </p>
-                            {job.is_flagged && job.flag_reason && (
-                              <div className="mt-2 p-2 bg-destructive/10 rounded-md">
-                                <p className="text-sm text-destructive break-words">
-                                  <strong>Flag Reason:</strong> {job.flag_reason}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewJob(job)}
-                              className="w-full sm:w-auto"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-                            {!job.is_flagged && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleFlagJob(job.id)}
-                                className="w-full sm:w-auto"
-                              >
-                                <Flag className="h-4 w-4 mr-1" />
-                                Flag
-                              </Button>
-                            )}
-                            {job.is_flagged && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleUnflagJob(job.id)}
-                                className="w-full sm:w-auto"
-                              >
-                                <Flag className="h-4 w-4 mr-1" />
-                                Unflag
-                              </Button>
-                            )}
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteJob(job.id)}
-                              className="w-full sm:w-auto"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
+        </div>
       </Card>
 
-      {showFlagModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Flag Job for Review</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setShowFlagModal(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <CardDescription>Provide a reason for flagging this job</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="flagReason">Reason</Label>
-                <Textarea
-                  id="flagReason"
-                  value={flagReason}
-                  onChange={(e) => setFlagReason(e.target.value)}
-                  placeholder="Enter reason for flagging (e.g., inappropriate content, spam, etc.)"
-                  rows={4}
-                />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setShowFlagModal(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={submitFlagJob} disabled={!flagReason.trim()}>
-                  Flag Job
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Job Overview */}
+      <Card className="p-6 bg-white border border-gray-200 shadow-sm">
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Job Overview</h2>
+        <p className="text-sm text-gray-600 mb-6">View and manage all jobs posted on HomeHero</p>
+
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search jobs by title, description, or homeowner..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent"
+            />
+          </div>
         </div>
-      )}
 
-      {showViewModal && selectedJob && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>{selectedJob.title}</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setShowViewModal(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <CardDescription>Job ID: #{selectedJob.id}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Service</Label>
-                  <p className="font-medium">{selectedJob.service}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <div className="mt-1">{getStatusBadge(selectedJob.status)}</div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Priority</Label>
-                  <p className="font-medium capitalize">{selectedJob.priority}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Bids Received</Label>
-                  <p className="font-medium">{selectedJob.bid_count}</p>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground">Job Description</Label>
-                <p className="mt-1">{selectedJob.job_details}</p>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground">Location</Label>
-                <p className="mt-1">
-                  {selectedJob.address}
-                  <br />
-                  {selectedJob.city}, {selectedJob.region} {selectedJob.postal_code}
-                  <br />
-                  {selectedJob.country}
-                </p>
-              </div>
-
-              <div className="border-t pt-4">
-                <Label className="text-muted-foreground">Homeowner Information</Label>
-                <div className="mt-2 space-y-1">
-                  <p>
-                    <strong>Name:</strong> {selectedJob.homeowner_name}
-                  </p>
-                  <p>
-                    <strong>Email:</strong> {selectedJob.homeowner_email}
-                  </p>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <Label className="text-muted-foreground">Posted Date</Label>
-                <p className="mt-1">{new Date(selectedJob.created_at).toLocaleString()}</p>
-              </div>
-
-              {selectedJob.is_flagged && selectedJob.flag_reason && (
-                <div className="border-t pt-4">
-                  <Label className="text-destructive">Flagged</Label>
-                  <p className="mt-1 text-destructive">{selectedJob.flag_reason}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* Status Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-gray-200">
+          <button
+            onClick={() => setStatusFilter("all")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              statusFilter === "all"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            All Jobs ({jobs.length})
+          </button>
+          <button
+            onClick={() => setStatusFilter("open")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              statusFilter === "open"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Open ({openCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("in_progress")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              statusFilter === "in_progress"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            In Progress ({inProgressCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("completed")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              statusFilter === "completed"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Completed ({completedCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("flagged")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              statusFilter === "flagged"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Flagged ({flaggedCount})
+          </button>
         </div>
-      )}
 
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Delete Job</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
+        {/* Jobs List */}
+        <div className="space-y-4">
+          {filteredJobs.map((job) => (
+            <div key={job.id} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
+                    <Badge className={getStatusColor(job.status)}>
+                      {job.status === "in_progress" ? "in progress" : job.status}
+                    </Badge>
+                    {job.is_flagged && <Badge className="bg-red-100 text-red-700">Flagged</Badge>}
+                  </div>
+                  <p className="text-gray-600 text-sm mb-3">{job.description}</p>
+                  <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                    <span>
+                      <strong>Service:</strong> {job.service_type}
+                    </span>
+                    <span>
+                      <strong>Location:</strong> {job.location}
+                    </span>
+                    <span>
+                      <strong>{job.bids_count} bids</strong>
+                    </span>
+                    <span>
+                      <strong>Posted by:</strong> {job.homeowner_name}
+                    </span>
+                    <span>
+                      <strong>Posted:</strong> {new Date(job.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2 ml-4">
+                  <button
+                    onClick={() => setSelectedJob(job)}
+                    className="p-2 text-gray-600 hover:text-[#0F3D3E] hover:bg-gray-100 rounded-lg transition-colors"
+                    title="View"
+                  >
+                    <Eye className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleToggleFlag(job.id, job.is_flagged)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      job.is_flagged
+                        ? "text-yellow-600 bg-yellow-50 hover:bg-yellow-100"
+                        : "text-gray-600 hover:text-yellow-600 hover:bg-yellow-50"
+                    }`}
+                    title={job.is_flagged ? "Unflag" : "Flag"}
+                  >
+                    <Flag className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(job.id, job.title)}
+                    className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
-              <CardDescription>Are you sure you want to delete this job? This action cannot be undone.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
-                  Cancel
-                </Button>
-                <Button variant="destructive" onClick={confirmDeleteJob}>
-                  Delete Job
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          ))}
+
+          {filteredJobs.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No jobs found matching your criteria</p>
+            </div>
+          )}
         </div>
-      )}
+      </Card>
+
+      <JobDetailsModal job={selectedJob} onClose={() => setSelectedJob(null)} />
     </div>
   )
 }

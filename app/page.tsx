@@ -3,28 +3,8 @@
 import React from "react"
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import {
-  Search,
-  Wrench,
-  Zap,
-  Home,
-  Dog,
-  Sparkles,
-  Wind,
-  Trees,
-  Paintbrush,
-  Droplets,
-  Eye,
-  Hammer,
-  FenceIcon,
-  TreeDeciduous,
-  Drill,
-  Droplet,
-  X,
-  Menu,
-  ArrowRight,
-} from "lucide-react"
+import { useRouter } from 'next/navigation'
+import { Search, Wrench, Zap, Home, Dog, Sparkles, Wind, Trees, Droplets, Hammer, X, Menu, ArrowRight } from 'lucide-react'
 import { SERVICES } from "@/lib/services"
 import { SiteFooter } from "@/components/site-footer"
 
@@ -35,7 +15,8 @@ export default function HomePage() {
   const [filteredServices, setFilteredServices] = useState<string[]>([])
   const autocompleteRef = useRef<HTMLDivElement>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [heroHeading, setHeroHeading] = useState("")
+  const [heroHeading, setHeroHeading] = useState("Skip the Search—Let Contractors Compete for Your Work")
+  const [isClient, setIsClient] = useState(false)
 
   const headingVariations = [
     {
@@ -61,6 +42,12 @@ export default function HomePage() {
   ]
 
   useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isClient) return
+
     const storedVariation = localStorage.getItem("hero_heading_variation")
 
     if (storedVariation) {
@@ -80,10 +67,8 @@ export default function HomePage() {
 
       setHeroHeading(selectedVariation.text)
       localStorage.setItem("hero_heading_variation", selectedVariation.id)
-
-      console.log("[v0] A/B Test: Assigned hero heading variation:", selectedVariation.id)
     }
-  }, [])
+  }, [isClient])
 
   useEffect(() => {
     if (searchQuery.trim().length > 0) {
@@ -132,206 +117,253 @@ export default function HomePage() {
     { name: "Pet Grooming", icon: Dog, image: "/cute-fluffy-dog-portrait.jpg" },
     { name: "House Cleaning", icon: Sparkles, image: "/clean-organized-modern-living-room.jpg" },
     { name: "HVAC Maintenance", icon: Wind, image: "/air-conditioner-unit-on-house-exterior.jpg" },
-    { name: "Landscaping", icon: Trees, image: "/lush-green-manicured-lawn.jpg" },
-    { name: "Painting & Decorating", icon: Paintbrush, image: "/wall-freshly-painted-with-roller-one-side.jpg" },
+    { name: "Tree Service", icon: Trees, image: "/large-tree-in-residential-backyard.jpg" },
     { name: "Carpet Cleaning", icon: Droplets, image: "/clean-fresh-beige-carpet.jpg" },
-    { name: "Window Cleaning", icon: Eye, image: "/sparkling-clean-residential-window.jpg" },
     { name: "Garage Door Repair", icon: Hammer, image: "/garage-door-panels-and-hardware.jpg" },
-    { name: "Deck Construction", icon: Drill, image: "/wooden-deck-boards-and-construction-tools.jpg" },
-    { name: "Gutter Installation & Cleaning", icon: Droplet, image: "/rain-gutter-system-on-house.jpg" },
-    { name: "Appliance Repair", icon: Wrench, image: "/stainless-steel-refrigerator-appliance.jpg" },
-    { name: "Fencing", icon: FenceIcon, image: "/wooden-fence-panels-in-backyard.jpg" },
-    { name: "Tree Removal", icon: TreeDeciduous, image: "/large-tree-in-residential-backyard.jpg" },
   ]
 
   return (
     <div className="min-h-screen relative">
-      <div
-        className="fixed inset-0 bg-cover bg-center z-0"
-        style={{ backgroundImage: "url('/living-room-background.jpg')" }}
-      />
-      <div className="fixed inset-0 bg-[#0d3d42]/95 z-0" />
+      {/* Background Image with Teal Overlay */}
+      <div className="fixed inset-0 z-0">
+        <img src="/living-room-background.jpg" alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#03353a]/95 via-[#0d3d42]/90 to-[#328d87]/85" />
+      </div>
 
+      {/* Content wrapper with relative positioning */}
       <div className="relative z-10">
-        <header className="border-b border-[#1a4f54]">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <Link href="/" className="flex items-center">
-              <img src="/images/bidrr-white-logo.png" alt="Bidrr" className="h-8" />
-            </Link>
-            <nav className="hidden md:flex items-center gap-8">
-              <Link href="#services" className="text-white/90 hover:text-white transition-colors">
-                Services
+        {/* Header */}
+        <header className="bg-[#03353a]/80 backdrop-blur-sm shadow-sm sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+            <div className="flex justify-between items-center">
+              <Link href="/" className="flex items-center">
+                <img src="/images/bidrr-white-logo.png" alt="Bidrr" className="h-8 md:h-10 w-auto" />
               </Link>
-              <Link href="#how-it-works" className="text-white/90 hover:text-white transition-colors">
-                How it works
-              </Link>
-              <Link href="/pricing" className="text-white/90 hover:text-white transition-colors">
-                Pricing
-              </Link>
-            </nav>
-            <div className="hidden md:flex items-center gap-4">
-              <Link href="/login" className="text-white/90 hover:text-white transition-colors">
-                Log in
-              </Link>
-              <Link
-                href="/signup?role=contractor"
-                className="bg-[#e2bb12] hover:bg-[#d4ad11] text-[#0d3d42] font-semibold px-6 py-2 rounded-full transition-colors"
-              >
-                Join as Contractor
-              </Link>
-            </div>
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-white p-2">
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
-          {isMobileMenuOpen && (
-            <div className="md:hidden bg-[#0d3d42] border-t border-[#1a4f54]">
-              <nav className="container mx-auto px-4 py-4 flex flex-col gap-4">
-                <Link
-                  href="#services"
-                  className="text-white/90 hover:text-white transition-colors py-2"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
+
+              <nav className="hidden md:flex items-center space-x-8">
+                <a href="#services" className="text-white hover:text-gray-200 transition-colors font-medium">
                   Services
-                </Link>
-                <Link
-                  href="#how-it-works"
-                  className="text-white/90 hover:text-white transition-colors py-2"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
+                </a>
+                <a href="#how-it-works" className="text-white hover:text-gray-200 transition-colors font-medium">
                   How it works
-                </Link>
-                <Link
-                  href="/pricing"
-                  className="text-white/90 hover:text-white transition-colors py-2"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
+                </a>
+                <Link href="/pricing" className="text-white hover:text-gray-200 transition-colors font-medium">
                   Pricing
                 </Link>
-                <div className="border-t border-[#1a4f54] pt-4 mt-2 flex flex-col gap-3">
-                  <Link
-                    href="/login"
-                    className="text-white/90 hover:text-white transition-colors py-2"
+              </nav>
+
+              <div className="hidden md:flex items-center space-x-4">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    console.log("[v0] ========== LOGIN BUTTON CLICKED ==========")
+                    console.log("[v0] Current URL:", window.location.href)
+                    console.log("[v0] Target URL: /login")
+                    console.log("[v0] Token exists:", !!localStorage.getItem("token"))
+                    console.log("[v0] User exists:", !!localStorage.getItem("user"))
+                    console.log("[v0] Navigating to /login...")
+                    console.log("[v0] ===========================================")
+                    window.location.href = "/login"
+                  }}
+                  className="text-white hover:text-gray-200 transition-colors font-medium cursor-pointer"
+                >
+                  Log in
+                </button>
+                <Link
+                  href="/signup?role=contractor"
+                  className="bg-[#e2bb12] text-[#03353a] px-5 py-2.5 rounded-lg font-semibold hover:bg-[#e2bb12]/90 transition-colors"
+                >
+                  Join as Contractor
+                </Link>
+              </div>
+
+              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-white p-2">
+                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
+
+            {isMobileMenuOpen && (
+              <div className="md:hidden mt-4 pb-4 border-t border-teal-700 pt-4">
+                <nav className="flex flex-col space-y-3">
+                  <a
+                    href="#services"
                     onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white hover:text-gray-200 transition-colors font-medium"
+                  >
+                    Services
+                  </a>
+                  <a
+                    href="#how-it-works"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white hover:text-gray-200 transition-colors font-medium"
+                  >
+                    How it works
+                  </a>
+                  <Link
+                    href="/pricing"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white hover:text-gray-200 transition-colors font-medium"
+                  >
+                    Pricing
+                  </Link>
+                </nav>
+                <div className="flex flex-col space-y-3 mt-4 pt-4 border-t border-teal-700">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setIsMobileMenuOpen(false)
+                      console.log("[v0] ========== LOGIN BUTTON CLICKED (MOBILE) ==========")
+                      console.log("[v0] Current URL:", window.location.href)
+                      console.log("[v0] Target URL: /login")
+                      console.log("[v0] Token exists:", !!localStorage.getItem("token"))
+                      console.log("[v0] User exists:", !!localStorage.getItem("user"))
+                      console.log("[v0] Navigating to /login...")
+                      console.log("[v0] ======================================================")
+                      window.location.href = "/login"
+                    }}
+                    className="text-white hover:text-gray-200 transition-colors font-medium text-left cursor-pointer"
                   >
                     Log in
-                  </Link>
+                  </button>
                   <Link
                     href="/signup?role=contractor"
-                    className="bg-[#e2bb12] hover:bg-white/10 text-white font-semibold px-6 md:px-8 py-3 md:py-4 rounded-full transition-colors text-center"
                     onClick={() => setIsMobileMenuOpen(false)}
+                    className="bg-[#e2bb12] text-[#03353a] px-4 py-2 rounded-lg text-lg font-bold hover:bg-[#e2bb12]/90 transition-colors"
                   >
                     Join as Contractor
                   </Link>
                 </div>
-              </nav>
-            </div>
-          )}
-        </header>
-
-        <section className="container mx-auto px-4 py-12 md:py-20 text-center">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 md:mb-6 text-balance leading-tight">
-            {heroHeading || "Get Fair Bids—Let Contractors Compete for Your Job"}
-          </h1>
-          <p className="text-lg md:text-xl text-white/80 mb-8 md:mb-12 max-w-3xl mx-auto px-4">
-            Post your home job free. Compare bids. Hire with confidence.
-          </p>
-
-          <form onSubmit={handleSearch} className="max-w-3xl mx-auto mb-6 md:mb-8 relative" ref={autocompleteRef}>
-            <div className="flex items-center bg-white rounded-full overflow-hidden shadow-lg">
-              <div className="flex items-center pl-4 sm:pl-6 pr-2">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="What do you need done?"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => searchQuery.trim().length > 0 && setShowAutocomplete(true)}
-                className="flex-1 py-2 md:py-4 px-2 text-[16px] leading-5 md:text-lg text-gray-900 placeholder-gray-400 focus:outline-none"
-                autoComplete="off"
-              />
-              <Link
-                href="/signup"
-                className="bg-[#328d87] hover:bg-[#2d7f7a] text-white font-semibold transition-colors flex items-center justify-center -ml-4 md:ml-0 px-3 md:px-8 py-2 md:py-4"
-              >
-                <ArrowRight className="h-5 w-5 md:hidden -ml-2" />
-                <span className="hidden md:inline text-sm md:text-base whitespace-nowrap">Get started</span>
-              </Link>
-            </div>
-
-            {showAutocomplete && filteredServices.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 max-h-80 overflow-y-auto z-50">
-                {filteredServices.map((service, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => handleServiceSelect(service)}
-                    className="w-full text-left px-4 sm:px-6 py-3 hover:bg-gray-50 transition-colors text-gray-900 border-b border-gray-100 last:border-b-0"
-                  >
-                    {service}
-                  </button>
-                ))}
               </div>
             )}
-          </form>
+          </div>
+        </header>
 
-          <p className="text-white/60 text-sm px-4">
-            <span className="font-semibold text-white/80">Popular:</span> House Cleaning · Plumbing · Electrical
-          </p>
-        </section>
+        {/* Hero Section */}
+        <section className="bg-transparent pt-16 md:pt-24 pb-20 md:pb-32">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-4xl mx-auto">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-6 leading-tight text-balance">
+                {heroHeading}
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-200 mb-12 text-pretty">
+                Post your home job free. Compare bids. Hire with confidence.
+              </p>
 
-        <section className="border-t border-b border-[#1a4f54] py-8 md:py-12">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8 text-center">
-              <div>
-                <div className="text-4xl md:text-5xl font-bold text-white mb-2">14,000+</div>
-                <div className="text-white/70 text-sm md:text-base">Verified Professionals</div>
+              <form onSubmit={handleSearch} className="relative max-w-3xl mx-auto" ref={autocompleteRef}>
+                <div className="md:hidden flex items-center">
+                  <div className="flex-1 flex items-center bg-white rounded-l-full shadow-xl pl-4 pr-2 py-3 min-w-0">
+                    <Search className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                    <input
+                      id="search-input"
+                      type="text"
+                      placeholder="Search services"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => searchQuery.trim().length > 0 && setShowAutocomplete(true)}
+                      className="flex-1 py-0 px-3 text-base text-gray-900 placeholder-gray-400 focus:outline-none bg-transparent min-w-0"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="bg-[#328d87] text-white rounded-r-full w-12 h-12 font-semibold hover:bg-[#328d87]/90 transition-colors flex items-center justify-center flex-shrink-0 shadow-xl"
+                    aria-label="Search"
+                  >
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Desktop Search */}
+                <div className="hidden md:flex items-center gap-0">
+                  <div className="flex items-center bg-white rounded-l-full shadow-xl flex-1 h-12">
+                    <Search className="ml-6 h-6 w-6 text-gray-400 flex-shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search services"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => searchQuery.trim().length > 0 && setShowAutocomplete(true)}
+                      className="flex-1 px-4 text-lg text-gray-900 placeholder-gray-500 focus:outline-none h-full"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="bg-[#328d87] text-white rounded-r-full w-12 h-12 font-semibold hover:bg-[#328d87]/90 transition-colors flex items-center justify-center flex-shrink-0 shadow-xl"
+                    aria-label="Search"
+                  >
+                    <ArrowRight className="h-6 w-6" />
+                  </button>
+                </div>
+
+                {showAutocomplete && filteredServices.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 max-h-80 overflow-y-auto z-50">
+                    {filteredServices.map((service, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleServiceSelect(service)}
+                        className="w-full text-left px-4 sm:px-6 py-3 hover:bg-gray-50 transition-colors text-gray-900 border-b border-gray-100 last:border-b-0"
+                      >
+                        {service}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </form>
+
+              <p className="mt-6 text-base text-gray-300">
+                <span className="font-medium">Popular:</span> House Cleaning · Plumbing · Electrical
+              </p>
+            </div>
+
+            <div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-5xl mx-auto">
+              <div className="text-center">
+                <div className="text-5xl font-bold text-white mb-2">14,000+</div>
+                <div className="text-gray-300 text-lg">Verified Professionals</div>
               </div>
-              <div>
-                <div className="text-4xl md:text-5xl font-bold text-white mb-2">96%</div>
-                <div className="text-white/70 text-sm md:text-base">Customer Satisfaction</div>
+              <div className="text-center">
+                <div className="text-5xl font-bold text-white mb-2">96%</div>
+                <div className="text-gray-300 text-lg">Customer Satisfaction</div>
               </div>
-              <div>
-                <div className="text-4xl md:text-5xl font-bold text-white mb-2">4.8★</div>
-                <div className="text-white/70 text-sm md:text-base">Average Rating</div>
+              <div className="text-center">
+                <div className="text-5xl font-bold text-white mb-2">4.8★</div>
+                <div className="text-gray-300 text-lg">Average Rating</div>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="services" className="py-12 md:py-16 overflow-hidden">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-3 md:mb-4">Popular services</h2>
-            <p className="text-center text-white/70 mb-8 md:mb-12 max-w-3xl mx-auto px-4">
+        {/* Popular Services */}
+        <section id="services" className="py-16 md:py-20 bg-transparent overflow-hidden">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold text-white text-center mb-4">Popular services</h2>
+            <p className="text-xl text-gray-200 text-center max-w-3xl mx-auto">
               From routine maintenance to major renovations, find the right pro for every job
             </p>
+          </div>
 
-            <div className="relative">
-              <div className="flex gap-4 md:gap-6 animate-scroll">
-                {[...serviceCards, ...serviceCards, ...serviceCards].map((service, index) => (
-                  <Link
-                    key={index}
-                    href={`/signup?service=${encodeURIComponent(service.name.toLowerCase())}`}
-                    className="group flex-shrink-0 w-64 sm:w-72 md:w-80"
-                  >
-                    <div className="relative h-48 sm:h-56 md:h-64 rounded-lg overflow-hidden">
-                      <img
-                        src={service.image || "/placeholder.svg"}
-                        alt={service.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
-                        <div className="flex items-center gap-2 text-white">
-                          {React.createElement(service.icon, { className: "h-5 w-5 md:h-6 md:w-6" })}
-                          <span className="text-lg md:text-xl font-semibold">{service.name}</span>
-                        </div>
-                      </div>
+          <div className="relative">
+            <div className="flex animate-scroll gap-6 px-4">
+              {[...serviceCards, ...serviceCards, ...serviceCards].map((service, index) => (
+                <Link
+                  key={index}
+                  href={`/signup?service=${encodeURIComponent(service.name)}`}
+                  className="flex-shrink-0 w-[260px] sm:w-[280px] md:w-[320px] group"
+                >
+                  <div className="relative rounded-2xl overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 h-[240px]">
+                    <img
+                      src={service.image || "/placeholder.svg"}
+                      alt={service.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-5 flex items-center gap-3">
+                      {React.createElement(service.icon, { className: "h-6 w-6 text-white flex-shrink-0" })}
+                      <span className="font-bold text-white text-lg">{service.name}</span>
                     </div>
-                  </Link>
-                ))}
-              </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
 
@@ -341,7 +373,7 @@ export default function HomePage() {
                 transform: translateX(0);
               }
               100% {
-                transform: translateX(calc(-320px * 16 - 24px * 16));
+                transform: translateX(calc(-320px * 14 - 24px * 14));
               }
             }
 
@@ -356,126 +388,129 @@ export default function HomePage() {
           `}</style>
         </section>
 
-        <section id="how-it-works" className="py-12 md:py-16">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-3 md:mb-4">How it works</h2>
-            <p className="text-center text-white/70 mb-12 md:mb-16 px-4">Get your project done in three simple steps</p>
+        {/* How it Works */}
+        <section id="how-it-works" className="py-20 md:py-28 bg-transparent">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-4xl md:text-5xl font-bold text-white text-center mb-4">How it works</h2>
+            <p className="text-xl text-gray-200 text-center mb-16">Get your project done in three simple steps</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-8 md:mb-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-12 max-w-5xl mx-auto">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-[#328d87] text-white text-2xl md:text-3xl font-bold mb-4 md:mb-6">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#328d87] text-white text-3xl font-bold mb-6">
                   1
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">Post your job</h3>
-                <p className="text-white/70 px-4">Describe what you need. It's free and takes less than a minute.</p>
+                <h3 className="text-2xl font-bold text-white mb-3">Post your job</h3>
+                <p className="text-gray-200 text-lg">Describe what you need. It's free and takes less than a minute.</p>
               </div>
 
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-[#328d87] text-white text-2xl md:text-3xl font-bold mb-4 md:mb-6">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#328d87] text-white text-3xl font-bold mb-6">
                   2
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">Receive Bids</h3>
-                <p className="text-white/70 px-4">Receive competitive bids from verified professionals in your area.</p>
+                <h3 className="text-2xl font-bold text-white mb-3">Receive Bids</h3>
+                <p className="text-gray-200 text-lg">
+                  Receive competitive bids from verified professionals in your area.
+                </p>
               </div>
 
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-[#328d87] text-white text-2xl md:text-3xl font-bold mb-4 md:mb-6">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#328d87] text-white text-3xl font-bold mb-6">
                   3
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">Hire with confidence</h3>
-                <p className="text-white/70 px-4">Compare profiles, reviews, and prices to choose the best pro.</p>
+                <h3 className="text-2xl font-bold text-white mb-3">Hire with confidence</h3>
+                <p className="text-gray-200 text-lg">Compare profiles, reviews, and prices to choose the best pro.</p>
               </div>
             </div>
 
-            <div className="text-center">
+            <div className="text-center mt-16">
               <Link
                 href="/signup"
-                className="inline-flex items-center gap-2 bg-[#e2bb12] hover:bg-[#d4ad11] text-[#0d3d42] font-semibold px-6 md:px-8 py-3 md:py-4 rounded-full transition-colors text-base md:text-lg"
+                className="inline-flex items-center gap-2 bg-[#e2bb12] text-[#03353a] px-10 py-4 rounded-lg text-lg font-bold hover:bg-[#e2bb12]/90 transition-colors shadow-lg"
               >
-                Get started—it's free →
+                Get started—it's free
               </Link>
             </div>
           </div>
         </section>
 
-        <section className="py-12 md:py-16">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-3 md:mb-4">Trusted by thousands</h2>
-            <p className="text-center text-white/70 mb-8 md:mb-12 px-4">See what homeowners and pros are saying</p>
+        {/* Testimonials */}
+        <section className="py-20 md:py-28 bg-transparent">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-4xl md:text-5xl font-bold text-white text-center mb-4">Trusted by thousands</h2>
+            <p className="text-xl text-gray-200 text-center mb-16">See what homeowners and pros are saying</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-              <div className="bg-[#1a4f54] rounded-lg p-6 md:p-8 border border-[#2d6b71]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              <div className="bg-[#0d3d42]/60 backdrop-blur-sm rounded-xl shadow-xl p-8 border border-[#328d87]/30">
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <span key={i} className="text-[#e2bb12] text-lg md:text-xl">
+                    <span key={i} className="text-[#e2bb12] text-2xl">
                       ★
                     </span>
                   ))}
                 </div>
-                <p className="text-white/90 mb-4 md:mb-6 text-sm md:text-base">
+                <p className="text-gray-200 mb-6 text-lg leading-relaxed">
                   Found an amazing plumber within 30 minutes. The whole process was seamless and professional.
                 </p>
                 <div>
-                  <div className="font-semibold text-white">Sarah M.</div>
-                  <div className="text-white/60 text-sm">Homeowner</div>
+                  <div className="font-bold text-white text-lg">Sarah M.</div>
+                  <div className="text-sm text-gray-300">Homeowner</div>
                 </div>
               </div>
 
-              <div className="bg-[#1a4f54] rounded-lg p-6 md:p-8 border border-[#2d6b71]">
+              <div className="bg-[#0d3d42]/60 backdrop-blur-sm rounded-xl shadow-xl p-8 border border-[#328d87]/30">
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <span key={i} className="text-[#e2bb12] text-lg md:text-xl">
+                    <span key={i} className="text-[#e2bb12] text-2xl">
                       ★
                     </span>
                   ))}
                 </div>
-                <p className="text-white/90 mb-4 md:mb-6 text-sm md:text-base">
+                <p className="text-gray-200 mb-6 text-lg leading-relaxed">
                   Bidrr has helped me grow my business significantly. The quality of leads is excellent.
                 </p>
                 <div>
-                  <div className="font-semibold text-white">Mike T.</div>
-                  <div className="text-white/60 text-sm">Contractor</div>
+                  <div className="font-bold text-white text-lg">Mike T.</div>
+                  <div className="text-sm text-gray-300">Contractor</div>
                 </div>
               </div>
 
-              <div className="bg-[#1a4f54] rounded-lg p-6 md:p-8 border border-[#2d6b71]">
+              <div className="bg-[#0d3d42]/60 backdrop-blur-sm rounded-xl shadow-xl p-8 border border-[#328d87]/30">
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <span key={i} className="text-[#e2bb12] text-lg md:text-xl">
+                    <span key={i} className="text-[#e2bb12] text-2xl">
                       ★
                     </span>
                   ))}
                 </div>
-                <p className="text-white/90 mb-4 md:mb-6 text-sm md:text-base">
+                <p className="text-gray-200 mb-6 text-lg leading-relaxed">
                   Best platform for finding reliable contractors. Saved me so much time and hassle!
                 </p>
                 <div>
-                  <div className="font-semibold text-white">Jennifer L.</div>
-                  <div className="text-white/60 text-sm">Homeowner</div>
+                  <div className="font-bold text-white text-lg">Jennifer L.</div>
+                  <div className="text-sm text-gray-300">Homeowner</div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="bg-[#328d87] py-12 md:py-16">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 md:mb-4 px-4">
-              Ready to get your project started?
-            </h2>
-            <p className="text-lg md:text-xl text-white/90 mb-6 md:mb-8 max-w-3xl mx-auto px-4">
+        {/* Final CTA */}
+        <section className="py-20 md:py-28 bg-[#328d87]/40 backdrop-blur-sm">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-6">Ready to get your project started?</h2>
+            <p className="text-xl text-white/90 mb-10">
               Join thousands of homeowners who've found the perfect pro for their home projects
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/signup"
-                className="inline-block bg-white hover:bg-gray-100 text-[#328d87] font-semibold px-6 md:px-8 py-3 md:py-4 rounded-full transition-colors text-base md:text-lg"
+                className="bg-[#e2bb12] text-[#03353a] px-10 py-4 rounded-lg text-lg font-bold hover:bg-[#e2bb12]/90 transition-colors shadow-lg"
               >
                 Post a job for free
               </Link>
               <Link
                 href="/signup?role=contractor"
-                className="inline-block border-2 border-white hover:bg-white/10 text-white font-semibold px-6 md:px-8 py-3 md:py-4 rounded-full transition-colors text-base md:text-lg"
+                className="bg-transparent text-white px-10 py-4 rounded-lg text-lg font-bold hover:bg-white/10 transition-colors border-2 border-white"
               >
                 Join as Contractor
               </Link>

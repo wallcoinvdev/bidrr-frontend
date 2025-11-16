@@ -90,11 +90,11 @@ class ApiClient {
     return null
   }
 
-  async get<T>(endpoint: string, options: Omit<RequestOptions, "method"> = {}): Promise<T> {
+  async get<T = any>(endpoint: string, options: Omit<RequestOptions, "method"> = {}): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: "GET", requiresAuth: options.requiresAuth ?? true })
   }
 
-  async post<T>(endpoint: string, body?: any, options: Omit<RequestOptions, "method" | "body"> = {}): Promise<T> {
+  async post<T = any>(endpoint: string, body?: any, options: Omit<RequestOptions, "method" | "body"> = {}): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: "POST",
@@ -103,7 +103,7 @@ class ApiClient {
     })
   }
 
-  async put<T>(endpoint: string, body?: any, options: Omit<RequestOptions, "method" | "body"> = {}): Promise<T> {
+  async put<T = any>(endpoint: string, body?: any, options: Omit<RequestOptions, "method" | "body"> = {}): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: "PUT",
@@ -112,7 +112,11 @@ class ApiClient {
     })
   }
 
-  async patch<T>(endpoint: string, body?: any, options: Omit<RequestOptions, "method" | "body"> = {}): Promise<T> {
+  async patch<T = any>(
+    endpoint: string,
+    body?: any,
+    options: Omit<RequestOptions, "method" | "body"> = {},
+  ): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: "PATCH",
@@ -121,11 +125,11 @@ class ApiClient {
     })
   }
 
-  async delete<T>(endpoint: string, options: Omit<RequestOptions, "method"> = {}): Promise<T> {
+  async delete<T = any>(endpoint: string, options: Omit<RequestOptions, "method"> = {}): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: "DELETE", requiresAuth: options.requiresAuth ?? true })
   }
 
-  async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  async request<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const { requiresAuth = false, ...fetchOptions } = options
 
     const headers: HeadersInit = {
@@ -178,23 +182,30 @@ class ApiClient {
 
       const contentType = response.headers.get("content-type")
       if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text()
-        throw new Error(`Server returned non-JSON response. Status: ${response.status}`)
+        const isExpected404 = response.status === 404 && endpoint.includes('/notifications/') && endpoint.includes('/mark-read')
+        if (!isExpected404) {
+          const text = await response.text()
+          throw new Error(`Server returned non-JSON response. Status: ${response.status}`)
+        }
       }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         const errorMessage = errorData.error || errorData.message || `HTTP error! status: ${response.status}`
 
-        errorLogger.log({
-          error: errorMessage,
-          errorName: "ApiError",
-          endpoint,
-          statusCode: response.status,
-          stack: errorData.details,
-          userId: this.getUserIdFromToken(),
-          userEmail: this.getUserEmailFromToken(),
-        })
+        const isExpected404 = response.status === 404 && endpoint.includes('/notifications/') && endpoint.includes('/mark-read')
+        
+        if (!isExpected404) {
+          errorLogger.log({
+            error: errorMessage,
+            errorName: "ApiError",
+            endpoint,
+            statusCode: response.status,
+            stack: errorData.details,
+            userId: this.getUserIdFromToken(),
+            userEmail: this.getUserEmailFromToken(),
+          })
+        }
 
         throw new ApiError(errorMessage, response.status, errorData)
       }
@@ -202,31 +213,32 @@ class ApiClient {
       const result = await response.json()
       return result
     } catch (error: any) {
-      if (!(error instanceof ApiError)) {
-        console.error("[API Error]", endpoint, error.message)
-
-        errorLogger.log({
-          error: error.message,
-          errorName: error.name || "NetworkError",
-          endpoint,
-          stack: error.stack,
-          userId: this.getUserIdFromToken(),
-          userEmail: this.getUserEmailFromToken(),
-        })
-      }
-
-      if (error.message === "Failed to fetch") {
-        throw new Error(
-          `Network error: Unable to reach ${this.baseUrl}. ` +
-            `This could be a CORS issue, network connectivity problem, or the backend is not running.`,
-        )
+      const isExpected404 = error instanceof ApiError && 
+                           error.statusCode === 404 && 
+                           endpoint.includes('/notifications/') && 
+                           endpoint.includes('/mark-read')
+      
+      if (!isExpected404) {
+        if (!(error instanceof ApiError)) {
+          console.error("[API Error]", endpoint, error.message)
+          errorLogger.log({
+            error: error.message,
+            errorName: error.name || "NetworkError",
+            endpoint,
+            stack: error.stack,
+            userId: this.getUserIdFromToken(),
+            userEmail: this.getUserEmailFromToken(),
+          })
+        } else {
+          console.error("[API Error]", endpoint, error.message)
+        }
       }
 
       throw error
     }
   }
 
-  async uploadFormData<T>(
+  async uploadFormData<T = any>(
     endpoint: string,
     formData: FormData,
     method: "POST" | "PUT" = "POST",

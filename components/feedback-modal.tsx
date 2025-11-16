@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { MessageSquare, Send, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -67,7 +66,7 @@ export function FeedbackModal() {
         })
       }, 2000)
     } catch (error: any) {
-      console.error("[v0] Error submitting feedback:", error)
+      console.error("Error submitting feedback:", error)
       toast({
         title: "Unable to send feedback",
         description: "There was a problem submitting your feedback. Please try again later.",
@@ -82,33 +81,29 @@ export function FeedbackModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-2 border-gray-300 hover:bg-gray-100 bg-transparent"
-        >
+        <Button variant="outline" size="sm" className="gap-2 bg-transparent">
           <MessageSquare className="h-4 w-4" />
-          <span className="text-sm font-medium">Feedback</span>
+          <span className="hidden sm:inline">Feedback</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         {showSuccess ? (
-          <div className="flex flex-col items-center justify-center py-8 space-y-4">
-            <CheckCircle2 className="h-16 w-16 text-green-500" />
-            <DialogTitle className="text-center text-xl">Feedback Sent!</DialogTitle>
-            <DialogDescription className="text-center text-base">
+          <div className="flex flex-col items-center justify-center py-8">
+            <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
+            <DialogTitle className="text-2xl font-bold text-center mb-2">Feedback Sent!</DialogTitle>
+            <DialogDescription className="text-center">
               Your feedback is appreciated and helps us provide you with the best possible service.
             </DialogDescription>
           </div>
         ) : (
-          <form onSubmit={handleSubmit}>
+          <>
             <DialogHeader>
               <DialogTitle>Send Feedback</DialogTitle>
               <DialogDescription>
                 Have a suggestion or found an issue? Let us know! Your feedback helps us improve HomeHero.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="subject">Subject</Label>
                 <Input
@@ -133,26 +128,26 @@ export function FeedbackModal() {
                 />
                 <p className="text-xs text-gray-500">{message.length}/2000 characters</p>
               </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-[#328d87] hover:bg-[#2a7670]">
-                {isSubmitting ? (
-                  <>
-                    <Send className="h-4 w-4 mr-2 animate-pulse" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Feedback
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Send className="mr-2 h-4 w-4 animate-pulse" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Send Feedback
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </>
         )}
       </DialogContent>
     </Dialog>

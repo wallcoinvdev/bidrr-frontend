@@ -1,176 +1,173 @@
-"use client"
-
 import Link from "next/link"
-import Image from "next/image"
-import { Check, ArrowLeft } from "lucide-react"
 import { SiteFooter } from "@/components/site-footer"
+import { Check } from 'lucide-react'
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-[#0D3D42] flex flex-col">
-      <header className="relative z-50 border-b border-[#d8e2fb]/10 bg-[#0D3D42]/95 backdrop-blur-sm sticky top-0">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center">
-              <Image src="/images/bidrr-white-logo.png" alt="HomeHero" width={140} height={35} className="h-8 w-auto" />
-            </Link>
-            <Link
-              href="/"
-              className="text-sm font-medium text-[#d8e2fb] hover:text-white transition-colors flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Home
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen relative">
+      {/* Background Image with Teal Overlay */}
+      <div className="fixed inset-0 z-0">
+        <img src="/living-room-background.jpg" alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#03353a]/95 via-[#0d3d42]/90 to-[#328d87]/85" />
+      </div>
 
-      <main className="py-20 sm:py-28 lg:py-32 flex-1">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
-          <div className="text-center mb-16">
-            <div className="inline-block px-4 py-2 bg-[#e2bb12]/20 border border-[#e2bb12]/30 rounded-full mb-6">
-              <span className="text-[#e2bb12] font-semibold text-sm">Beta Ending Soon</span>
+      <div className="relative z-10">
+        {/* Header */}
+        <header className="bg-[#03353a]/80 backdrop-blur-sm shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+            <div className="flex justify-between items-center">
+              <Link href="/" className="flex items-center">
+                <img src="/images/bidrr-white-logo.png" alt="Bidrr" className="h-8 md:h-10 w-auto" />
+              </Link>
+
+              <Link href="/" className="flex items-center text-sm text-gray-300 hover:text-white transition-colors">
+                ← Back to Home
+              </Link>
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 text-[#d8e2fb]">
+          </div>
+        </header>
+
+        {/* Hero Section */}
+        <section className="py-16 md:py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div className="inline-block bg-[#e2bb12] text-[#03353a] px-4 py-1.5 rounded-full text-sm font-bold mb-6">
+              Beta Ending Soon
+            </div>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 text-balance">
               Simple, transparent pricing for Contractors
             </h1>
-            <p className="text-lg sm:text-xl text-[#d8e2fb]/70 max-w-2xl mx-auto mb-4">
+            <p className="text-lg md:text-xl text-gray-200 max-w-2xl mx-auto mb-2">
               Choose the plan that works best for your business
             </p>
-            <p className="text-xl sm:text-2xl font-semibold text-[#e2bb12]">Job Postings for Customers — Always Free</p>
+            <p className="text-xl md:text-2xl text-[#e2bb12] font-semibold">Job Postings for Customers — Always Free</p>
           </div>
+        </section>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            <div className="bg-[#03353a] border-2 border-[#d8e2fb]/20 rounded-2xl p-8">
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-[#d8e2fb] mb-2">Free</h3>
-                <div className="flex items-baseline justify-center gap-2 mb-4">
-                  <span className="text-5xl font-bold text-[#d8e2fb]">$0</span>
-                  <span className="text-[#d8e2fb]/70">/month</span>
+        {/* Pricing Cards */}
+        <section className="pb-16 md:pb-20">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-md mx-auto md:max-w-none">
+              {/* Free Plan */}
+              <div className="bg-[#0d3d42]/70 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-[#328d87]/30">
+                <div className="text-center mb-8">
+                  <h3 className="text-2xl font-bold text-white mb-4">Free</h3>
+                  <div className="mb-2">
+                    <span className="text-6xl font-bold text-white">$0</span>
+                    <span className="text-gray-300 text-lg ml-2">/month</span>
+                  </div>
+                  <p className="text-gray-300">Always free</p>
                 </div>
-                <p className="text-[#d8e2fb]/70">Always free</p>
+
+                <ul className="space-y-4 mb-8">
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">1 bid per month</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">Access to all job postings</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">Customer response messaging</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">No refunds on unused bids</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">Basic profile features</span>
+                  </li>
+                </ul>
+
+                <button
+                  disabled
+                  className="block w-full bg-[#0d3d42] text-gray-400 py-3 rounded-lg font-semibold text-center border border-[#328d87]/30 cursor-not-allowed"
+                >
+                  Coming Soon
+                </button>
               </div>
 
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">
-                    <strong>1 bid per month</strong>
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Access to all job postings</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Customer response messaging</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">No refunds on unused bids</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Basic profile features</span>
-                </li>
-              </ul>
-
-              <button
-                disabled
-                className="block w-full px-6 py-3 bg-[#328d87]/30 text-[#d8e2fb]/50 rounded-lg font-semibold text-center cursor-not-allowed"
-              >
-                Coming Soon
-              </button>
-            </div>
-
-            {/* Pro Tier */}
-            <div className="bg-[#03353a] border-2 border-[#e2bb12] rounded-2xl p-8 relative">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                <span className="bg-[#e2bb12] text-[#0D3D42] px-4 py-1 rounded-full text-sm font-semibold">
+              {/* Pro Plan */}
+              <div className="bg-[#0d3d42]/70 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border-2 border-[#e2bb12] relative">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#e2bb12] text-[#03353a] px-4 py-1 rounded-full text-sm font-bold">
                   Most Popular
-                </span>
-              </div>
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-[#d8e2fb] mb-2">Pro</h3>
-                <div className="flex items-baseline justify-center gap-2 mb-4">
-                  <span className="text-5xl font-bold text-[#d8e2fb]">$99</span>
-                  <span className="text-[#d8e2fb]/70">/month</span>
                 </div>
-                <p className="text-[#d8e2fb]/70">Perfect for growing businesses</p>
+                <div className="text-center mb-8">
+                  <h3 className="text-2xl font-bold text-white mb-4">Pro</h3>
+                  <div className="mb-2">
+                    <span className="text-6xl font-bold text-white">$99</span>
+                    <span className="text-gray-300 text-lg ml-2">/month</span>
+                  </div>
+                  <p className="text-gray-300">Perfect for growing businesses</p>
+                </div>
+
+                <ul className="space-y-4 mb-8">
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">Everything from Free</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">5 bids per month</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">Bids refunded if job not secured</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">Verified Badges</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[#328d87] flex-shrink-0 mt-1" />
+                    <span className="text-gray-200">Dedicated support</span>
+                  </li>
+                </ul>
+
+                <button
+                  disabled
+                  className="block w-full bg-[#7a9a3a]/50 text-gray-300 py-3 rounded-lg font-semibold text-center cursor-not-allowed"
+                >
+                  Coming Soon
+                </button>
               </div>
-
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">
-                    <strong>Everything from Free</strong>
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">
-                    <strong>5 bids per month</strong>
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Bids refunded if job not secured</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Verified Badges</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-[#e2bb12] flex-shrink-0 mt-0.5" />
-                  <span className="text-[#d8e2fb]">Dedicated support</span>
-                </li>
-              </ul>
-
-              <button
-                disabled
-                className="block w-full px-6 py-3 bg-[#e2bb12]/30 text-[#0D3D42]/50 rounded-lg font-semibold text-center cursor-not-allowed"
-              >
-                Coming Soon
-              </button>
             </div>
           </div>
+        </section>
 
-          {/* Why We Refund Bids */}
-          <div className="mt-16 text-center max-w-3xl mx-auto">
-            <h3 className="text-2xl font-bold text-[#d8e2fb] mb-4">We want contractors to get jobs</h3>
-            <p className="text-lg text-[#d8e2fb]/70 leading-relaxed">
+        {/* Value Proposition */}
+        <section className="py-16 md:py-20 bg-transparent">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">We want contractors to get jobs</h2>
+            <p className="text-lg md:text-xl text-gray-200 leading-relaxed mb-12">
               That's why we refund bids when you don't secure the job. We're invested in your success, not just
               collecting fees. Our platform works when you work.
             </p>
-          </div>
 
-          {/* Beta access card */}
-          <div className="mt-12 max-w-4xl mx-auto">
-            <div className="bg-[#e2bb12]/10 border-2 border-[#e2bb12] rounded-2xl p-8 text-center">
-              <div className="inline-block px-4 py-2 bg-[#e2bb12] rounded-full mb-6">
-                <span className="text-[#0D3D42] font-bold text-sm">BETA ACCESS</span>
+            <div className="bg-[#0d3d42]/70 backdrop-blur-sm border-2 border-[#e2bb12] rounded-2xl p-8 md:p-10">
+              <div className="inline-block bg-[#e2bb12] text-[#03353a] px-4 py-1.5 rounded-full text-sm font-bold mb-6">
+                BETA ACCESS
               </div>
-              <h3 className="text-2xl sm:text-3xl font-bold text-[#d8e2fb] mb-4">
+              <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
                 Currently in Beta — All Pro Features Free
               </h3>
-              <div className="space-y-3 text-lg text-[#d8e2fb]/80 mb-6">
-                <p>
-                  During our Beta phase, all contractors get{" "}
-                  <strong className="text-[#e2bb12]">all Pro features</strong> at no cost.
-                </p>
-                <p>
-                  Your feedback is invaluable as we refine our platform. Help us deliver a service that truly works for
-                  you — because when you succeed, we succeed.
-                </p>
-              </div>
-              <p className="text-sm text-[#d8e2fb]/60 italic">Pricing plans will take effect after Beta ends.</p>
+              <p className="text-lg text-gray-200 mb-4">
+                During our Beta phase, all contractors get{" "}
+                <span className="text-[#e2bb12] font-bold">all Pro features</span> at no cost.
+              </p>
+              <p className="text-base text-gray-300 leading-relaxed">
+                Your feedback is invaluable as we refine our platform. Help us deliver a service that truly works for
+                you — because when you succeed, we succeed.
+              </p>
+              <p className="text-sm text-gray-400 italic mt-6">Pricing plans will take effect after Beta ends.</p>
             </div>
           </div>
-        </div>
-      </main>
+        </section>
 
-      <SiteFooter />
+        <SiteFooter />
+      </div>
     </div>
   )
 }

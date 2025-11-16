@@ -1,209 +1,114 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Search, Shield, User, Settings, Trash2, Flag } from "lucide-react"
+import { Search, Loader2 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { useToast } from "@/hooks/use-toast"
 
 interface AuditLog {
-  log_id: number
-  admin_id: number
+  id: number
   admin_name: string
   admin_email: string
   action: string
-  resource_type: string
-  resource_id?: number
-  details?: any // Changed from string to any to handle both string and object
+  resource: string
+  details: any
   ip_address: string
-  created_at: string // Changed from timestamp to created_at to match database column
+  created_at: string
 }
 
-export default function AdminAuditPage() {
-  const [logs, setLogs] = useState<AuditLog[]>([])
-  const [filteredLogs, setFilteredLogs] = useState<AuditLog[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
+export default function AuditLogsPage() {
   const [loading, setLoading] = useState(true)
-  const { toast } = useToast()
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     fetchLogs()
   }, [])
 
-  useEffect(() => {
-    filterLogs()
-  }, [searchQuery, logs])
-
   const fetchLogs = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.get<{ logs: AuditLog[] }>("/api/admin/audit-logs")
-      setLogs(response.logs)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch audit logs",
-        variant: "destructive",
+      const data = await apiClient.request<{ logs: AuditLog[] }>("/api/admin/audit-logs", {
+        requiresAuth: true,
       })
+      setLogs(data.logs)
+    } catch (error) {
+      console.error("Error fetching audit logs:", error)
     } finally {
       setLoading(false)
     }
   }
 
-  const filterLogs = () => {
-    if (!searchQuery) {
-      setFilteredLogs(logs)
-      return
-    }
-
-    const filtered = logs.filter(
-      (log) =>
-        log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.admin_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.resource_type.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
-    setFilteredLogs(filtered)
-  }
-
-  const getActionIcon = (action: string) => {
-    if (action.includes("delete")) return <Trash2 className="h-4 w-4" />
-    if (action.includes("ban") || action.includes("flag")) return <Flag className="h-4 w-4" />
-    if (action.includes("settings")) return <Settings className="h-4 w-4" />
-    if (action.includes("user")) return <User className="h-4 w-4" />
-    return <Shield className="h-4 w-4" />
-  }
-
-  const getActionBadge = (action: string) => {
-    if (action.includes("delete")) return <Badge variant="destructive">{action}</Badge>
-    if (action.includes("create")) return <Badge variant="default">{action}</Badge>
-    if (action.includes("update")) return <Badge variant="secondary">{action}</Badge>
-    return <Badge variant="outline">{action}</Badge>
-  }
-
-  const renderDetails = (details: any) => {
-    if (!details) return null
-
-    // If it's already a string, return it
-    if (typeof details === "string") {
-      try {
-        // Try to parse if it's a JSON string
-        const parsed = JSON.parse(details)
-        return JSON.stringify(parsed, null, 2)
-      } catch {
-        // If parsing fails, it's a regular string
-        return details
-      }
-    }
-
-    // If it's an object, stringify it
-    if (typeof details === "object") {
-      return JSON.stringify(details, null, 2)
-    }
-
-    // Fallback to string conversion
-    return String(details)
-  }
-
-  const formatTimestamp = (timestamp: string | null | undefined): string => {
-    if (!timestamp) return "Unknown date"
-
-    try {
-      const date = new Date(timestamp)
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        return "Invalid date"
-      }
-      return date.toLocaleString()
-    } catch (error) {
-      return "Invalid date"
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading audit logs...</p>
-        </div>
-      </div>
-    )
-  }
+  const filteredLogs = logs.filter(
+    (log) =>
+      log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.admin_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.resource.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Audit Logs</h1>
-        <p className="text-muted-foreground">Track all administrative actions on the platform</p>
+    <div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Audit Logs</h1>
+        <p className="text-gray-600 mt-2">Track all administrative actions on the platform</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin Activity Log</CardTitle>
-          <CardDescription>Complete history of admin actions and changes</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by action, admin, or resource..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Admin Activity Log</h2>
+          <p className="text-sm text-gray-600">Complete history of admin actions and changes</p>
+        </div>
 
-          {filteredLogs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No audit logs found</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredLogs.map((log) => (
-                <Card key={log.log_id}>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                        {getActionIcon(log.action)}
-                      </div>
-                      <div className="flex-1 w-full space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {getActionBadge(log.action)}
-                          <span className="text-sm text-muted-foreground">on</span>
-                          <Badge variant="outline">{log.resource_type}</Badge>
-                          {log.resource_id && (
-                            <>
-                              <span className="text-sm text-muted-foreground">ID:</span>
-                              <span className="text-sm font-mono break-all">{log.resource_id}</span>
-                            </>
-                          )}
-                        </div>
-                        <p className="text-sm break-words">
-                          <span className="font-medium">{log.admin_name}</span>
-                          <span className="text-muted-foreground"> ({log.admin_email})</span>
-                        </p>
-                        {log.details && (
-                          <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-mono bg-muted p-2 rounded mt-1 overflow-x-auto">
-                            {renderDetails(log.details)}
-                          </pre>
-                        )}
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span className="break-all">{formatTimestamp(log.created_at)}</span>
-                          <span>•</span>
-                          <span className="break-all">IP: {log.ip_address}</span>
-                        </div>
-                      </div>
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by action, admin, or resource..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent"
+          />
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-[#0F3D3E]" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredLogs.map((log) => (
+              <div key={log.id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-gray-600 text-sm font-medium">O</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-medium text-gray-900">{log.action}</span>
+                      <span className="text-gray-500">on</span>
+                      <span className="font-medium text-gray-900">{log.resource}</span>
+                      {log.action.toLowerCase().includes("delete") && (
+                        <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded font-medium">
+                          DELETE_feedback
+                        </span>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    <p className="text-sm text-gray-600 mb-2">
+                      <span className="font-medium text-gray-900">{log.admin_name}</span> ({log.admin_email})
+                    </p>
+                    <pre className="bg-gray-50 p-3 rounded text-xs text-gray-700 overflow-x-auto mb-2">
+                      {JSON.stringify(log.details, null, 2)}
+                    </pre>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span>{new Date(log.created_at).toLocaleString()}</span>
+                      <span>IP: {log.ip_address}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

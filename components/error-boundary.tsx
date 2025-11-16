@@ -1,60 +1,43 @@
 "use client"
 
-import { Component, type ReactNode } from "react"
-import { AlertCircle } from "lucide-react"
-import { errorLogger } from "@/lib/error-logger"
+import React from "react"
 
-interface Props {
-  children: ReactNode
+interface ErrorBoundaryProps {
+  children: React.ReactNode
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean
   error?: Error
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false }
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: any) {
-    console.error("[v0] Error boundary caught:", error, errorInfo)
-
-    errorLogger.log({
-      error: error.message,
-      errorName: error.name || "ReactError",
-      stack: error.stack,
-      context: {
-        componentStack: errorInfo.componentStack,
-        errorBoundary: true,
-      },
-    })
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("[v0] Error caught by boundary:", error, errorInfo)
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
-          <div className="max-w-md w-full mx-4">
-            <div className="bg-card border border-destructive/20 rounded-lg p-6 text-center">
-              <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">Something went wrong</h2>
-              <p className="text-muted-foreground mb-4">
-                We're sorry, but something unexpected happened. Please try refreshing the page.
-              </p>
-              <button
-                onClick={() => window.location.reload()}
-                className="bg-primary text-primary-foreground px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                Refresh Page
-              </button>
-            </div>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center p-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong</h1>
+            <p className="text-gray-600 mb-4">Please refresh the page to try again.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-[#328d87] text-white px-6 py-2 rounded-full hover:bg-[#2d7f7a]"
+            >
+              Refresh Page
+            </button>
           </div>
         </div>
       )

@@ -123,7 +123,6 @@ class ErrorLogger {
         console.error("[ErrorLogger] Backend returned error:", response.status)
       }
     } catch (error) {
-      // Silently fail - don't want error logging to break the app
       console.error("[ErrorLogger] Network error sending to backend:", error)
     }
   }
@@ -161,7 +160,6 @@ class ErrorLogger {
 }
 
 if (typeof window !== "undefined") {
-  // Catch unhandled promise rejections
   window.addEventListener("unhandledrejection", (event) => {
     errorLogger.log({
       error: event.reason?.message || String(event.reason),
@@ -171,7 +169,6 @@ if (typeof window !== "undefined") {
     })
   })
 
-  // Catch global errors
   window.addEventListener("error", (event) => {
     errorLogger.log({
       error: event.message,

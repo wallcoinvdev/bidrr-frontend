@@ -1,24 +1,22 @@
 "use client"
 
 import type React from "react"
-
+import { useRef, useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Camera, Trash2, BadgeCheck } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { getRegionLabel } from "@/lib/country-data"
+import { User, Upload, BadgeCheck } from 'lucide-react'
+import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
+import { useToast } from "@/hooks/use-toast"
 
-export default function ProfilePage() {
-  const [profile, setProfile] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+export default function HomeownerProfilePage() {
+  const { toast } = useToast()
+  const { user, refreshUser } = useAuth()
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [showImagePreview, setShowImagePreview] = useState(false)
-  const [imageLoadError, setImageLoadError] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const [phoneCountryCode, setPhoneCountryCode] = useState("+1")
   const [phoneNumber, setPhoneNumber] = useState("")
@@ -31,119 +29,85 @@ export default function ProfilePage() {
 
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [phoneVerified, setPhoneVerified] = useState(false)
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
   const [region, setRegion] = useState("")
+  const [country, setCountry] = useState("")
   const [postalCode, setPostalCode] = useState("")
-  const [notificationFrequency, setNotificationFrequency] = useState("daily")
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("")
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const data = await apiClient.request<any>("/api/users/profile", { requiresAuth: true })
-        console.log("[v0] Profile data from backend:", data)
-        setProfile(data)
-        setFullName(data.full_name || "")
-        setEmail(data.email || "")
-        setAddress(data.address || "")
-        setCity(data.city || "")
-        setRegion(data.region || "")
-        setPostalCode(data.postal_code || "")
-        setNotificationFrequency(data.notification_frequency || "daily")
-        if (data.phone_number) {
-          setPhoneNumber(data.phone_number.replace("+1", ""))
+        const profile = await apiClient.request<any>("/api/users/profile", {
+          method: "GET",
+          requiresAuth: true,
+        })
+
+        setFullName(profile.full_name || profile.name || "")
+        setEmail(profile.email || "")
+        setPhone(profile.phone_number || "")
+        setPhoneVerified(profile.phone_verified || false)
+
+        if (profile.phone_number) {
+          setPhoneNumber(profile.phone_number.replace("+1", ""))
         }
-      } catch (error) {
-        console.error("[v0] Error fetching profile:", error)
-      } finally {
-        setIsLoading(false)
+
+        setAddress(profile.address || "")
+        setCity(profile.city || "")
+        setRegion(profile.region || "")
+        setCountry(profile.country || "")
+        setPostalCode(profile.postal_code || "")
+        setProfilePhotoUrl(profile.profile_photo_url || "")
+      } catch (err) {
+        console.error("Error fetching profile:", err)
       }
     }
 
     fetchProfile()
   }, [])
 
-  const handleSendCode = async () => {
-    setIsSendingCode(true)
-    setVerificationError(null)
-    setVerificationSuccess(null)
-
-    const fullPhoneNumber = `${phoneCountryCode}${phoneNumber}`
-
-    console.log("[v0] Sending verification code request:")
-    console.log("[v0] Phone country code:", phoneCountryCode)
-    console.log("[v0] Phone number:", phoneNumber)
-    console.log("[v0] Full phone number:", fullPhoneNumber)
-    console.log("[v0] Role:", "homeowner")
-
-    if (phoneNumber.length < 10) {
-      setVerificationError("Please enter a valid phone number")
-      setIsSendingCode(false)
-      return
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError(null)
+    setSuccess(null)
 
     try {
-      const response = await apiClient.request("/api/users/request-verification", {
-        method: "POST",
+      await apiClient.request("/api/users/profile", {
+        method: "PUT",
         body: JSON.stringify({
-          phone_number: fullPhoneNumber,
-          role: "homeowner",
+          name: fullName,
+          full_name: fullName,
+          email,
+          address,
+          city,
+          region,
+          country,
+          postal_code: postalCode,
+          profile_photo_url: profilePhotoUrl,
         }),
         requiresAuth: true,
       })
 
-      console.log("[v0] Verification code sent successfully:", response)
-      setIsCodeSent(true)
-      setVerificationSuccess("Verification code sent! Check your phone.")
-    } catch (err: any) {
-      console.error("[v0] Error sending verification code:", err)
-      if (err.message?.toLowerCase().includes("invalid") && err.message?.toLowerCase().includes("phone")) {
-        setVerificationError(
-          "This phone number cannot receive verification codes. Please use a different number or contact support.",
-        )
-      } else {
-        setVerificationError(err.message || "Failed to send verification code")
-      }
-    } finally {
-      setIsSendingCode(false)
-    }
-  }
-
-  const handleVerifyCode = async () => {
-    setIsVerifying(true)
-    setVerificationError(null)
-    setVerificationSuccess(null)
-
-    const fullPhoneNumber = `${phoneCountryCode}${phoneNumber}`
-
-    console.log("[v0] Verifying code:")
-    console.log("[v0] Phone country code:", phoneCountryCode)
-    console.log("[v0] Phone number:", phoneNumber)
-    console.log("[v0] Full phone number:", fullPhoneNumber)
-    console.log("[v0] Verification code:", verificationCode)
-    console.log("[v0] Code length:", verificationCode.length)
-
-    try {
-      const response = await apiClient.request<any>("/api/users/verify-phone", {
-        method: "POST",
-        body: JSON.stringify({
-          code: verificationCode,
-          phone_number: fullPhoneNumber,
-        }),
-        requiresAuth: true,
+      await refreshUser()
+      setSuccess("Profile updated successfully!")
+      toast({
+        title: "Success",
+        description: "Profile updated successfully!",
       })
-
-      console.log("[v0] Phone verified successfully:", response)
-      setVerificationSuccess("Phone number verified successfully!")
-      setIsCodeSent(false)
-      setVerificationCode("")
-
-      setProfile({ ...profile, phone_verified: true, phone_number: fullPhoneNumber })
-    } catch (err: any) {
-      console.error("[v0] Error verifying code:", err)
-      setVerificationError(err.message || "Invalid verification code")
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update profile"
+      setError(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
-      setIsVerifying(false)
+      setIsLoading(false)
     }
   }
 
@@ -152,7 +116,7 @@ export default function ProfilePage() {
     if (!file) return
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Unsupported image format. Use JPEG, PNG, or WebP.")
+      setError("Please upload a JPG, PNG, or WEBP image")
       return
     }
 
@@ -163,24 +127,28 @@ export default function ProfilePage() {
 
     setIsUploadingPhoto(true)
     setError(null)
-    setSuccess(null)
 
     try {
       const formData = new FormData()
       formData.append("photo", file)
 
-      console.log("[v0] Uploading profile photo via apiClient")
-      console.log("[v0] File details:", { name: file.name, type: file.type, size: file.size })
-
       const data = await apiClient.uploadFormData<any>("/api/users/profile/photo", formData, "POST", true)
-
-      console.log("[v0] Profile photo uploaded successfully:", data)
-      setProfile({ ...profile, profile_photo_url: data.profile_photo_url })
-      setImageLoadError(false)
+      setProfilePhotoUrl(data.profile_photo_url)
       setSuccess("Profile photo updated successfully!")
+      await refreshUser()
+      toast({
+        title: "Success",
+        description: "Profile photo updated successfully!",
+      })
     } catch (error) {
-      console.error("[v0] Error uploading photo:", error)
-      setError(error instanceof Error ? error.message : "Failed to upload photo")
+      console.error("Error uploading photo:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload photo"
+      setError(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setIsUploadingPhoto(false)
     }
@@ -191,7 +159,6 @@ export default function ProfilePage() {
 
     setIsUploadingPhoto(true)
     setError(null)
-    setSuccess(null)
 
     try {
       await apiClient.request("/api/users/profile/photo", {
@@ -199,264 +166,294 @@ export default function ProfilePage() {
         requiresAuth: true,
       })
 
-      console.log("[v0] Photo deleted successfully")
-      setProfile({ ...profile, profile_photo_url: null })
+      setProfilePhotoUrl("")
       setSuccess("Profile photo removed successfully!")
+      await refreshUser()
+      toast({
+        title: "Success",
+        description: "Profile photo removed successfully!",
+      })
     } catch (error) {
-      console.error("[v0] Error deleting photo:", error)
-      setError(error instanceof Error ? error.message : "Failed to delete photo")
+      console.error("Error deleting photo:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete photo"
+      setError(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setIsUploadingPhoto(false)
     }
   }
 
-  const handleSaveProfile = async () => {
-    setIsSaving(true)
-    setError(null)
-    setSuccess(null)
+  const handleSendCode = async () => {
+    setIsSendingCode(true)
+    setVerificationError(null)
+    setVerificationSuccess(null)
+
+    const fullPhoneNumber = `${phoneCountryCode}${phoneNumber}`
+
+    if (phoneNumber.length < 10) {
+      setVerificationError("Please enter a valid phone number")
+      setIsSendingCode(false)
+      return
+    }
 
     try {
-      const token = localStorage.getItem("token")
-      const response = await fetch("/api/users/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+      await apiClient.request("/api/users/request-verification", {
+        method: "POST",
         body: JSON.stringify({
-          full_name: fullName,
-          email,
-          address,
-          city,
-          region,
-          postal_code: postalCode,
+          phone_number: fullPhoneNumber,
+          role: "homeowner",
+          user_id: user?.id,
         }),
+        requiresAuth: true,
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        console.log("[v0] Profile updated successfully:", data)
-        setProfile(data)
-        setSuccess("Profile updated successfully!")
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || "Failed to update profile")
-      }
-    } catch (error) {
-      console.error("[v0] Error updating profile:", error)
-      setError("Failed to update profile")
+      setIsCodeSent(true)
+      setVerificationSuccess("Verification code sent! Check your phone.")
+      toast({
+        title: "Code Sent",
+        description: "Verification code sent! Check your phone.",
+      })
+    } catch (err: any) {
+      console.error("Error sending verification code:", err)
+      const errorMessage = err.message || "Failed to send verification code"
+      setVerificationError(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
-      setIsSaving(false)
+      setIsSendingCode(false)
     }
   }
 
-  if (isLoading) {
-    return (
-      <DashboardLayout userRole="homeowner">
-        <div className="flex items-center justify-center h-64">
-          <p className="text-gray-500">Loading profile...</p>
-        </div>
-      </DashboardLayout>
-    )
+  const handleVerifyCode = async () => {
+    setIsVerifying(true)
+    setVerificationError(null)
+
+    try {
+      await apiClient.request("/api/users/verify-phone", {
+        method: "POST",
+        body: JSON.stringify({
+          phone_number: `${phoneCountryCode}${phoneNumber}`,
+          verification_code: verificationCode,
+        }),
+        requiresAuth: true,
+      })
+
+      setVerificationSuccess("Phone verified successfully!")
+      setPhoneVerified(true)
+      await refreshUser()
+      toast({
+        title: "Success",
+        description: "Phone verified successfully!",
+      })
+    } catch (err: any) {
+      const errorMessage = err.message || "Invalid verification code"
+      setVerificationError(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsVerifying(false)
+    }
   }
 
   return (
     <DashboardLayout userRole="homeowner">
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
-          <p className="text-gray-600 mt-2">Manage your personal information</p>
+      <div className="min-h-screen bg-gray-50 p-3 sm:p-6">
+        <div className="mb-6 max-w-3xl mx-auto">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Profile</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-2">Manage your personal information</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 max-w-3xl mx-auto">
+            {error}
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-sm text-green-600">{success}</p>
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 max-w-3xl mx-auto">
+            {success}
           </div>
         )}
 
-        {/* Profile Photo */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Profile Photo</h2>
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-            <div className="relative">
-              {profile?.profile_photo_url && !imageLoadError ? (
-                <button
-                  onClick={() => setShowImagePreview(true)}
-                  className="w-24 h-24 rounded-full overflow-hidden hover:opacity-90 transition-opacity cursor-pointer"
-                >
-                  <img
-                    src={profile.profile_photo_url || "/placeholder.svg"}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                    onError={() => {
-                      setImageLoadError(true)
-                    }}
-                  />
-                </button>
-              ) : (
-                <div className="w-24 h-24 rounded-full bg-[#328d87] flex items-center justify-center text-white text-3xl font-bold">
-                  {profile?.full_name?.charAt(0) || "U"}
-                </div>
-              )}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingPhoto}
-                className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                <Camera className="h-4 w-4 text-gray-600" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-            </div>
-            <div className="flex-1 w-full">
-              <p className="text-sm text-gray-600 mb-2">
-                {isUploadingPhoto ? "Uploading..." : "Upload a profile photo"}
-              </p>
-              {imageLoadError && profile?.profile_photo_url && (
-                <p className="text-xs text-amber-600 mb-2">
-                  ⚠️ Image uploaded but cannot be displayed. S3 bucket needs CORS configuration.
-                </p>
-              )}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploadingPhoto}
-                  className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {isUploadingPhoto ? "Uploading..." : "Choose Photo"}
-                </button>
-                {profile?.profile_photo_url && (
-                  <button
-                    onClick={handlePhotoDelete}
-                    disabled={isUploadingPhoto}
-                    className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Remove
-                  </button>
+        <div className="max-w-3xl mx-auto space-y-6">
+          {/* Profile Photo */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Profile Photo</h2>
+
+            <div className="flex flex-col sm:flex-row items-start gap-4">
+              <div className="relative w-24 h-24 bg-gray-100 rounded-full overflow-hidden flex items-center justify-center border-2 border-gray-200">
+                {profilePhotoUrl ? (
+                  <>
+                    <img
+                      src={profilePhotoUrl || "/placeholder.svg"}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                      <Upload className="w-6 h-6 text-white" />
+                    </div>
+                  </>
+                ) : (
+                  <User className="w-12 h-12 text-gray-400" />
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-2">JPG, PNG or WEBP. Max 5MB.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Personal Information */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Personal Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {getRegionLabel(profile?.country || "CA")}
-              </label>
-              <input
-                type="text"
-                value={region}
-                onChange={(e) => setRegion(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {profile?.country === "United States" ? "Zip Code" : "Postal Code"}
-              </label>
-              <input
-                type="text"
-                value={postalCode}
-                onChange={(e) => setPostalCode(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-              <input
-                type="text"
-                value={profile?.country || ""}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-              />
-            </div>
-          </div>
-          <button
-            onClick={handleSaveProfile}
-            disabled={isSaving}
-            className="mt-6 bg-[#328d87] text-white px-6 py-2 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {isSaving ? "Saving..." : "Save Changes"}
-          </button>
-        </div>
-
-        {/* Phone Verification */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                Phone Verification
-                <BadgeCheck className="h-6 w-6 text-[#328d87]" />
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Verify your phone number to build trust and increase your response rate
-              </p>
+              <div className="flex-1 w-full">
+                <p className="text-sm font-medium text-gray-700 mb-3">Upload a profile photo</p>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={isUploadingPhoto}
+                    className="w-full sm:w-auto px-4 py-2 bg-[#328d87] text-white rounded-lg hover:bg-[#2a7872] disabled:opacity-50 text-sm"
+                  >
+                    {isUploadingPhoto ? "Uploading..." : "Choose Photo"}
+                  </button>
+                  {profilePhotoUrl && (
+                    <button
+                      type="button"
+                      onClick={handlePhotoDelete}
+                      disabled={isUploadingPhoto}
+                      className="w-full sm:w-auto px-4 py-2 text-red-600 border border-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 text-sm"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">JPG, PNG or WEBP. Max 5MB.</p>
+              </div>
             </div>
           </div>
 
-          {profile?.phone_verified ? (
+          {/* Personal Information */}
+          <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Personal Information</h2>
+
             <div className="space-y-4">
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                <div className="flex gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">State/Province</label>
+                  <input
+                    type="text"
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
+                  <input
+                    type="text"
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                <input
+                  type="text"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full sm:w-auto px-6 py-2 bg-[#328d87] text-white rounded-lg hover:bg-[#2a7872] disabled:opacity-50"
+              >
+                {isLoading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+
+          {/* Phone Verification */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                Phone Verification
+                {phoneVerified && <BadgeCheck className="w-5 h-5 text-green-600" />}
+              </h2>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-6">
+              Verify your phone number to build trust and increase your response rate
+            </p>
+
+            {phoneVerified ? (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <select
                     value={phoneCountryCode}
                     disabled
-                    className="w-24 md:w-28 flex-shrink-0 px-2 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed text-sm"
+                    className="w-full sm:w-24 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                   >
                     <option value="+1">🇨🇦 +1</option>
                   </select>
@@ -464,152 +461,124 @@ export default function ProfilePage() {
                     type="tel"
                     value={phoneNumber}
                     disabled
-                    className="flex-1 max-w-xs min-w-0 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
                   />
                 </div>
-                <div className="flex items-center gap-2 text-green-600">
-                  <BadgeCheck className="h-5 w-5" />
+
+                <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">
+                  <BadgeCheck className="w-5 h-5" />
                   <span className="font-medium">You are verified!</span>
                 </div>
-              </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-medium text-blue-900 mb-2">Benefits of Verification</h3>
-                <ul className="space-y-2 text-sm text-blue-800">
-                  <li className="flex items-start gap-2">
-                    <span className="text-blue-600 mt-0.5">✓</span>
-                    <span>Verified badge displayed on your profile</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-blue-600 mt-0.5">✓</span>
-                    <span>3x higher response rate from contractors</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-blue-600 mt-0.5">✓</span>
-                    <span>Increased trust and credibility</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-blue-600 mt-0.5">✓</span>
-                    <span>Priority support from our team</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <h3 className="font-medium text-amber-900 mb-2">Why Verify Your Phone Number?</h3>
-                <ul className="space-y-2 text-sm text-amber-800">
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-600 mt-0.5">•</span>
-                    <span>
-                      <strong>Build Trust:</strong> Show contractors you're a real person
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-600 mt-0.5">•</span>
-                    <span>
-                      <strong>Get More Responses:</strong> Verified users receive 3x more contractor responses
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-600 mt-0.5">•</span>
-                    <span>
-                      <strong>Stand Out:</strong> Display a verified badge on your profile
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-600 mt-0.5">•</span>
-                    <span>
-                      <strong>Priority Support:</strong> Get faster help from our support team
-                    </span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                <div className="flex gap-2">
-                  <select
-                    value={phoneCountryCode}
-                    onChange={(e) => setPhoneCountryCode(e.target.value)}
-                    className="w-24 md:w-28 flex-shrink-0 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm"
-                  >
-                    <option value="+1">🇨🇦 +1</option>
-                  </select>
-                  <input
-                    type="tel"
-                    placeholder="5551234567"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                    maxLength={10}
-                    className="flex-1 max-w-xs min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                  />
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm font-medium text-blue-900 mb-2">Benefits of Verification</p>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600">✓</span>
+                      <span>Verified badge displayed on your profile</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600">✓</span>
+                      <span>3x higher response rate from contractors</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600">✓</span>
+                      <span>Increased trust and credibility</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600">✓</span>
+                      <span>Priority support from our team</span>
+                    </li>
+                  </ul>
                 </div>
-                <button
-                  onClick={handleSendCode}
-                  disabled={isSendingCode || phoneNumber.length < 10}
-                  className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
-                >
-                  {isSendingCode ? "Sending..." : "Send Code"}
-                </button>
-
-                {isCodeSent && (
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                   <div className="flex gap-2">
+                    <select
+                      value={phoneCountryCode}
+                      onChange={(e) => setPhoneCountryCode(e.target.value)}
+                      className="w-16 sm:w-20 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] text-sm"
+                      disabled={isCodeSent}
+                    >
+                      <option value="+1">🇨🇦 +1</option>
+                    </select>
                     <input
-                      type="text"
-                      placeholder="Enter 6-digit code"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      className="flex-1 max-w-[200px] min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                      type="tel"
+                      inputMode="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                      placeholder="6394705572"
+                      maxLength={10}
+                      className="flex-1 min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87]"
+                      disabled={isCodeSent}
                     />
+                  </div>
+                </div>
+
+                {!isCodeSent ? (
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={isSendingCode || phoneNumber.length < 10}
+                    className="w-full px-6 py-2 bg-[#328d87] text-white rounded-lg hover:bg-[#2a7872] disabled:opacity-50"
+                  >
+                    {isSendingCode ? "Processing..." : "Send Verification Code"}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Verification Code</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
+                        placeholder="Enter 6-digit code"
+                        maxLength={6}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] text-center text-lg tracking-wider"
+                      />
+                    </div>
                     <button
+                      type="button"
                       onClick={handleVerifyCode}
                       disabled={isVerifying || verificationCode.length !== 6}
-                      className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+                      className="w-full px-6 py-2 bg-[#328d87] text-white rounded-lg hover:bg-[#2a7872] disabled:opacity-50"
                     >
-                      {isVerifying ? "Verifying..." : "Verify"}
+                      {isVerifying ? "Processing..." : "Verify Phone"}
                     </button>
                   </div>
                 )}
 
                 {verificationError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-sm text-red-600">{verificationError}</p>
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+                    {verificationError}
                   </div>
                 )}
 
                 {verificationSuccess && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <p className="text-sm text-green-600">{verificationSuccess}</p>
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                    {verificationSuccess}
                   </div>
                 )}
 
-                <p className="text-xs text-gray-500">
-                  We'll send a 6-digit verification code to your phone via SMS. Standard message rates may apply.
-                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm font-medium text-blue-900 mb-2">Benefits of Verification:</p>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>✓ Verified badge displayed on your profile</li>
+                    <li>✓ 3x higher response rate from contractors</li>
+                    <li>✓ Increased trust and credibility</li>
+                    <li>✓ Priority support from our team</li>
+                  </ul>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Profile Photo</DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center justify-center p-4">
-            {profile?.profile_photo_url && (
-              <img
-                src={profile.profile_photo_url || "/placeholder.svg"}
-                alt="Profile Preview"
-                className="max-w-full max-h-[70vh] object-contain rounded-lg"
-              />
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
     </DashboardLayout>
   )
 }

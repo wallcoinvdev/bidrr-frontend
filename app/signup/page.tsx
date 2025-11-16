@@ -1,10 +1,9 @@
 "use client"
-
 import { useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Briefcase, Home } from "lucide-react"
+import { ArrowLeft, Briefcase, Home } from 'lucide-react'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -41,69 +40,60 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen relative flex flex-col">
+    <div className="min-h-screen relative">
+      {/* Background image with teal overlay */}
       <div
-        className="fixed inset-0 bg-cover bg-center z-0"
+        className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: "url('/living-room-background.jpg')" }}
       />
-      <div className="fixed inset-0 bg-[#0d3d42]/95 z-0" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#03353a]/95 via-[#0d3d42]/90 to-[#03353a]/95" />
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <header className="border-b border-[#d8e2fb]/10 backdrop-blur-sm">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <Link href="/" className="flex items-center">
-                <Image src="/images/bidrr-white-logo.png" alt="Bidrr" width={140} height={35} className="h-8 w-auto" />
-              </Link>
-              <Link
-                href="/"
-                className="text-sm font-medium text-[#d8e2fb] hover:text-white transition-colors flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Home
-              </Link>
-            </div>
+      {/* Content */}
+      <div className="relative container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <Image src="/images/bidrr-white-logo.png" alt="Bidrr" width={120} height={40} className="h-8 sm:h-10 w-auto" />
+          <Link href="/" className="inline-flex items-center text-sm text-white/90 hover:text-white transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Link>
+        </div>
+
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold text-white mb-4">Join Bidrr</h1>
+            <p className="text-lg text-white/80">Choose how you want to use Bidrr</p>
           </div>
-        </header>
 
-        <div className="flex-1 flex items-center justify-center px-4 py-12">
-          <div className="w-full max-w-2xl">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-[#d8e2fb] mb-2">Join Bidrr</h2>
-              <p className="text-[#d8e2fb]/70">Choose how you want to use Bidrr</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <button
+              onClick={() => handleRoleSelect("homeowner")}
+              className="bg-white border-2 border-[#d8e2fb]/30 hover:border-[#328d87] rounded-lg p-8 text-left transition-all group shadow-lg"
+            >
+              <div className="w-16 h-16 bg-[#328d87]/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-[#328d87] transition-colors">
+                <Home className="w-8 h-8 text-[#328d87] group-hover:text-white transition-colors" />
+              </div>
+              <h2 className="text-2xl font-bold text-[#03353a] mb-2">I'm a Customer</h2>
+              <p className="text-[#03353a]/70">Post projects and hire trusted contractors for your home</p>
+            </button>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              <button
-                onClick={() => handleRoleSelect("homeowner")}
-                className="bg-white border-2 border-[#d8e2fb]/30 hover:border-[#328d87] rounded-lg p-8 text-left transition-all group shadow-lg"
-              >
-                <div className="h-12 w-12 bg-[#328d87]/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-[#328d87]/20 transition-colors">
-                  <Home className="h-6 w-6 text-[#328d87]" />
-                </div>
-                <h3 className="text-xl font-semibold text-[#0d3d42] mb-2">I'm a Customer</h3>
-                <p className="text-[#0d3d42]/70">Post projects and hire trusted contractors for your home</p>
-              </button>
-
-              <button
-                onClick={() => handleRoleSelect("contractor")}
-                className="bg-white border-2 border-[#d8e2fb]/30 hover:border-[#e2bb12] rounded-lg p-8 text-left transition-all group shadow-lg"
-              >
-                <div className="h-12 w-12 bg-[#e2bb12]/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-[#e2bb12]/20 transition-colors">
-                  <Briefcase className="h-6 w-6 text-[#e2bb12]" />
-                </div>
-                <h3 className="text-xl font-semibold text-[#0d3d42] mb-2">I'm a Contractor</h3>
-                <p className="text-[#0d3d42]/70">Find new projects and grow your business</p>
-              </button>
-            </div>
-
-            <p className="mt-6 text-center text-sm text-[#d8e2fb]/60">
-              Already have an account?{" "}
-              <Link href="/login" className="text-[#e2bb12] font-medium hover:underline">
-                Sign in
-              </Link>
-            </p>
+            <button
+              onClick={() => handleRoleSelect("contractor")}
+              className="bg-white border-2 border-[#d8e2fb]/30 hover:border-[#e2bb12] rounded-lg p-8 text-left transition-all group shadow-lg"
+            >
+              <div className="w-16 h-16 bg-[#e2bb12]/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-[#e2bb12] transition-colors">
+                <Briefcase className="w-8 h-8 text-[#e2bb12] group-hover:text-white transition-colors" />
+              </div>
+              <h2 className="text-2xl font-bold text-[#03353a] mb-2">I'm a Contractor</h2>
+              <p className="text-[#03353a]/70">Find new projects and grow your business</p>
+            </button>
           </div>
+
+          <p className="text-center text-white/90">
+            Already have an account?{" "}
+            <Link href="/login" className="text-[#e2bb12] font-medium hover:underline">
+              Sign in
+            </Link>
+          </p>
         </div>
       </div>
     </div>

@@ -25,7 +25,7 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: "Bidrr - Connect with Trusted Home Service Professionals",
   description: "Find and hire verified contractors for your home improvement projects",
-    generator: 'v0.app'
+  generator: "v0.app",
 }
 
 export default function RootLayout({

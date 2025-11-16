@@ -2,1754 +2,1275 @@
 
 import type React from "react"
 
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { Briefcase, MapPin, Plus, X, Edit, Search, Upload, Eye, Calendar, Star, Info, ChevronDown } from "lucide-react"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter } from 'next/navigation'
+import { DashboardLayout } from "@/components/dashboard-layout"
 import { apiClient } from "@/lib/api-client"
-import { useAuth } from "@/lib/auth-context"
-import { SERVICES } from "@/lib/services"
+import { Loader2, Briefcase, MapPin, Calendar, AlertCircle, Bell, Star, ChevronDown, ChevronUp, X, MessageCircle } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
-  getServiceCategory,
-  categoryRequiresStructureDetails,
-  getCategoryFields,
-  SERVICE_CATEGORIES,
-} from "@/lib/service-categories"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
-import { errorLogger } from "@/lib/error-logger"
 import { VerifiedBadge } from "@/components/verified-badge"
 
-// Define Mission type for better type safety (assuming this is used internally)
+// Assume 'user' is available in this scope, e.g., from an auth context or hook.
+// For demonstration, we'll mock it. In a real app, you'd import/use it correctly.
+const user = {
+  id: 1,
+  name: "John Doe",
+  full_name: "John Doe",
+  email: "john.doe@example.com",
+  role: "homeowner"
+};
+
+
 interface Mission {
   id: number
   title: string
   service: string
-  job_details: string
-  completion_timeline: string
   priority: string
-  address: string
-  city: string
-  region: string
-  country: string
+  created_at: string
+  job_details: string
   postal_code: string
-  house_size: string | null
-  stories: string | null
-  property_type: string | null
-  area_size: string | null
-  num_items: string | null
-  condition_severity: string | null
-  material_type: string | null
-  location_in_home: string | null
-  materials_provided: boolean | null
-  special_description: string | null
-  service_frequency: string | null
-  special_requirements: string | null
-  style_theme: string | null
-  energy_usage: string | null
-  event_duration_hours: string | null
-  bid_count?: number
-  unread_bids_count?: number
+  bid_count: number
+  status: string
+  details_requested_count?: number
+  agent_photo_url?: string
+  contractor_name?: string
+  phone_verified?: boolean
+  is_google_verified?: boolean
+  created_at?: string
+  message?: string
+  rating?: number
+  review_count?: number
+  homeowner_contact?: { name: string }
   considering_count?: number
   has_accepted_bid?: boolean
-  details_requested_count?: number
-  bids_count?: number // For delete confirmation
-  created_at?: string // Added for display in missions list
+  considering_bid_amount?: number
+  // Added properties for editing
+  address?: string
+  city?: string
+  region?: string
+  completion_timeline?: string
+  images?: string[] // Added for editing
 }
 
-// Define types for bid data to include review information
-interface BidWithReviews extends Record<string, any> {
-  id: number
-  contractor_id: number
-  company_name?: string
-  contractor_name?: string
-  quote: string
-  message?: string
-  status?: string
-  logo_url?: string
-  agent_photo_url?: string // Added for agent photo
-  years_in_business?: string
-  business_address?: string
-  business_city?: string
-  business_region?: string
-  business_postal_code?: string
-  created_at?: string
-  average_rating?: number // Total average rating
-  total_rating?: number // Total average rating
-  homehero_rating?: number // HomeHero specific rating
-  homehero_review_count?: number // HomeHero review count
-  google_rating?: number // Google specific rating
-  google_review_count?: number // Google review count
-  google_reviews?: any[] // Array of Google reviews
-  estimated_duration?: string
-  is_verified?: boolean
-  google_places_id?: string // Added for Google Places ID
-  google_verified?: boolean // Added for Google verification status
-  profile_photo?: string // Added for profile photo
-  profile_photo_url?: string // Added for profile photo URL
-  google_business_url?: string // Added for Google Business URL
-  phone_verified?: boolean // Added for phone verification status
-}
-
-function getRelativeTime(dateString: string): string {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-
-  const intervals = {
-    year: 31536000,
-    month: 2592000,
-    week: 604800,
-    day: 86400,
-    hour: 3600,
-    minute: 60,
-  }
-
-  if (diffInSeconds < 60) return "just now"
-
-  for (const [unit, secondsInUnit] of Object.entries(intervals)) {
-    const interval = Math.floor(diffInSeconds / secondsInUnit)
-    if (interval >= 1) {
-      return interval === 1 ? `a ${unit} ago` : `${interval} ${unit}s ago`
-    }
-  }
-
-  return "just now"
-}
-
-const ReviewsModalContent = ({ contractorId }: { contractorId: number }) => {
-  const [reviewsData, setReviewsData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [showGoogleReviews, setShowGoogleReviews] = useState(false)
-  const [showHomeHeroReviews, setShowHomeHeroReviews] = useState(false)
-
-  useEffect(() => {
-    const fetchReviews = async () => {
-      setLoading(true)
-      try {
-        const data = await apiClient.request<any>(`/api/contractors/${contractorId}/reviews`, {
-          requiresAuth: false,
-        })
-
-        if (data.google_review_count === 0) {
-          try {
-            const profileData = await apiClient.request<any>(`/api/contractors/${contractorId}/profile`, {
-              requiresAuth: false,
-            })
-
-            const googleSite = profileData.review_sites?.find((site: any) => site.site === "google")
-
-            if (googleSite) {
-              // Merge Google reviews from profile with database reviews
-              const googleReviews = (googleSite.reviews || []).map((review: any) => ({
-                id: review.time,
-                reviewer_name: review.author,
-                rating: review.rating,
-                comment: review.text,
-                created_at: new Date(review.time * 1000).toISOString(),
-                source: "google",
-                reviewer_profile_photo_url: review.profile_photo,
-                relative_time_description: review.relative_time,
-              }))
-
-              // Calculate combined average
-              const homeheroRating = data.homehero_rating || 0
-              const homeheroCount = data.homehero_review_count || 0
-              const googleRating = googleSite.rating || 0
-              const googleCount = googleSite.review_count || 0
-              const totalCount = homeheroCount + googleCount
-              const averageRating =
-                totalCount > 0 ? (homeheroRating * homeheroCount + googleRating * googleCount) / totalCount : 0
-
-              setReviewsData({
-                ...data,
-                reviews: [...(data.reviews || []), ...googleReviews],
-                google_rating: googleRating,
-                google_review_count: googleCount,
-                average_rating: averageRating,
-              })
-              setLoading(false)
-              return
-            }
-          } catch (profileError) {
-            console.error("[v0] Failed to fetch contractor profile for Google reviews:", profileError)
-          }
-        }
-
-        setReviewsData(data)
-      } catch (error) {
-        console.error("[v0] Failed to fetch reviews:", error)
-        setReviewsData(null)
-      } finally {
-        setLoading(false)
-      }
-    }
-    if (contractorId) {
-      fetchReviews()
-    }
-  }, [contractorId])
-
-  if (loading) {
-    return <div className="text-center py-8 text-gray-500">Loading reviews...</div>
-  }
-
-  if (!reviewsData || (reviewsData.homehero_review_count === 0 && reviewsData.google_review_count === 0)) {
-    return <div className="text-center py-8 text-gray-500">No reviews available for this contractor.</div>
-  }
-
-  const totalAverage = reviewsData.average_rating || 0
-  const totalCount = (reviewsData.homehero_review_count || 0) + (reviewsData.google_review_count || 0)
-  const homeheroRating = reviewsData.homehero_rating || 0
-  const homeheroCount = reviewsData.homehero_review_count || 0
-  const googleRating = reviewsData.google_rating || 0
-  const googleCount = reviewsData.google_review_count || 0
-
-  const googleReviews = (reviewsData.reviews?.filter((review: any) => review.source === "google") || [])
-    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 3)
-
-  const allGoogleReviews = reviewsData.reviews?.filter((review: any) => review.source === "google") || []
-  console.log("[v0] Total Google reviews in database:", allGoogleReviews.length)
-  console.log(
-    "[v0] All Google reviews with dates:",
-    allGoogleReviews.map((r: any) => ({
-      reviewer: r.reviewer_name,
-      date: r.created_at,
-      rating: r.rating,
-    })),
-  )
-  console.log(
-    "[v0] 3 most recent Google reviews being displayed:",
-    googleReviews.map((r: any) => ({
-      reviewer: r.reviewer_name,
-      date: r.created_at,
-      rating: r.rating,
-    })),
-  )
-
-  const homeheroReviews = (reviewsData.reviews?.filter((review: any) => review.source === "homehero") || [])
-    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 3)
-
-  return (
-    <div className="space-y-6">
-      {/* Total Average */}
-      <div className="bg-gray-50 rounded-lg p-6 text-center">
-        <div className="text-sm text-gray-600 mb-2">Total Average Rating</div>
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Star className="h-8 w-8 fill-yellow-400 text-yellow-400" />
-          <span className="text-4xl font-bold text-gray-900">{totalAverage.toFixed(1)}</span>
-        </div>
-        <div className="text-sm text-gray-500">{totalCount} total reviews</div>
-      </div>
-
-      {homeheroCount > 0 && (
-        <div className="border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="font-semibold text-gray-900">homeHero Reviews</div>
-            </div>
-            <div className="flex items-center gap-1">
-              <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-              <span className="font-semibold text-gray-900">{homeheroRating.toFixed(1)}</span>
-              <span className="text-gray-500 text-sm">({homeheroCount})</span>
-            </div>
-          </div>
-
-          {homeheroReviews.length > 0 && (
-            <div>
-              <button
-                onClick={() => setShowHomeHeroReviews(!showHomeHeroReviews)}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
-              >
-                {showHomeHeroReviews ? "Hide" : "View"} recent homeHero reviews
-                <ChevronDown className={`h-4 w-4 transition-transform ${showHomeHeroReviews ? "rotate-180" : ""}`} />
-              </button>
-
-              {showHomeHeroReviews && (
-                <div className="mt-4 space-y-4">
-                  {homeheroReviews.map((review: any, index: number) => (
-                    <div key={review.id || index} className="border-t border-gray-200 pt-4">
-                      <div className="flex items-start gap-3">
-                        {review.reviewer_profile_photo_url ? (
-                          <img
-                            src={review.reviewer_profile_photo_url || "/placeholder.svg"}
-                            alt={review.reviewer_name}
-                            className="h-10 w-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm">
-                            {(review.reviewer_name || "A")
-                              .split(" ")
-                              .map((n: string) => n[0])
-                              .join("")
-                              .toUpperCase()
-                              .slice(0, 2)}
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="font-medium text-gray-900">{review.reviewer_name || "Anonymous"}</div>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm font-medium">{review.rating}</span>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-600">{review.comment}</p>
-                          <div className="text-xs text-gray-400 mt-1">
-                            {review.relative_time_description || getRelativeTime(review.created_at)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Google Reviews */}
-      {googleCount > 0 && (
-        <div className="border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="font-semibold text-gray-900">Google Reviews</div>
-            </div>
-            <div className="flex items-center gap-1">
-              <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-              <span className="font-semibold text-gray-900">{googleRating.toFixed(1)}</span>
-              <span className="text-gray-500 text-sm">({googleCount})</span>
-            </div>
-          </div>
-
-          {googleReviews.length > 0 && (
-            <div>
-              <button
-                onClick={() => setShowGoogleReviews(!showGoogleReviews)}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
-              >
-                {showGoogleReviews ? "Hide" : "View"} recent Google reviews
-                <ChevronDown className={`h-4 w-4 transition-transform ${showGoogleReviews ? "rotate-180" : ""}`} />
-              </button>
-
-              {showGoogleReviews && (
-                <div className="mt-4 space-y-4">
-                  {googleReviews.map((review: any, index: number) => (
-                    <div key={review.id || index} className="border-t border-gray-200 pt-4">
-                      <div className="flex items-start gap-3">
-                        {review.reviewer_profile_photo_url && (
-                          <img
-                            src={review.reviewer_profile_photo_url || "/placeholder.svg"}
-                            alt={review.reviewer_name}
-                            className="h-10 w-10 rounded-full object-cover"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="font-medium text-gray-900">{review.reviewer_name || "Anonymous"}</div>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm font-medium">{review.rating}</span>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-600">{review.comment}</p>
-                          {review.relative_time_description && (
-                            <div className="text-xs text-gray-400 mt-1">{review.relative_time_description}</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {homeheroCount === 0 && googleCount === 0 && (
-        <div className="text-center py-8 text-gray-500">No reviews available yet.</div>
-      )}
-    </div>
-  )
+interface Stats {
+  total_jobs: number
+  active_jobs: number
+  completed_jobs: number
 }
 
 export default function HomeownerDashboard() {
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
-  const [showPostJobModal, setShowPostJobModal] = useState(false)
-  const [showEditJobModal, setShowEditJobModal] = useState(false) // New state for edit modal
-  const [selectedBid, setSelectedBid] = useState<any>(null)
-  const [selectedJobForEdit, setSelectedJobForEdit] = useState<Mission | null>(null) // Typed as Mission | null
-  const [profile, setProfile] = useState<any>(null)
-  const [missions, setMissions] = useState<Mission[]>([]) // Typed as Mission[]
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
-  const [usePersonalAddress, setUsePersonalAddress] = useState(false)
-  const [usePersonalAddressEdit, setUsePersonalAddressEdit] = useState(false)
-
+  const [missions, setMissions] = useState<Mission[]>([])
+  const [stats, setStats] = useState<Stats>({ total_jobs: 0, active_jobs: 0, completed_jobs: 0 })
+  const [error, setError] = useState("")
+  const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
+  const [showBidsModal, setShowBidsModal] = useState(false)
+  const [bids, setBids] = useState<any[]>([])
+  const [loadingBids, setLoadingBids] = useState(false)
+  const [showReviewsModal, setShowReviewsModal] = useState(false)
+  const [reviews, setReviews] = useState<any>(null)
+  const [loadingReviews, setLoadingReviews] = useState(false)
+  const [selectedContractorId, setSelectedContractorId] = useState<number | null>(null)
+  const [showGoogleReviews, setShowGoogleReviews] = useState(true)
+  const [showBidrrReviews, setShowBidrrReviews] = useState(true)
+  const [showPostJobModal, setShowPostJobModal] = useState(false)
+  const [postingJob, setPostingJob] = useState(false)
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [imageFiles, setImageFiles] = useState<File[]>([])
   const [serviceSearch, setServiceSearch] = useState("")
   const [showServiceDropdown, setShowServiceDropdown] = useState(false)
-  const [editServiceSearch, setEditServiceSearch] = useState("")
-  const [showEditServiceDropdown, setShowEditServiceDropdown] = useState(false)
+  const [selectedService, setSelectedService] = useState("")
+  const [editingMission, setEditingMission] = useState<Mission | null>(null)
+  const [deleteJobId, setDeleteJobId] = useState<number | null>(null)
+  const [deletingJob, setDeletingJob] = useState(false)
 
-  const [selectedMissionForBids, setSelectedMissionForBids] = useState<Mission | null>(null) // Typed as Mission | null
-  const [bidsForMission, setBidsForMission] = useState<BidWithReviews[]>([]) // Typed as BidWithReviews[]
-  const [loadingBids, setLoadingBids] = useState(false)
-  const [bidsError, setBidsError] = useState<string | null>(null)
-  const [updatingBidId, setUpdatingBidId] = useState<number | null>(null)
-  const [showMessageModal, setShowMessageModal] = useState(false)
-  const [messageForm, setMessageForm] = useState({ bidId: 0, action: "", message: "" })
-
-  const [actionMessage, setActionMessage] = useState<{
-    type: "success" | "error"
-    text: string
-  } | null>(null)
-
-  const [deletingMissionId, setDeletingMissionId] = useState<number | null>(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [missionToDelete, setMissionToDelete] = useState<Mission | null>(null) // Typed as Mission | null
-  const [deleteSuccess, setDeleteSuccess] = useState(false)
-
-  const [notifications, setNotifications] = useState<any[]>([])
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [missionMenuOpen, setMissionMenuOpen] = useState<number | null>(null)
-  const [initialDataFetched, setInitialDataFetched] = useState(false)
-
-  // New states for reviews modal
-  const [showReviewsModal, setShowReviewsModal] = useState(false)
-  const [selectedContractorReviews, setSelectedContractorReviews] = useState<any>(null)
-
-  const [showDetailsInfoModal, setShowDetailsInfoModal] = useState(false)
-
-  const filteredServices = SERVICES.filter((service) => service.toLowerCase().includes(serviceSearch.toLowerCase()))
-
-  const filteredEditServices = SERVICES.filter((service) =>
-    service.toLowerCase().includes(editServiceSearch.toLowerCase()),
-  )
-
-  const COMPLETION_TIMELINE_OPTIONS = [
-    { value: "immediately", label: "Immediately", priority: "high" },
-    { value: "within_1_week", label: "Within a week", priority: "high" },
-    { value: "within_1_month", label: "Within 1 month", priority: "medium" },
-    { value: "within_3_months", label: "Within 3 months", priority: "low" },
-    { value: "inquiring_only", label: "Inquiring only", priority: "low" },
+  // Full list of services from the schema
+  const services = [
+    "Air Duct Cleaning",
+    "Carpet Cleaning",
+    "Chimney Cleaning",
+    "Cleaning",
+    "Deep Cleaning",
+    "House Cleaning",
+    "Move-In/Move-Out Cleaning",
+    "Oven Cleaning",
+    "Post-Construction Cleaning",
+    "Refrigerator Cleaning",
+    "Spring Cleaning",
+    "Tile and Grout Cleaning",
+    "Upholstery Cleaning",
+    "Window Cleaning",
+    "Aquarium Maintenance",
+    "Dog Walking",
+    "Pet Cleanup",
+    "Pet Grooming",
+    "Pet Kennel Cleaning",
+    "Pet Sitting",
+    "Pet Training",
+    "Pet Waste Removal",
+    "Appliance Repair",
+    "Basement Waterproofing",
+    "Bathtub Refinishing",
+    "Ceiling Repair",
+    "Drywall Repair",
+    "Foundation Repair",
+    "Garage Door Repair",
+    "Glass Repair",
+    "Grout Repair",
+    "Gutter Repair",
+    "Home Maintenance",
+    "Masonry Repair",
+    "Minor Home Repairs",
+    "Siding Repair",
+    "Sump Pump Maintenance",
+    "Water Heater Maintenance",
+    "Windows & Doors Repair",
+    "Air Purifier Installation",
+    "Cabinet Installation",
+    "Child Safety Gate Installation",
+    "Countertop Installation",
+    "Curtain Rod Installation",
+    "EV Charger Installation",
+    "Floor Installation",
+    "Humidifier Installation",
+    "Install Blinds",
+    "Install Window Treatments",
+    "Light Installation",
+    "Lock Installation or Repair",
+    "Mirror Installation",
+    "Pet Door Installation",
+    "Safe Installation",
+    "Satellite & Set Top Boxes Installation",
+    "Security System Installation",
+    "Shelf Installation",
+    "Skylight Installation",
+    "Smart Home Installation",
+    "Smart Lighting Setup",
+    "Smart Lock Installation",
+    "Sprinkler System Installation",
+    "Thermostat Installation & Repair",
+    "TV & Home Theater Installation",
+    "TV Mounting",
+    "Deck Construction",
+    "Driveway Sealing",
+    "Fencing",
+    "Garden Bed Installation",
+    "Gardening",
+    "Gate Installation & Repair",
+    "Gutter Installation & Cleaning",
+    "Landscaping",
+    "Lawncare",
+    "Outdoor Kitchen Installation",
+    "Outdoor Lighting Installation",
+    "Patio Installation",
+    "Pergola Construction",
+    "Pond Maintenance",
+    "Pressure Washing",
+    "Retaining Wall Construction",
+    "Shed Installation",
+    "Snow Removal",
+    "Sprinkler System Maintenance",
+    "Stump Grinding",
+    "Tree Removal",
+    "Yard Work",
+    "Carbon Monoxide Detector Maintenance",
+    "Fireproofing",
+    "Smoke Detector Maintenance",
+    "Composting System Setup",
+    "Energy Audit",
+    "Green Roof Installation",
+    "Insulation Installation",
+    "Rainwater Harvesting System Installation",
+    "Solar Panel Installation",
+    "Solar Panel Maintenance",
+    "Weatherstripping",
+    "Window Sealing",
+    "Asbestos Removal",
+    "Mold Remediation",
+    "Pest Control",
+    "Rodent Control",
+    "Wildlife Removal",
+    "Baby Proofing",
+    "Nursery Setup",
+    "Playground Installation",
+    "Toy Organization",
+    "Holiday Decoration Removal",
+    "Holiday Decoration Setup",
+    "Party Cleanup",
+    "Party Setup",
+    "Acoustic Panel Installation",
+    "Bed Assembly",
+    "Builders",
+    "Carpentry Services",
+    "Decoration",
+    "Fence Painting",
+    "Floor Refinishing",
+    "Furniture Assembly",
+    "Hang Art",
+    "Hang Curtains",
+    "Home Improvement",
+    "Home Staging",
+    "Home Theater Setup",
+    "IKEA Assembly",
+    "Indoor Painting",
+    "Interior Decoration",
+    "Light Carpentry",
+    "Odor Removal",
+    "Organization",
+    "Painting & Decorating",
+    "Picture Hanging",
+    "Room Measurement",
+    "Soundproofing",
+    "Vintage Home Restoration",
+    "Wallpapering",
+    "Wallpaper Removal",
+    "Asphalt Shingle Preservation",
+    "Asphalt Shingle Rejuvenation",
+    "Asphalt Shingles Maintenance",
+    "Asphalt Shingles Replacement",
+    "Cedar Shake Maintenance",
+    "Cedar Shake Replacement",
+    "Roof Maintenance",
+    "Roof Repair & Replacement",
+    "Accessibility Modifications",
+    "Attic Cleaning",
+    "Car Washing",
+    "Elevator Maintenance",
+    "Fireplace Maintenance",
+    "Home Automation Services",
+    "Home Gym Setup",
+    "Home Network Setup",
+    "Home Office Setup",
+    "Laundry and Ironing",
+    "Linens Washing",
+    "Packing & Unpacking",
+    "Pool Maintenance",
+    "Pool Table Maintenance",
+    "Sauna Maintenance",
+    "Sewing",
+    "Storm Damage Repair",
+    "Structural Maintenance",
+    "Trash & Furniture Removal",
+    "Wine Cellar Maintenance",
   ]
 
-  const mapTimelineToPriority = (timeline: string): string => {
-    const mapping: Record<string, string> = {
-      immediately: "high",
-      within_1_week: "high",
-      within_1_month: "medium",
-      within_3_months: "low",
-      inquiring_only: "low",
-    }
-    return mapping[timeline] || "medium"
-  }
-
-  const { toast } = useToast()
+  const filteredServices = services.filter((service) => service.toLowerCase().includes(serviceSearch.toLowerCase()))
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login")
-    }
-  }, [user, authLoading, router])
+    fetchDashboardData()
+  }, [])
 
-  // Fetch initial data only once when the user is authenticated and data hasn't been fetched yet.
-  useEffect(() => {
-    if (user?.id && !initialDataFetched) {
-      fetchProfile()
-      fetchMissions()
-      fetchNotifications()
-      setInitialDataFetched(true)
-    }
-  }, [user?.id, initialDataFetched])
-
-  useEffect(() => {
-    if (usePersonalAddress && profile) {
-      console.log("[v0] Autofilling personal address:", profile)
-      setPostJobForm((prev) => ({
-        ...prev,
-        address: profile.address || "",
-        city: profile.city || "",
-        region: profile.region || "",
-        country: profile.country || "CA",
-        postal_code: profile.postal_code || "",
-      }))
-    }
-  }, [usePersonalAddress, profile])
-
-  useEffect(() => {
-    if (usePersonalAddressEdit && profile) {
-      console.log("[v0] Autofilling personal address for edit:", profile)
-      setEditJobForm((prev) => ({
-        ...prev,
-        address: profile.address || "",
-        city: profile.city || "",
-        region: profile.region || "",
-        country: profile.country || "CA",
-        postal_code: profile.postal_code || "",
-      }))
-    }
-  }, [usePersonalAddressEdit, profile])
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (missionMenuOpen !== null) {
-        const target = event.target as HTMLElement
-        // Check if the click target is outside the mission menu or its parent elements
-        // The '.relative' class is applied to the div containing the menu button and the menu itself.
-        const menuContainer = target.closest(".relative")
-        if (!menuContainer) {
-          setMissionMenuOpen(null)
-        }
-      }
-    }
-
-    if (missionMenuOpen !== null) {
-      document.addEventListener("click", handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener("click", handleClickOutside)
-    }
-  }, [missionMenuOpen])
-
-  const fetchProfile = async () => {
-    try {
-      const data = await apiClient.request<any>("/api/users/profile", { requiresAuth: true })
-      setProfile(data)
-    } catch (error) {
-      console.error("Error fetching profile:", error)
-    }
-  }
-
-  const fetchMissions = async () => {
+  const fetchDashboardData = async () => {
     try {
       setLoading(true)
-      const data = await apiClient.request<Mission[]>("/api/missions/active", {
-        // Typed as Mission[]
+
+      const missionsData = await apiClient.request<Mission[]>("/api/missions/active", {
         requiresAuth: true,
       })
-      console.log("[v0] Missions fetched from API:", data)
-      data.forEach((mission) => {
-        console.log(
-          `[v0] Mission ${mission.id}: has_accepted_bid=${mission.has_accepted_bid}, considering_count=${mission.considering_count}, accepted_at=${mission.accepted_at}`,
-        )
+
+      setMissions(missionsData)
+
+      setStats({
+        total_jobs: missionsData.length,
+        active_jobs: missionsData.filter((m) => m.status === "active" || m.status === "open").length,
+        completed_jobs: missionsData.filter((m) => m.status === "completed").length,
       })
-      setMissions(data)
-    } catch (error) {
-      console.error("Failed to fetch missions:", error)
+
+      setError("")
+    } catch (error: any) {
+      console.error("Error fetching dashboard data:", error)
+      setError(error.message || "Failed to load dashboard data")
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchBidsForMission = async (missionId: number) => {
+  const fetchBidsWithReviews = async (missionId: number) => {
     setLoadingBids(true)
-    setBidsError(null)
     try {
-      const data = await apiClient.request<BidWithReviews[]>(`/api/missions/${missionId}/bids`, { requiresAuth: true })
-      console.log("[v0] Bids fetched successfully:", data)
-      console.log("[v0] Number of bids:", data.length)
+      const data = await apiClient.request<any[]>(`/api/missions/${missionId}/bids`, {
+        requiresAuth: true,
+      })
 
       const bidsWithReviews = await Promise.all(
         data.map(async (bid) => {
           try {
-            // Fetch reviews only (no need to fetch contractor profile anymore)
-            const reviewsData = await apiClient.request<any>(`/api/contractors/${bid.contractor_id}/reviews`, {
-              requiresAuth: false,
-            })
+            const cacheBuster = Date.now()
+            const reviews = await apiClient.request<any>(
+              `/api/contractors/${bid.contractor_id}/reviews?_t=${cacheBuster}`,
+              {
+                requiresAuth: true,
+              },
+            )
 
-            console.log(`[v0] Reviews for contractor ${bid.contractor_id}:`, reviewsData)
+            const bidrrReviewCount = reviews.reviews.filter((r: any) => r.source === "homehero").length
+            const totalReviews = (reviews.google_review_count || 0) + bidrrReviewCount
 
-            // All needed fields now come from the bid data itself
             return {
               ...bid,
-              ...reviewsData,
-              // Backend now provides these fields directly
-              phone_verified: bid.phone_verified,
-              google_verified: bid.is_google_verified,
-              agent_photo_url: bid.agent_photo_url || bid.profile_photo_url,
+              rating: reviews.average_rating || reviews.google_rating || 0,
+              review_count: totalReviews,
             }
-          } catch (error) {
-            console.error(`[v0] Error processing bid ${bid.id}:`, error)
+          } catch (error: any) {
+            console.error(`Error fetching reviews for contractor ${bid.contractor_id}:`, error.message)
             return {
               ...bid,
-              average_rating: 0,
-              homehero_rating: 0,
-              google_rating: 0,
-              phone_verified: bid.phone_verified,
-              google_verified: bid.is_google_verified,
-              agent_photo_url: bid.agent_photo_url || bid.profile_photo_url,
+              rating: 0,
+              review_count: 0,
             }
           }
         }),
       )
 
-      setBidsForMission(bidsWithReviews)
-      // Notifications are marked as read separately when clicked
-      // Refresh missions to update counts
-      fetchMissions()
-
-      const relatedNotifications = notifications.filter((n) => n.type === "new_bid" && n.mission_id === missionId)
-
-      if (relatedNotifications.length > 0) {
-        await Promise.all(relatedNotifications.map((notification) => markNotificationAsRead(notification.id)))
-        // Refresh notifications to update badge counts
-        await fetchNotifications()
-      }
+      setBids(bidsWithReviews)
     } catch (error: any) {
       console.error("Error fetching bids:", error)
-      setBidsForMission([])
-      setBidsError("Unable to load bids at this time. Please try again later or contact support if the issue persists.")
+      alert("Failed to load bids: " + error.message)
     } finally {
       setLoadingBids(false)
     }
   }
 
-  const fetchNotifications = async () => {
-    try {
-      const data = await apiClient.request<any[]>("/api/notifications", { requiresAuth: true })
-      console.log("[v0] Notifications fetched successfully:", data)
-      setNotifications(data.filter((n) => !n.is_read))
-    } catch (error: any) {
-      console.error("[v0] Error fetching notifications (non-critical):", error)
-      // Set empty array so the notification bell still works
-      setNotifications([])
-      // Don't show alert - this is a non-critical feature
-    }
-  }
+  const fetchContractorReviews = async (contractorId: number, companyName: string) => {
+    setSelectedContractorId(contractorId)
+    setShowReviewsModal(true)
+    setLoadingReviews(true)
 
-  const markNotificationAsRead = async (notificationId: number) => {
     try {
-      await apiClient.request(`/api/notifications/${notificationId}/mark-read`, {
-        method: "POST",
+      const cacheBuster = Date.now()
+      const data = await apiClient.request<any>(`/api/contractors/${contractorId}/reviews?_t=${cacheBuster}`, {
         requiresAuth: true,
       })
-      setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
 
-      window.dispatchEvent(new CustomEvent("notificationUpdated"))
-    } catch (error) {
-      console.error("[v0] Error marking notification as read:", error)
-    }
-  }
+      console.log("[v0] Opening reviews for contractor:", contractorId, companyName)
+      console.log("[v0] Full reviews response:", JSON.stringify(data, null, 2))
 
-  const markAllNotificationsAsRead = async () => {
-    try {
-      // Mark all notifications as read in parallel
-      await Promise.all(
-        notifications.map((notification) =>
-          apiClient.request(`/api/notifications/${notification.id}/mark-read`, {
-            method: "POST",
-            requiresAuth: true,
-          }),
-        ),
-      )
-      // Clear all notifications from state
-      setNotifications([])
-      console.log("[v0] All notifications marked as read")
-    } catch (error) {
-      console.error("[v0] Error marking all notifications as read:", error)
-    }
-  }
+      const bidrrReviews = data.reviews.filter((r: any) => r.source === "homehero")
+      console.log("[v0] Bidrr reviews found:", bidrrReviews.length)
 
-  const handleDeleteMission = async (missionId: number) => {
-    try {
-      setDeletingMissionId(missionId)
-      await apiClient.request(`/api/missions/${missionId}`, {
-        method: "DELETE",
-        requiresAuth: true,
-      })
-      setDeleteSuccess(true)
-      fetchMissions()
-
-      setTimeout(() => {
-        setShowDeleteConfirm(false)
-        setMissionToDelete(null)
-        setDeleteSuccess(false)
-      }, 2000)
-    } catch (error) {
-      console.error("Error deleting mission:", error)
-      alert("Failed to delete job. Please try again.")
-    } finally {
-      setDeletingMissionId(null)
-    }
-  }
-
-  const openDeleteConfirm = (mission: Mission) => {
-    setMissionToDelete(mission)
-    setShowDeleteConfirm(true)
-    setDeleteSuccess(false)
-  }
-
-  const handlePostJob = async () => {
-    try {
-      setUploading(true)
-      const formData = new FormData()
-      formData.append("title", postJobForm.title)
-      formData.append("service", postJobForm.service)
-      if (postJobForm.job_details.trim()) {
-        formData.append("job_details", postJobForm.job_details)
-      }
-      formData.append("address", postJobForm.address)
-      formData.append("city", postJobForm.city)
-      formData.append("region", postJobForm.region)
-      formData.append("country", postJobForm.country)
-      formData.append("postal_code", postJobForm.postal_code)
-      formData.append("completion_timeline", postJobForm.completion_timeline)
-      formData.append("priority", mapTimelineToPriority(postJobForm.completion_timeline))
-
-      const category = getServiceCategory(postJobForm.service)
-      const categoryFields = getCategoryFields(category)
-
-      if (categoryFields.area_size && postJobForm.area_size) {
-        formData.append("area_size", postJobForm.area_size)
-      }
-      if (categoryFields.num_items && postJobForm.num_items) {
-        formData.append("num_items", postJobForm.num_items)
-      }
-      if (categoryFields.condition_severity && postJobForm.condition_severity) {
-        formData.append("condition_severity", postJobForm.condition_severity)
-      }
-      if (categoryFields.material_type && postJobForm.material_type) {
-        formData.append("material_type", postJobForm.material_type)
-      }
-      if (categoryFields.location_in_home && postJobForm.location_in_home) {
-        formData.append("location_in_home", postJobForm.location_in_home)
-      }
-      if (categoryFields.materials_provided) {
-        formData.append("materials_provided", postJobForm.materials_provided.toString())
-      }
-      if (categoryFields.special_description && postJobForm.special_description) {
-        formData.append("special_description", postJobForm.special_description)
-      }
-      if (categoryFields.service_frequency && postJobForm.service_frequency) {
-        formData.append("service_frequency", postJobForm.service_frequency)
-      }
-      if (categoryFields.special_requirements && postJobForm.special_requirements) {
-        formData.append("special_requirements", postJobForm.special_requirements)
-      }
-      if (categoryFields.style_theme && postJobForm.style_theme) {
-        formData.append("style_theme", postJobForm.style_theme)
-      }
-      if (categoryFields.energy_usage && postJobForm.energy_usage) {
-        formData.append("energy_usage", postJobForm.energy_usage)
-      }
-      if (categoryFields.event_duration_hours && postJobForm.event_duration_hours) {
-        formData.append("event_duration_hours", postJobForm.event_duration_hours)
-      }
-
-      if (categoryRequiresStructureDetails(category)) {
-        if (postJobForm.house_size) formData.append("house_size", postJobForm.house_size)
-        if (postJobForm.stories && postJobForm.stories !== "n/a") {
-          formData.append("stories", postJobForm.stories)
-        }
-        if (postJobForm.property_type) formData.append("property_type", postJobForm.property_type)
-      }
-
-      if (postJobImages) {
-        Array.from(postJobImages).forEach((file) => {
-          formData.append("images", file)
+      bidrrReviews.forEach((review: any, index: number) => {
+        console.log(`[v0] Bidrr Review ${index + 1}:`, {
+          id: review.id,
+          reviewer_name: review.reviewer_name,
+          reviewer_profile_photo_url: review.reviewer_profile_photo_url,
+          rating: review.rating,
+          comment: review.comment,
+          source: review.source,
+          created_at: review.created_at,
+          allFields: Object.keys(review),
         })
-      }
-
-      console.log("[v0] Posting job with data:", {
-        title: postJobForm.title,
-        service: postJobForm.service,
-        completion_timeline: postJobForm.completion_timeline,
-        priority: mapTimelineToPriority(postJobForm.completion_timeline),
-        address: postJobForm.address,
-        city: postJobForm.city,
-        region: postJobForm.region,
-        country: postJobForm.country,
-        postal_code: postJobForm.postal_code,
       })
 
-      await apiClient.uploadFormData("/api/missions", formData)
-
-      toast({
-        title: "Job posted successfully",
-        description: "Contractors in your area will be notified",
-      })
-
-      setShowPostJobModal(false)
-      // Reset form
-      setPostJobForm({
-        title: "",
-        service: "",
-        job_details: "",
-        completion_timeline: "", // Changed default from "within_month" to empty string
-        address: "",
-        city: "",
-        region: "",
-        country: "CA",
-        postal_code: "",
-        house_size: "",
-        stories: "", // Changed default from "1" to empty string
-        property_type: "", // Changed default from "single_family" to empty string
-        area_size: "",
-        num_items: "",
-        condition_severity: "",
-        material_type: "",
-        location_in_home: "",
-        materials_provided: false,
-        special_description: "",
-        service_frequency: "",
-        special_requirements: "",
-        style_theme: "",
-        energy_usage: "",
-        event_duration_hours: "",
-      })
-      setPostJobImages(null)
-      setServiceSearch("")
-      setUsePersonalAddress(false) // Reset checkbox state
-      fetchMissions()
+      setReviews(data)
     } catch (error: any) {
-      console.error("Error posting job:", error)
-
-      const errorMessage = error?.message || "Failed to post job. Please try again."
-      const errorDetails = error?.errorData?.details || error?.errorData || {}
-
-      console.log("[v0] Backend error details:", errorDetails)
-
-      toast({
-        title: "Failed to post job",
-        description: errorMessage,
-        variant: "destructive",
-      })
-
-      errorLogger.log({
-        error: errorMessage,
-        errorName: error?.name || "JobPostingError",
-        endpoint: "/api/missions",
-        statusCode: error?.statusCode,
-        stack: error?.stack,
-        userId: user?.id,
-        userEmail: user?.email,
-        context: {
-          formData: {
-            title: postJobForm.title,
-            service: postJobForm.service,
-            address: postJobForm.address,
-            city: postJobForm.city,
-            completion_timeline: postJobForm.completion_timeline,
-          },
-          errorDetails,
-          action: "post_job",
-        },
-      })
+      console.error("Error fetching reviews:", error.message)
+      alert("Failed to load reviews: " + error.message)
     } finally {
-      setUploading(false)
+      setLoadingReviews(false)
     }
   }
 
-  const handleEditJob = async () => {
-    if (!selectedJobForEdit) return
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  }
 
-    if (editJobForm.job_details.trim().length < 10) {
+  const handleEditJob = async (jobId: number) => {
+    const mission = missions.find((m) => m.id === jobId)
+    if (!mission) return
+
+    if (mission.bid_count > 0) {
       toast({
-        title: "Validation Error",
-        description: "Job description must be at least 10 characters long.",
+        title: "Cannot Edit Job",
+        description: "Jobs with bids cannot be edited.",
         variant: "destructive",
       })
       return
     }
 
+    // Fetch full mission details if needed
     try {
-      setUploading(true)
-      const formData = new FormData()
-
-      formData.append("title", editJobForm.title)
-      formData.append("service", editJobForm.service)
-      formData.append("full_name", user?.name || "")
-      if (editJobForm.job_details.trim()) {
-        formData.append("job_details", editJobForm.job_details)
-      }
-      formData.append("address", editJobForm.address)
-      formData.append("city", editJobForm.city)
-      formData.append("region", editJobForm.region)
-      formData.append("country", editJobForm.country)
-      formData.append("postal_code", editJobForm.postal_code)
-      formData.append("completion_timeline", editJobForm.completion_timeline)
-      formData.append("priority", mapTimelineToPriority(editJobForm.completion_timeline))
-
-      const category = getServiceCategory(editJobForm.service)
-      const categoryFields = getCategoryFields(category)
-
-      if (categoryFields.area_size && editJobForm.area_size) {
-        formData.append("area_size", editJobForm.area_size)
-      }
-      if (categoryFields.num_items && editJobForm.num_items) {
-        formData.append("num_items", editJobForm.num_items)
-      }
-      if (categoryFields.condition_severity && editJobForm.condition_severity) {
-        formData.append("condition_severity", editJobForm.condition_severity)
-      }
-      if (categoryFields.material_type && editJobForm.material_type) {
-        formData.append("material_type", editJobForm.material_type)
-      }
-      if (categoryFields.location_in_home && editJobForm.location_in_home) {
-        formData.append("location_in_home", editJobForm.location_in_home)
-      }
-      if (categoryFields.materials_provided) {
-        formData.append("materials_provided", editJobForm.materials_provided.toString())
-      }
-      if (categoryFields.special_description && editJobForm.special_description) {
-        formData.append("special_description", editJobForm.special_description)
-      }
-      if (categoryFields.service_frequency && editJobForm.service_frequency) {
-        formData.append("service_frequency", editJobForm.service_frequency)
-      }
-      if (categoryFields.special_requirements && editJobForm.special_requirements) {
-        formData.append("special_requirements", editJobForm.special_requirements)
-      }
-      if (categoryFields.style_theme && editJobForm.style_theme) {
-        formData.append("style_theme", editJobForm.style_theme)
-      }
-      if (categoryFields.energy_usage && editJobForm.energy_usage) {
-        formData.append("energy_usage", editJobForm.energy_usage)
-      }
-      if (categoryFields.event_duration_hours && editJobForm.event_duration_hours) {
-        formData.append("event_duration_hours", editJobForm.event_duration_hours)
-      }
-
-      if (categoryRequiresStructureDetails(category)) {
-        if (editJobForm.house_size) formData.append("house_size", editJobForm.house_size)
-        if (editJobForm.stories && editJobForm.stories !== "n/a") {
-          formData.append("stories", editJobForm.stories)
-        }
-        if (editJobForm.property_type) formData.append("property_type", editJobForm.property_type)
-      }
-
-      if (editJobImages) {
-        Array.from(editJobImages).forEach((file) => {
-          formData.append("images", file)
-        })
-      }
-
-      console.log("[v0] Editing job with ID:", selectedJobForEdit.id)
-      console.log("[v0] FormData contents:")
-      for (const [key, value] of formData.entries()) {
-        console.log(`[v0]   ${key}:`, value)
-      }
-
-      await apiClient.uploadFormData(`/api/missions/${selectedJobForEdit.id}`, formData, "PUT")
-      setSelectedJobForEdit(null)
-      setEditJobImages(null)
-      setEditServiceSearch("")
-      setUsePersonalAddressEdit(false) // Reset checkbox state
-      setShowEditJobModal(false) // Close the edit modal
-      fetchMissions()
-    } catch (error: any) {
-      const errorDetails = error?.response?.data // Assuming the error response structure
-      console.log("[v0] Backend error response:", errorDetails)
-
-      const errorMessage =
-        errorDetails?.errorData?.details?.[0]?.message || errorDetails?.errorData?.error || error.message
-      toast({
-        title: "Error updating job",
-        description: errorMessage,
-        variant: "destructive",
-      })
-
-      console.error("[v0] Error updating job:", error.message)
-      console.error("[v0] Error details:", error)
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const openEditModal = (mission: Mission) => {
-    // Changed parameter type to Mission
-    setSelectedJobForEdit(mission)
-    const timeline = mission.completion_timeline || "flexible"
-
-    setEditServiceSearch(mission.service || "")
-
-    setEditJobForm({
-      title: mission.title || "",
-      service: mission.service || "",
-      job_details: mission.job_details || "",
-      completion_timeline: timeline,
-      address: mission.address || "",
-      city: mission.city || "",
-      region: mission.region || "",
-      country: mission.country || "", // Default to mission's country or empty if not present
-      postal_code: mission.postal_code || "",
-      house_size: mission.house_size || "",
-      stories: mission.stories || "",
-      property_type: mission.property_type || "",
-      area_size: mission.area_size || "",
-      num_items: mission.num_items || "",
-      condition_severity: mission.condition_severity || "",
-      material_type: mission.material_type || "",
-      location_in_home: mission.location_in_home || "",
-      materials_provided: mission.materials_provided || false,
-      special_description: mission.special_description || "",
-      service_frequency: mission.service_frequency || "",
-      special_requirements: mission.special_requirements || "",
-      style_theme: mission.style_theme || "",
-      energy_usage: mission.energy_usage || "",
-      event_duration_hours: mission.event_duration_hours || "",
-    })
-    setShowEditJobModal(true)
-  }
-
-  const handleBidAction = async (bidId: number, action: "considering" | "accepted" | "rejected") => {
-    setMessageForm({ bidId, action, message: "" })
-    setShowMessageModal(true)
-  }
-
-  const submitBidActionWithMessage = async () => {
-    if (!selectedMissionForBids) return
-
-    const { bidId, action, message } = messageForm
-    setUpdatingBidId(bidId)
-    setActionMessage(null)
-
-    try {
-      await apiClient.request(`/api/bids/${bidId}/status`, {
-        method: "PUT",
-        body: JSON.stringify({ status: action, message: message.trim() || undefined }),
+      const fullMission = await apiClient.request<any>(`/api/missions/${jobId}`, {
         requiresAuth: true,
       })
 
-      // Refresh bids to show updated status
-      await fetchBidsForMission(selectedMissionForBids.id)
+      setEditingMission(fullMission)
+      setSelectedService(fullMission.service || "")
 
-      const actionText = action === "considering" ? "marked as considering" : action
-      setActionMessage({
-        type: "success",
-        text: `Bid ${actionText} successfully!${message.trim() ? " Message sent to contractor." : ""}`,
-      })
-
-      setTimeout(() => {
-        setShowMessageModal(false)
-        setMessageForm({ bidId: 0, action: "", message: "" })
-        setActionMessage(null)
-      }, 2000)
-    } catch (error: any) {
-      console.error(`[v0] Error updating bid status to "${action}":`, error)
-      console.error(`[v0] Error details:`, {
-        bidId,
-        action,
-        errorMessage: error?.message,
-        errorData: error?.errorData,
-      })
-
-      const errorMessage = error?.message || "Unknown error"
-      if (errorMessage.includes("updated_at")) {
-        setActionMessage({
-          type: "error",
-          text: "Unable to update bid status. The backend needs to fix a database issue. Please contact support.",
-        })
-      } else {
-        setActionMessage({
-          type: "error",
-          text: `Failed to update bid status: ${errorMessage}. Please try again or contact support if the issue persists.`,
-        })
+      if (fullMission.images && Array.isArray(fullMission.images)) {
+        setImagePreviews(fullMission.images)
+        // Note: imageFiles will remain empty since we're showing URLs, not File objects
+        // The backend will keep existing images unless new ones are uploaded
       }
-    } finally {
-      setUpdatingBidId(null)
+
+      setShowPostJobModal(true)
+    } catch (error: any) {
+      console.error("Error fetching mission details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load job details",
+        variant: "destructive",
+      })
     }
   }
 
-  const openBidsModal = (mission: Mission) => {
-    // Changed parameter type to Mission
-    setSelectedMissionForBids(mission)
-    fetchBidsForMission(mission.id)
+  const handleDeleteJob = (jobId: number) => {
+    setDeleteJobId(jobId)
   }
 
-  const closeBidsModal = () => {
-    setSelectedMissionForBids(null)
-    setBidsForMission([])
-    setBidsError(null)
+  const confirmDeleteJob = async () => {
+    if (!deleteJobId) return
+
+    setDeletingJob(true)
+    try {
+      await apiClient.request(`/api/missions/${deleteJobId}`, {
+        method: "DELETE",
+        requiresAuth: true,
+      })
+
+      setMissions((prev) => prev.filter((m) => m.id !== deleteJobId))
+      setStats((prev) => ({ ...prev, total_jobs: prev.total_jobs - 1 }))
+
+      toast({
+        title: "Success!",
+        description: "Job deleted successfully",
+      })
+    } catch (error: any) {
+      console.error("Error deleting job:", error)
+      toast({
+        title: "Error",
+        description: `Failed to delete job: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingJob(false)
+      setDeleteJobId(null)
+    }
   }
 
-  const [postJobForm, setPostJobForm] = useState({
-    title: "",
-    service: "",
-    job_details: "",
-    completion_timeline: "", // Changed default from "within_month" to empty string
-    address: "",
-    city: "",
-    region: "",
-    country: "CA",
-    postal_code: "",
-    house_size: "",
-    stories: "", // Changed default from "1" to empty string
-    property_type: "", // Changed default from "single_family" to empty string
-    area_size: "",
-    num_items: "",
-    condition_severity: "",
-    material_type: "",
-    location_in_home: "",
-    materials_provided: false,
-    special_description: "",
-    service_frequency: "",
-    special_requirements: "",
-    style_theme: "",
-    energy_usage: "",
-    event_duration_hours: "",
-  })
-  const [postJobImages, setPostJobImages] = useState<FileList | null>(null)
+  const handleViewBids = async (mission: Mission) => {
+    setSelectedMission(mission)
+    setShowBidsModal(true)
+    await fetchBidsWithReviews(mission.id)
+  }
 
-  const [editJobForm, setEditJobForm] = useState({
-    title: "",
-    service: "",
-    job_details: "",
-    completion_timeline: "",
-    address: "",
-    city: "",
-    region: "",
-    country: "CA",
-    postal_code: "",
-    house_size: "",
-    stories: "", // Changed default from "1" to empty string
-    property_type: "", // Changed default from "single_family" to empty string
-    area_size: "",
-    num_items: "",
-    condition_severity: "",
-    material_type: "",
-    location_in_home: "",
-    materials_provided: false,
-    special_description: "",
-    service_frequency: "",
-    special_requirements: "",
-    style_theme: "",
-    energy_usage: "",
-    event_duration_hours: "",
-  })
-  const [editJobImages, setEditJobImages] = useState<FileList | null>(null)
+  const handleBidAction = async (bidId: number, status: string) => {
+    try {
+      const bid = bids.find(b => b.id === bidId)
+      const homeownerName = selectedMission?.homeowner_contact?.name || "the homeowner"
+      const bidAmount = bid?.quote || bid?.amount || 0
 
-  const countryCode = profile?.country || "CA"
-  const regionLabel =
-    countryCode === "US"
-      ? "State"
-      : countryCode === "CA"
-        ? "Province"
-        : countryCode === "GB"
-          ? "Region"
-          : countryCode === "AU"
-            ? "State/Territory"
-            : "Region"
-  const postalCodeLabel = countryCode === "US" ? "Zip Code" : countryCode === "CA" ? "Postal Code" : "Postcode"
+      let message = ""
+      if (status === "accepted") {
+        message = `Congratulations! Your bid for "${selectedMission?.title}" was accepted by ${homeownerName}. Messaging is now open. Job location: ${selectedMission?.postal_code}. Accepted bid amount: $${bidAmount}. The homeowner will contact you soon to discuss next steps and scheduling.`
+      }
 
-  const postJobCategory = getServiceCategory(postJobForm.service)
-  const postJobCategoryFields = getCategoryFields(postJobCategory)
-  const postJobShowStructureDetails = categoryRequiresStructureDetails(postJobCategory)
+      const response = await apiClient.request(`/api/bids/${bidId}/status`, {
+        method: "PUT",
+        body: JSON.stringify({
+          status,
+          message
+        }),
+        requiresAuth: true,
+      })
 
-  const editJobCategory = getServiceCategory(editJobForm.service)
-  const editJobCategoryFields = getCategoryFields(editJobCategory)
-  const editJobShowStructureDetails = categoryRequiresStructureDetails(editJobCategory)
+      // Update the missions state with the new bid status for the selected mission
+      setMissions((prevMissions) =>
+        prevMissions.map((mission) =>
+          mission.id === selectedMission?.id
+            ? {
+                ...mission,
+                has_accepted_bid: status === "accepted",
+                considering_count:
+                  status === "considering"
+                    ? (mission.considering_count || 0) + 1
+                    : status === "accepted" || status === "rejected"
+                      ? (mission.considering_count || 0) - 1
+                      : mission.considering_count,
+              }
+            : mission,
+        ),
+      )
 
-  if (authLoading) {
+      setBids((prev) =>
+        prev.map((bid) =>
+          bid.id === bidId ? { ...bid, status } : status === "accepted" ? { ...bid, status: "rejected" } : bid,
+        ),
+      )
+
+      // Removed alert and added toast
+      toast({
+        title: "Success",
+        description: `Bid ${status} successfully!`,
+      })
+    } catch (error: any) {
+      console.error("Error updating bid status:", error)
+
+      const errorMessage = error.status === 404
+        ? "This feature is not yet available. The backend endpoint needs to be implemented."
+        : error.message || "Failed to update bid status"
+
+      toast({
+        title: "Unable to Update Bid",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+
+    if (imageFiles.length + files.length > 3) {
+      alert("Maximum 3 images allowed")
+      return
+    }
+
+    const newFiles = files.slice(0, 3 - imageFiles.length)
+    setImageFiles([...imageFiles, ...newFiles])
+
+    newFiles.forEach((file) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreviews((prev) => [...prev, reader.result as string])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const removeImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index))
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handlePostJob = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setPostingJob(true)
+
+    try {
+      const formData = new FormData(e.currentTarget)
+
+      formData.set("service", selectedService)
+
+      const completionTimeline = formData.get("completion_timeline") as string
+      let priority = "medium" // default
+
+      if (completionTimeline === "immediately" || completionTimeline === "within_1_week") {
+        priority = "high"
+      } else if (completionTimeline === "within_1_month") {
+        priority = "medium"
+      } else if (completionTimeline === "within_3_months" || completionTimeline === "inquiring_only") {
+        priority = "low"
+      }
+
+      formData.set("priority", priority)
+
+      if (editingMission) {
+        // For updates, only append new image files
+        imageFiles.forEach((file) => {
+          formData.append("images", file)
+        })
+
+        await apiClient.uploadFormData(`/api/missions/${editingMission.id}`, formData, "PUT", true)
+
+        toast({
+          title: "Success!",
+          description: "Job updated successfully!",
+        })
+      } else {
+        // For new missions, append all images
+        imageFiles.forEach((file) => {
+          formData.append("images", file)
+        })
+
+        await apiClient.uploadFormData("/api/missions", formData, "POST", true)
+
+        toast({
+          title: "Success!",
+          description: "Job posted successfully!",
+        })
+      }
+
+      setShowPostJobModal(false)
+      setImagePreviews([])
+      setImageFiles([])
+      setSelectedService("")
+      setServiceSearch("")
+      setEditingMission(null)
+      await fetchDashboardData()
+    } catch (error: any) {
+      console.error("Error posting job:", error)
+      toast({
+        title: "Error",
+        description: `Failed to ${editingMission ? "update" : "post"} job: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setPostingJob(false)
+    }
+  }
+
+  const getPriorityBadge = (mission: Mission) => {
+    if (mission.priority === "high") {
+      return <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">High Priority</span>
+    } else if (mission.priority === "medium") {
+      return (
+        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-semibold">Medium Priority</span>
+      )
+    } else if (mission.priority === "low") {
+      return <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">Low Priority</span>
+    }
+    return null
+  }
+
+  const getBorderColor = (mission: Mission) => {
+    const bidCount = Number(mission.bid_count) || 0
+    const consideringCount = Number(mission.considering_count) || 0
+    const hasAcceptedBid = mission.has_accepted_bid
+
+    // No border for jobs with no bids
+    if (bidCount === 0) {
+      return ""
+    }
+
+    // Green border: Bid accepted
+    if (hasAcceptedBid) {
+      return "border-green-500"
+    }
+
+    // Yellow border: Bid being considered
+    if (consideringCount > 0) {
+      return "border-yellow-500"
+    }
+
+    // Blue border: Bids received but none considered or accepted
+    return "border-blue-500"
+  }
+
+  if (loading) {
     return (
       <DashboardLayout userRole="homeowner">
-        <div className="flex items-center justify-center h-64">
-          <p className="text-gray-500">Loading...</p>
+        <div className="flex h-[60vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#0F766E]" />
         </div>
       </DashboardLayout>
     )
   }
 
-  if (!user) {
-    return null
-  }
-
-  const getImagePreviews = (files: FileList | null): string[] => {
-    if (!files) return []
-    return Array.from(files).map((file) => URL.createObjectURL(file))
-  }
-
-  const hasUnreadBidNotifications = (missionId: number) => {
-    return notifications.some((n) => n.type === "new_bid" && n.mission_id === missionId && !n.is_read)
-  }
-
-  const renderCategoryFields = (
-    form: typeof postJobForm | typeof editJobForm, // Union type to accept both forms
-    setForm: React.Dispatch<React.SetStateAction<typeof postJobForm | typeof editJobForm>>,
-    categoryFields: ReturnType<typeof getCategoryFields>,
-    category: string | null,
-  ) => {
-    if (!category || Object.keys(categoryFields).length === 0) return null
-
+  if (error) {
     return (
-      <div className="pt-4 border-t border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Details</h3>
-        <div className="space-y-4">
-          {categoryFields.area_size && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {category === SERVICE_CATEGORIES.OUTDOOR
-                  ? "Yard Size (sq ft)"
-                  : category === SERVICE_CATEGORIES.ROOFING
-                    ? "Roof Size (sq ft)"
-                    : "Area Size (sq ft)"}
-              </label>
-              <input
-                type="number"
-                value={form.area_size}
-                onChange={(e) => setForm({ ...form, area_size: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                placeholder="e.g., 1000"
-              />
-            </div>
-          )}
-
-          {categoryFields.num_items && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {category === SERVICE_CATEGORIES.PET
-                  ? "Number of Pets"
-                  : category === SERVICE_CATEGORIES.SAFETY
-                    ? "Number of Detectors"
-                    : "Number of Items"}
-              </label>
-              <input
-                type="number"
-                value={form.num_items}
-                onChange={(e) => setForm({ ...form, num_items: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                placeholder="e.g., 2"
-              />
-            </div>
-          )}
-
-          {categoryFields.condition_severity && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {category === SERVICE_CATEGORIES.CLEANING ? "Condition" : "Damage Extent"}
-              </label>
-              <select
-                value={form.condition_severity}
-                onChange={(e) => setForm({ ...form, condition_severity: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-              >
-                <option value="">Select...</option>
-                <option value="light">Light</option>
-                <option value="minor">Minor</option>
-                <option value="moderate">Moderate</option>
-                <option value="severe">Severe</option>
-              </select>
-            </div>
-          )}
-
-          {categoryFields.material_type && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Material Type</label>
-              <input
-                type="text"
-                value={form.material_type}
-                onChange={(e) => setForm({ ...form, material_type: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                placeholder={
-                  category === SERVICE_CATEGORIES.ROOFING ? "e.g., Asphalt, Cedar Shake" : "e.g., Wood, Vinyl, Metal"
-                }
-              />
-            </div>
-          )}
-
-          {categoryFields.location_in_home && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Location in Home</label>
-              <select
-                value={form.location_in_home}
-                onChange={(e) => setForm({ ...form, location_in_home: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-              >
-                <option value="">Select...</option>
-                <option value="kitchen">Kitchen</option>
-                <option value="bedroom">Bedroom</option>
-                <option value="bathroom">Bathroom</option>
-                <option value="living_room">Living Room</option>
-                <option value="outdoor">Outdoor</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          )}
-
-          {categoryFields.materials_provided && (
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id={`materials-${form === postJobForm ? "post" : "edit"}`}
-                checked={form.materials_provided}
-                onChange={(e) => setForm({ ...form, materials_provided: e.target.checked })}
-                className="w-4 h-4 text-[#328d87] border-gray-300 rounded focus:ring-[#328d87]"
-              />
-              <label htmlFor={`materials-${form === postJobForm ? "post" : "edit"}`} className="text-sm text-gray-700">
-                {category === SERVICE_CATEGORIES.SAFETY ? "Existing System Installed" : "Materials Provided"}
-              </label>
-            </div>
-          )}
-
-          {categoryFields.special_description && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {category === SERVICE_CATEGORIES.PET
-                  ? "Pet Type & Details"
-                  : category === SERVICE_CATEGORIES.REPAIRS
-                    ? "Item/Area Description"
-                    : category === SERVICE_CATEGORIES.OUTDOOR
-                      ? "Terrain/Access Details"
-                      : category === SERVICE_CATEGORIES.ENERGY
-                        ? "System Size/Type"
-                        : category === SERVICE_CATEGORIES.PEST
-                          ? "Infestation Type"
-                          : category === SERVICE_CATEGORIES.CHILD
-                            ? "Number of Children & Ages"
-                            : category === SERVICE_CATEGORIES.SEASONAL
-                              ? "Event Type/Size"
-                              : "Description"}
-              </label>
-              <textarea
-                rows={3}
-                value={form.special_description}
-                onChange={(e) => setForm({ ...form, special_description: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                placeholder="Provide additional details..."
-              />
-            </div>
-          )}
-
-          {categoryFields.service_frequency && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Service Frequency</label>
-              <select
-                value={form.service_frequency}
-                onChange={(e) => setForm({ ...form, service_frequency: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-              >
-                <option value="">Select...</option>
-                <option value="one-time">One-time</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </div>
-          )}
-
-          {categoryFields.special_requirements && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Special Requirements</label>
-              <textarea
-                rows={3}
-                value={form.special_requirements}
-                onChange={(e) => setForm({ ...form, special_requirements: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                placeholder="Any special needs or requirements..."
-              />
-            </div>
-          )}
-
-          {categoryFields.style_theme && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Style/Theme</label>
-              <input
-                type="text"
-                value={form.style_theme}
-                onChange={(e) => setForm({ ...form, style_theme: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                placeholder="e.g., Modern, Traditional, Rustic"
-              />
-            </div>
-          )}
-
-          {categoryFields.energy_usage && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Current Energy Usage (CAD/month)</label>
-              <input
-                type="number"
-                value={form.energy_usage}
-                onChange={(e) => setForm({ ...form, energy_usage: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                placeholder="e.g., 150"
-              />
-            </div>
-          )}
-
-          {categoryFields.event_duration_hours && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Event Duration (hours)</label>
-              <input
-                type="number"
-                value={form.event_duration_hours}
-                onChange={(e) => setForm({ ...form, event_duration_hours: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                placeholder="e.g., 4"
-              />
-            </div>
-          )}
+      <DashboardLayout userRole="homeowner">
+        <div className="flex h-[60vh] items-center justify-center">
+          <div className="text-center">
+            <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
+            <p className="mt-4 text-lg text-gray-600">{error}</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     )
   }
 
   return (
     <DashboardLayout userRole="homeowner">
-      <div
-        className="fixed inset-0 bg-cover bg-center bg-no-repeat -z-10"
-        style={{ backgroundImage: "url('/living-room-background.jpg')" }}
-      />
-      <div className="fixed inset-0 bg-[#0d3d42]/95 -z-10" />
-
-      <div className="space-y-8">
-        {/* Header with Welcome, Notifications, and Post Job */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Welcome back!</h1>
-            <p className="text-gray-600 mt-2">Here's what's happening with your projects</p>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome back!</h1>
+            <p className="text-sm sm:text-base text-gray-600">Here's what's happening with your projects</p>
           </div>
-          <div className="flex items-center justify-between md:justify-end gap-3 md:gap-4">
-            <button
-              onClick={() => setShowPostJobModal(true)}
-              className="flex items-center justify-center gap-2 bg-[#328d87] text-white px-4 md:px-6 py-3 rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap"
-            >
-              <Plus className="h-5 w-5" />
-              <span>Post Job</span>
-            </button>
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="h-6 w-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-                {notifications.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                    {notifications.length}
-                  </span>
-                )}
-              </button>
-              {showNotifications && (
-                <div className="absolute right-0 w-[85vw] md:right-1.5 md:w-80 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Notifications</h3>
-                    {notifications.length > 0 && (
-                      <button
-                        onClick={markAllNotificationsAsRead}
-                        className="text-xs text-[#328d87] hover:text-[#2a7570] font-medium transition-colors"
-                      >
-                        Clear All
-                      </button>
-                    )}
-                  </div>
-                  {notifications.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500 text-sm">No new notifications</div>
-                  ) : (
-                    <div className="divide-y divide-gray-200">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className="p-4 hover:bg-gray-50 cursor-pointer"
-                          onClick={() => {
-                            markNotificationAsRead(notification.id)
-                            if (notification.type === "new_message") {
-                              window.dispatchEvent(new CustomEvent("notificationUpdated"))
-                              router.push("/dashboard/homeowner/messages")
-                              setShowNotifications(false)
-                            }
-                            if (notification.type === "new_bid" && notification.mission_id) {
-                              const mission = missions.find((m) => m.id === notification.mission_id)
-                              if (mission) {
-                                openBidsModal(mission)
-                                setShowNotifications(false)
-                              }
-                            }
-                          }}
+
+          <button
+            onClick={() => setShowPostJobModal(true)}
+            className="flex items-center gap-2 rounded-lg bg-[#0F766E] px-3 sm:px-4 py-2 text-sm sm:text-base text-white hover:bg-[#0d5f57] transition-colors w-full sm:w-auto justify-center"
+          >
+            <span className="text-xl">+</span>
+            <span>Post Job</span>
+          </button>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-blue-50 p-3">
+              <Briefcase className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Jobs Posted</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.total_jobs}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-xl font-semibold text-gray-900">My Job Postings</h2>
+
+          {missions.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-gray-600">No job postings yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {missions.map((mission) => (
+                <div
+                  key={mission.id}
+                  className={`rounded-lg border-2 p-4 transition-all hover:shadow-md relative ${getBorderColor(mission)}`}
+                >
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                    <div className="flex-1 w-full">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
+                          {mission.title}
+                        </h3>
+                        {getPriorityBadge(mission)}
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600 line-clamp-2">{mission.job_details}</p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
+                        <span className="flex items-center gap-1">
+                          <Briefcase className="h-4 w-4" />
+                          {mission.service}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          Submitted {formatDate(mission.created_at)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {mission.postal_code}
+                        </span>
+
+                        {mission.details_requested_count && mission.details_requested_count > 0 && (
+                          <span className="flex items-center gap-1 text-red-600">
+                            <AlertCircle className="h-4 w-4" />
+                            Requests for More Details: {mission.details_requested_count}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-3">
+                        <button
+                          onClick={() => handleViewBids(mission)}
+                          className="inline-flex items-center gap-1 rounded bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
                         >
-                          <p className="font-medium text-gray-900 text-sm">{notification.title}</p>
-                          {notification.message && <p className="text-gray-600 text-xs mt-1">{notification.message}</p>}
-                          <p className="text-gray-400 text-xs mt-1">
-                            {new Date(notification.created_at).toLocaleString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                          </p>
-                        </div>
-                      ))}
+                          <Briefcase className="h-4 w-4" />
+                          Bids Received: {mission.bid_count}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
+                      <button
+                        onClick={() => handleEditJob(mission.id)}
+                        className={`flex-1 sm:flex-initial rounded border px-3 py-1 text-sm whitespace-nowrap transition-colors ${
+                          mission.bid_count > 0
+                            ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteJob(mission.id)}
+                        className="flex-1 sm:flex-initial rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50 whitespace-nowrap"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  {mission.considering_count && mission.considering_count > 0 && mission.considering_bid_amount && (
+                    <div className="mt-4 sm:absolute sm:bottom-4 sm:right-4 bg-yellow-100 border border-yellow-300 rounded-lg px-3 py-2 text-sm">
+                      <p className="font-semibold text-yellow-900 text-xs sm:text-sm">
+                        A bid is being considered of ${mission.considering_bid_amount}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Dialog
+        open={showPostJobModal}
+        onOpenChange={(open) => {
+          setShowPostJobModal(open)
+          if (!open) {
+            setImagePreviews([])
+            setImageFiles([])
+            setSelectedService("")
+            setServiceSearch("")
+            setEditingMission(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingMission ? "Edit Job" : "Post a New Job"}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handlePostJob} className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+              <span className="font-semibold">💡 Tip:</span> Providing more details helps contractors give you more
+              accurate bids and better understand your project needs.
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Job Title <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="title"
+                defaultValue={editingMission?.title || ""}
+                placeholder="e.g., Kitchen Renovation"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+              />
+            </div>
+
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Service Type <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={selectedService || serviceSearch}
+                onChange={(e) => {
+                  setServiceSearch(e.target.value)
+                  setSelectedService("")
+                  setShowServiceDropdown(true)
+                }}
+                onFocus={() => setShowServiceDropdown(true)}
+                placeholder="Start typing..."
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+              />
+
+              {showServiceDropdown && filteredServices.length > 0 && !selectedService && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredServices.slice(0, 10).map((service) => (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() => {
+                        setSelectedService(service)
+                        setServiceSearch("")
+                        setShowServiceDropdown(false)
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                    >
+                      {service}
+                    </button>
+                  ))}
+                  {filteredServices.length > 10 && (
+                    <div className="px-3 py-2 text-xs text-gray-500 border-t">
+                      {filteredServices.length - 10} more services...
                     </div>
                   )}
                 </div>
               )}
             </div>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6 border border-gray-200">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Briefcase className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Jobs Posted</p>
-                <p className="text-2xl font-bold text-gray-900">{missions.length}</p>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                name="job_details"
+                defaultValue={editingMission?.job_details || ""}
+                placeholder="Describe your project in detail..."
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-1">0/1000 characters minimum</p>
             </div>
-          </div>
-        </div>
 
-        <div className="bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">My Job Postings</h2>
-          {loading ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500">Loading...</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Upload Images (Max 3)</label>
+
+              {imagePreviews.length > 0 && (
+                <div className="flex gap-2 mb-2 flex-wrap">
+                  {imagePreviews.map((preview, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={preview || "/placeholder.svg"}
+                        alt={`Preview ${index + 1}`}
+                        className="w-20 h-20 object-cover rounded-lg border border-gray-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {imageFiles.length < 3 && (
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="image-upload"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="flex items-center justify-center gap-2 w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#0F766E] transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="text-sm text-gray-600">Choose Files</span>
+                  </label>
+                </div>
+              )}
             </div>
-          ) : missions.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No jobs posted yet</p>
-              <p className="text-sm text-gray-400 mt-2">Post your first job to get started!</p>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                When do you need this done? <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="completion_timeline"
+                defaultValue={editingMission?.completion_timeline || ""}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+              >
+                <option value="">Select one</option>
+                <option value="immediately">Immediately</option>
+                <option value="within_1_week">Within 1 week</option>
+                <option value="within_1_month">Within 1 month</option>
+                <option value="within_3_months">Within 3 months</option>
+                <option value="inquiring_only">Inquiring only</option>
+              </select>
             </div>
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold mb-3">Where is your job located?</h3>
+
+              <p className="text-sm text-gray-600 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <span className="font-semibold">Privacy Note:</span> Only your postal code will be shared with
+                contractors. You will provide your full address to the contractor you choose to accept.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Street Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    defaultValue={(editingMission as any)?.address || ""}
+                    placeholder="e.g., 123 Main Street"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      City <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="city"
+                      defaultValue={(editingMission as any)?.city || ""}
+                      placeholder="e.g., Saskatoon"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Region <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="region"
+                      defaultValue={(editingMission as any)?.region || ""}
+                      placeholder="e.g., Saskatchewan"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Postal Code <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="postal_code"
+                    defaultValue={editingMission?.postal_code || ""}
+                    placeholder="e.g., S7K 1J3"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+                  />
+                </div>
+
+                <input type="hidden" name="country" value="CA" />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={postingJob || !selectedService}
+              className="w-full py-3 bg-[#0F766E] text-white rounded-lg font-medium hover:bg-[#0d5f57] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {postingJob ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {editingMission ? "Updating..." : "Posting..."}
+                </span>
+              ) : editingMission ? (
+                "Update Job"
+              ) : (
+                "Post Job"
+              )}
+            </button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteJobId !== null} onOpenChange={(open) => !open && setDeleteJobId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this job posting and all associated bids. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingJob}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteJob}
+              disabled={deletingJob}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {deletingJob ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Deleting...
+                </span>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={showBidsModal} onOpenChange={setShowBidsModal}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl">
+              Bids for "{selectedMission?.title}"
+              <p className="text-sm text-gray-600 font-normal mt-1">{bids.length} bid(s) received</p>
+            </DialogTitle>
+          </DialogHeader>
+
+          {loadingBids ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-[#0F766E]" />
+            </div>
+          ) : bids.length === 0 ? (
+            <div className="py-8 text-center text-gray-600">No bids received yet</div>
           ) : (
             <div className="space-y-4">
-              {missions.map((mission) => {
-                const hasBids = (mission.bid_count || 0) > 0
-                const unreadBids = mission.unread_bids_count || 0
-                const consideringCount = mission.considering_count || 0
-                const hasAcceptedBid = mission.has_accepted_bid || false
-                const hasConsideringBid = consideringCount > 0
+              {bids.map((bid) => {
+                const fullAddress = [
+                  bid.business_address,
+                  bid.business_city,
+                  bid.business_region,
+                  bid.business_postal_code,
+                ]
+                  .filter(Boolean)
+                  .join(", ")
+
+                const bidAmount = bid.quote || bid.amount || 0
 
                 return (
                   <div
-                    key={mission.id}
-                    className={`bg-white rounded-xl border-2 p-6 hover:shadow-md transition-shadow ${
-                      hasAcceptedBid
-                        ? "border-green-500 bg-green-50"
-                        : hasConsideringBid
-                          ? "border-yellow-500 bg-yellow-50"
-                          : "border-gray-200"
+                    key={bid.id}
+                    className={`rounded-lg border-2 p-4 sm:p-6 ${
+                      bid.status === "accepted"
+                        ? "border-green-500"
+                        : bid.status === "considering"
+                        ? "border-yellow-500"
+                        : bid.status === "rejected"
+                        ? "border-red-500"
+                        : "border-gray-200"
                     }`}
                   >
-                    {/* Mobile: Title and 3-dots menu in one row */}
-                    <div className="flex items-start justify-between gap-2 mb-4 md:hidden">
-                      <h3 className="flex-1 text-xl font-bold text-gray-900">{mission.title}</h3>
-                      <div className="flex-shrink-0 relative">
+                    <div className="space-y-4">
+                      <div className="flex flex-col sm:flex-row items-start gap-3">
+                        {bid.logo_url && (
+                          <img
+                            src={bid.logo_url || "/placeholder.svg"}
+                            alt={bid.company_name}
+                            className="w-16 h-16 sm:w-20 sm:h-20 object-contain border border-gray-200 rounded p-2"
+                          />
+                        )}
+
+                        <div className="flex-1 w-full">
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
+                            {bid.company_name || "Company Name"}
+                          </h3>
+
+                          {bid.status === "accepted" && (
+                            <span className="inline-block mt-2 bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded">
+                              ACCEPTED
+                            </span>
+                          )}
+
+                          {bid.status === "considering" && (
+                            <span className="inline-block mt-2 bg-yellow-500 text-white text-xs font-semibold px-2.5 py-1 rounded">
+                              CONSIDERING
+                            </span>
+                          )}
+
+                          {bid.status === "rejected" && (
+                            <span className="inline-block mt-2 bg-red-500 text-white text-xs font-semibold px-2.5 py-1 rounded">
+                              REJECTED
+                            </span>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              console.log("[v0] Opening reviews for contractor:", bid.contractor_id, bid.company_name)
+                              fetchContractorReviews(bid.contractor_id, bid.company_name)
+                            }}
+                            className="flex items-center gap-2 hover:opacity-80 transition-opacity mt-2"
+                          >
+                            <div className="flex items-center gap-1.5 bg-yellow-50 border border-yellow-200 rounded-lg px-2.5 py-1">
+                              <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-yellow-400 text-yellow-400" />
+                              <span className="font-semibold text-sm sm:text-base text-gray-900">
+                                {bid.rating ? Number(bid.rating).toFixed(1) : "0.0"}
+                              </span>
+                            </div>
+                            <span className="text-xs sm:text-sm text-blue-600 hover:underline">
+                              ({bid.review_count || 0} reviews)
+                            </span>
+                          </button>
+
+                          {fullAddress && (
+                            <p className="text-xs text-gray-600 flex items-start gap-1 mt-2">
+                              <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                              <span className="break-words">{fullAddress}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                        <p className="text-xs sm:text-sm text-gray-600 mb-1">Bid Amount</p>
+                        <p className="text-2xl sm:text-3xl font-bold text-[#0F766E]">${bidAmount}</p>
+                        <p className="text-xs text-gray-500 mt-2 italic">
+                          Note: Bid prices are estimates based on the information provided and may vary depending on
+                          actual job requirements and site conditions.
+                        </p>
+                      </div>
+
+                      <div className="border-t pt-4">
+                        <div className="flex items-start gap-3 relative">
+                          {bid.agent_photo_url ? (
+                            <img
+                              src={bid.agent_photo_url || "/placeholder.svg"}
+                              alt={bid.contractor_name}
+                              className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              <span className="text-lg font-semibold text-gray-600">
+                                {bid.contractor_name?.charAt(0) || "C"}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900">{bid.contractor_name}</p>
+
+                            <div className="space-y-1 mt-1">
+                              {bid.phone_verified && <VerifiedBadge type="phone" size="sm" showLabel={true} />}
+
+                              {bid.is_google_verified && <VerifiedBadge type="google" size="sm" showLabel={true} />}
+                            </div>
+
+                            {bid.created_at && (
+                              <p className="text-xs text-gray-500 mt-2">
+                                {(() => {
+                                  const now = new Date()
+                                  const bidDate = new Date(bid.created_at)
+                                  const diffTime = Math.abs(now.getTime() - bidDate.getTime())
+                                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+                                  if (diffDays === 0) return "Today"
+                                  if (diffDays === 1) return "1 day ago"
+                                  return `${diffDays} days ago`
+                                })()}
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => router.push('/dashboard/homeowner/messages')}
+                            className="absolute top-0 right-0 p-2 hover:bg-gray-100 rounded-full transition-colors group"
+                            title="Message contractor"
+                          >
+                            <MessageCircle className="w-5 h-5 text-gray-600 group-hover:text-[#0F766E]" />
+                          </button>
+                        </div>
+
+                        {bid.message && (
+                          <div className="mt-3 bg-gray-50 rounded-lg p-3">
+                            <p className="text-sm text-gray-700">{bid.message}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <button
-                          onClick={() => setMissionMenuOpen(missionMenuOpen === mission.id ? null : mission.id)}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          onClick={() => handleBidAction(bid.id, "considering")}
+                          disabled={bid.status === "accepted"}
+                          className="flex-1 py-2 border-2 border-yellow-500 bg-yellow-100 rounded-lg text-sm font-medium text-yellow-900 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                          <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                            <circle cx="12" cy="5" r="2" />
-                            <circle cx="12" cy="12" r="2" />
-                            <circle cx="12" cy="19" r="2" />
-                          </svg>
+                          Mark as Considering
                         </button>
-                        {missionMenuOpen === mission.id && (
-                          <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                            {hasBids ? (
-                              <div className="p-3 text-xs text-gray-500 border-b border-gray-200">
-                                Editing is disabled once bids have been received
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  openEditModal(mission)
-                                  setMissionMenuOpen(null)
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
-                              >
-                                <Edit className="h-4 w-4" />
-                                <span>Edit</span>
-                              </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                openDeleteConfirm(mission)
-                                setMissionMenuOpen(null)
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors text-left"
-                            >
-                              <X className="h-4 w-4" />
-                              <span>Delete</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Mobile: Content in full width column */}
-                    <div className="md:hidden">
-                      <p className="text-gray-600 mb-4">{mission.job_details}</p>
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-2">
-                          <Briefcase className="h-4 w-4" />
-                          <span>{mission.service}</span>
-                        </div>
-                        {mission.created_at && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            <span>
-                              Submitted{" "}
-                              {new Date(mission.created_at).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          <span>{mission.postal_code}</span>
-                        </div>
-                        {mission.details_requested_count > 0 && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-red-600 font-semibold">
-                              Requests for More Details: {mission.details_requested_count}
-                            </span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setShowDetailsInfoModal(true)
-                              }}
-                              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                            >
-                              <Info className="h-4 w-4 text-red-600" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-3 mt-4">
-                        {(mission.bid_count || 0) > 0 && (
-                          <button
-                            onClick={() => openBidsModal(mission)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-semibold relative ${
-                              hasUnreadBidNotifications(mission.id)
-                                ? "bg-blue-600 text-white hover:bg-blue-700"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}
-                          >
-                            <Briefcase className="h-5 w-5" />
-                            <span>Bids Received: {mission.bid_count}</span>
-                            {unreadBids > 0 && (
-                              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center animate-pulse">
-                                {unreadBids}
-                              </span>
-                            )}
-                          </button>
-                        )}
-                        {consideringCount > 0 && (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg font-semibold border border-yellow-300">
-                            <Star className="h-5 w-5" />
-                            <span>Considering: {consideringCount}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="hidden md:flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">{mission.title}</h3>
-                        <p className="text-gray-600 mb-4">{mission.job_details}</p>
-                        <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                          <div className="flex items-center gap-2">
-                            <Briefcase className="h-4 w-4" />
-                            <span>{mission.service}</span>
-                          </div>
-                          {mission.created_at && (
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4" />
-                              <span>
-                                Submitted{" "}
-                                {new Date(mission.created_at).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4" />
-                            <span>{mission.postal_code}</span>
-                          </div>
-                          {mission.details_requested_count > 0 && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-red-600 font-semibold">
-                                Requests for More Details: {mission.details_requested_count}
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setShowDetailsInfoModal(true)
-                                }}
-                                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                              >
-                                <Info className="h-4 w-4 text-red-600" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-3 mt-4">
-                          {(mission.bid_count || 0) > 0 && (
-                            <button
-                              onClick={() => openBidsModal(mission)}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-semibold relative ${
-                                hasUnreadBidNotifications(mission.id)
-                                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                              }`}
-                            >
-                              <Briefcase className="h-5 w-5" />
-                              <span>Bids Received: {mission.bid_count}</span>
-                              {unreadBids > 0 && (
-                                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center animate-pulse">
-                                  {unreadBids}
-                                </span>
-                              )}
-                            </button>
-                          )}
-                          {consideringCount > 0 && (
-                            <div className="flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg font-semibold border border-yellow-300">
-                              <Star className="h-5 w-5" />
-                              <span>Considering: {consideringCount}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {hasBids ? (
-                          <div className="relative group">
-                            <button
-                              disabled
-                              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
-                            >
-                              <Edit className="h-4 w-4" />
-                              Edit
-                            </button>
-                            <div className="absolute right-0 top-full mt-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                              Editing is disabled once bids have been received. Please contact support if you need to
-                              make changes.
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => openEditModal(mission)}
-                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                          >
-                            <Edit className="h-4 w-4" />
-                            Edit
-                          </button>
-                        )}
                         <button
-                          onClick={() => openDeleteConfirm(mission)}
-                          className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          onClick={() => handleBidAction(bid.id, "accepted")}
+                          disabled={bid.status === "accepted"}
+                          className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                          <X className="h-4 w-4" />
-                          Delete
+                          {bid.status === "accepted" ? "Accepted" : "Accept"}
+                        </button>
+                        <button
+                          onClick={() => handleBidAction(bid.id, "rejected")}
+                          disabled={bid.status === "accepted"}
+                          className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Reject
                         </button>
                       </div>
                     </div>
@@ -1758,1124 +1279,147 @@ export default function HomeownerDashboard() {
               })}
             </div>
           )}
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
 
-      {showPostJobModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white/98 backdrop-blur-sm rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Post a New Job</h2>
-              <button
-                onClick={() => {
-                  setShowPostJobModal(false)
-                  setUsePersonalAddress(false)
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
+      <Dialog open={showReviewsModal} onOpenChange={setShowReviewsModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl">
+              {bids.find((b) => b.contractor_id === selectedContractorId)?.company_name || "Contractor"} Reviews
+            </DialogTitle>
+          </DialogHeader>
+
+          {loadingReviews ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-[#0F766E]" />
             </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  💡 <strong>Tip:</strong> Providing more details helps contractors give you more accurate bids and
-                  better understand your project needs.
+          ) : reviews ? (
+            <div className="space-y-6">
+              <div className="text-center py-4 border-b">
+                <p className="text-sm text-gray-600 mb-2">Total Average Rating</p>
+                <div className="flex items-center justify-center gap-2">
+                  <Star className="w-8 h-8 fill-yellow-400 text-yellow-400" />
+                  <span className="text-4xl font-bold">{reviews.average_rating.toFixed(1)}</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  {(reviews.google_review_count || 0) +
+                    reviews.reviews.filter((r: any) => r.source === "homehero").length}{" "}
+                  total reviews
                 </p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Job Title <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={postJobForm.title}
-                  onChange={(e) => setPostJobForm({ ...postJobForm, title: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                  placeholder="e.g., Kitchen Renovation"
-                />
-              </div>
-
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Service Type <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={serviceSearch}
-                    onChange={(e) => {
-                      setServiceSearch(e.target.value)
-                      setShowServiceDropdown(true)
-                    }}
-                    onFocus={() => setShowServiceDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowServiceDropdown(false), 200)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                    placeholder="Start typing..." // Updated placeholder text
-                  />
-                </div>
-                {showServiceDropdown && filteredServices.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {filteredServices.map((service) => (
-                      <button
-                        key={service}
-                        type="button"
-                        onClick={() => {
-                          setPostJobForm({ ...postJobForm, service })
-                          setServiceSearch(service)
-                          setShowServiceDropdown(false)
-                        }}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
-                      >
-                        {service}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  rows={4}
-                  value={postJobForm.job_details}
-                  onChange={(e) => setPostJobForm({ ...postJobForm, job_details: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                  placeholder="Describe your project in detail..."
-                />
-                <p className={`text-xs mt-1 ${postJobForm.job_details.length < 10 ? "text-red-500" : "text-gray-500"}`}>
-                  {postJobForm.job_details.length}/10 characters minimum
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Upload Images (Max 3)</label>
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors w-fit">
-                    <Upload className="h-5 w-5 text-gray-600" />
-                    <span className="text-sm text-gray-700">Choose Files</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) => {
-                        const files = e.target.files
-                        if (files && files.length > 3) {
-                          alert("Maximum 3 images allowed")
-                          e.target.value = ""
-                        } else {
-                          setPostJobImages(files)
-                        }
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-                  {postJobImages && postJobImages.length > 0 && (
-                    <div className="flex gap-2 flex-wrap">
-                      {getImagePreviews(postJobImages).map((preview, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => setPreviewImage(preview)}
-                          className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-300 hover:border-[#328d87] transition-colors group"
-                        >
-                          <img
-                            src={preview || "/placeholder.svg"}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Eye className="h-5 w-5 text-white" />
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  When do you need this done? <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={postJobForm.completion_timeline}
-                  onChange={(e) => setPostJobForm({ ...postJobForm, completion_timeline: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                >
-                  <option value="">Select one</option>
-                  {COMPLETION_TIMELINE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-4 border-t border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Where is your job located?</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="use-personal-address"
-                      checked={usePersonalAddress}
-                      onChange={(e) => setUsePersonalAddress(e.target.checked)}
-                      className="w-4 h-4 text-[#328d87] border-gray-300 rounded focus:ring-[#328d87]"
-                    />
-                    <label htmlFor="use-personal-address" className="text-sm text-gray-700">
-                      Use my personal address
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Street Address <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={postJobForm.address}
-                      onChange={(e) => setPostJobForm({ ...postJobForm, address: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                      placeholder="e.g., 123 Main Street"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        City <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={postJobForm.city}
-                        onChange={(e) => setPostJobForm({ ...postJobForm, city: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                        placeholder="e.g., Saskatoon"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {regionLabel} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={postJobForm.region}
-                        onChange={(e) => setPostJobForm({ ...postJobForm, region: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                        placeholder={countryCode === "US" ? "e.g., California" : "e.g., Saskatchewan"}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {postalCodeLabel} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={postJobForm.postal_code}
-                      onChange={(e) => setPostJobForm({ ...postJobForm, postal_code: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                      placeholder={countryCode === "US" ? "e.g., 90210" : "e.g., S7K 1J3"}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {postJobShowStructureDetails && (
-                <div className="pt-4 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Structure details</h3>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Size (sq ft) {/* Changed from "House Size (sq ft)" */}
-                        </label>
-                        <input
-                          type="text"
-                          value={postJobForm.house_size}
-                          onChange={(e) => setPostJobForm({ ...postJobForm, house_size: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                          placeholder="e.g., 2000"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Stories</label>
-                        <select
-                          value={postJobForm.stories}
-                          onChange={(e) => setPostJobForm({ ...postJobForm, stories: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                        >
-                          <option value="">Select one</option>
-                          <option value="1">1 Story</option>
-                          <option value="2">2 Stories</option>
-                          <option value="3">3+ Stories</option>
-                          <option value="n/a">Not applicable</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Property Type</label>
-                      <select
-                        value={postJobForm.property_type}
-                        onChange={(e) => setPostJobForm({ ...postJobForm, property_type: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                      >
-                        <option value="">Select one</option>
-                        <option value="single_family">House</option> {/* Changed from "Single Family" */}
-                        <option value="condo">Condo</option>
-                        <option value="townhouse">Townhouse</option>
-                        <option value="apartment">Apartment</option>
-                        <option value="commercial">Commercial</option>
-                        <option value="n/a">Not applicable</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {renderCategoryFields(postJobForm, setPostJobForm, postJobCategoryFields, postJobCategory)}
-
-              <button
-                onClick={handlePostJob}
-                className="w-full bg-[#328d87] text-white py-3 rounded-lg hover:bg-[#2a7570] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={
-                  uploading ||
-                  !postJobForm.title ||
-                  !postJobForm.service ||
-                  !postJobForm.completion_timeline || // Added completion_timeline to required fields
-                  !postJobForm.address ||
-                  !postJobForm.city ||
-                  !postJobForm.region ||
-                  !postJobForm.postal_code ||
-                  postJobForm.job_details.length < 10 // Added minimum character validation
-                }
-              >
-                {uploading ? "Posting..." : "Post Job"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showEditJobModal &&
-        selectedJobForEdit && ( // Use showEditJobModal
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white/98 backdrop-blur-sm rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10 rounded-t-xl">
-                <h2 className="text-2xl font-bold text-gray-900">Edit Job</h2>
-                <button
-                  onClick={() => {
-                    setSelectedJobForEdit(null)
-                    setEditJobImages(null)
-                    setEditServiceSearch("")
-                    setUsePersonalAddressEdit(false)
-                    setShowEditJobModal(false) // Close the edit modal
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              <div className="p-6 space-y-4 overflow-y-auto">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    💡 <strong>Tip:</strong> Providing more details helps contractors give you more accurate bids and
-                    better understand your project needs.
-                  </p>
-                </div>
-
+              {reviews.google_review_count > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Job Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editJobForm.title}
-                    onChange={(e) => setEditJobForm({ ...editJobForm, title: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                  />
-                </div>
-
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Service Type <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={editServiceSearch}
-                      onChange={(e) => {
-                        setEditServiceSearch(e.target.value)
-                        setEditJobForm({ ...editJobForm, service: e.target.value })
-                        setShowEditServiceDropdown(true)
-                      }}
-                      onFocus={() => setShowEditServiceDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowEditServiceDropdown(false), 200)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                      placeholder="Start typing..." // Updated placeholder
-                    />
-                  </div>
-                  {showEditServiceDropdown && filteredEditServices.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {filteredEditServices.map((service) => (
-                        <button
-                          key={service}
-                          type="button"
-                          onClick={() => {
-                            setEditJobForm({ ...editJobForm, service })
-                            setEditServiceSearch(service)
-                            setShowEditServiceDropdown(false)
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
-                        >
-                          {service}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={editJobForm.job_details}
-                    onChange={(e) => setEditJobForm({ ...editJobForm, job_details: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                    placeholder="Describe the work needed (minimum 10 characters)"
-                  />
-                  <p
-                    className={`text-sm mt-1 ${editJobForm.job_details.trim().length < 10 ? "text-red-500" : "text-gray-500"}`}
-                  >
-                    {editJobForm.job_details.trim().length}/10 characters minimum
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Upload Images (Max 5)</label>
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors w-fit">
-                      <Upload className="h-5 w-5 text-gray-600" />
-                      <span className="text-sm text-gray-700">Choose Files</span>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={(e) => {
-                          const files = e.target.files
-                          if (files && files.length > 5) {
-                            alert("Maximum 5 images allowed")
-                            e.target.value = ""
-                          } else {
-                            setEditJobImages(files)
-                          }
-                        }}
-                        className="hidden"
-                      />
-                    </label>
-                    {editJobImages && editJobImages.length > 0 && (
-                      <div className="flex gap-2 flex-wrap">
-                        {getImagePreviews(editJobImages).map((preview, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => setPreviewImage(preview)}
-                            className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-300 hover:border-[#328d87] transition-colors group"
-                          >
-                            <img
-                              src={preview || "/placeholder.svg"}
-                              alt={`Preview ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Eye className="h-5 w-5 text-white" />
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">Note: Uploading new images will replace existing ones</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    When do you need this done? <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={editJobForm.completion_timeline}
-                    onChange={(e) => setEditJobForm({ ...editJobForm, completion_timeline: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                  >
-                    <option value="">Select one</option>
-                    {COMPLETION_TIMELINE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="pt-4 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Where is your job located?</h3>
-                  <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-lg">Google Reviews</h3>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="use-personal-address-edit"
-                        checked={usePersonalAddressEdit}
-                        onChange={(e) => setUsePersonalAddressEdit(e.target.checked)}
-                        className="w-4 h-4 text-[#328d87] border-gray-300 rounded focus:ring-[#328d87]"
-                      />
-                      <label htmlFor="use-personal-address-edit" className="text-sm text-gray-700">
-                        Use my personal address
-                      </label>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Street Address <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={editJobForm.address}
-                        onChange={(e) => setEditJobForm({ ...editJobForm, address: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                        placeholder="e.g., 123 Main Street"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          City <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={editJobForm.city}
-                          onChange={(e) => setEditJobForm({ ...editJobForm, city: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                          placeholder="e.g., Saskatoon"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {regionLabel} <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={editJobForm.region}
-                          onChange={(e) => setEditJobForm({ ...editJobForm, region: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                          placeholder={countryCode === "US" ? "e.g., California" : "e.g., Saskatchewan"}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {postalCodeLabel} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={editJobForm.postal_code}
-                        onChange={(e) => setEditJobForm({ ...editJobForm, postal_code: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                        placeholder={countryCode === "US" ? "e.g., 90210" : "e.g., S7K 1J3"}
-                      />
+                      <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                      <span className="font-semibold">{reviews.google_rating?.toFixed(1)}</span>
+                      <span className="text-sm text-gray-600">({reviews.google_review_count})</span>
                     </div>
                   </div>
-                </div>
 
-                {editJobShowStructureDetails && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Structure details</h3>
+                  <button
+                    onClick={() => setShowGoogleReviews(!showGoogleReviews)}
+                    className="flex items-center gap-1 text-blue-600 hover:underline mb-4"
+                  >
+                    {showGoogleReviews ? "Hide" : "Show"} recent Google reviews
+                    {showGoogleReviews ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+
+                  {showGoogleReviews && (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Size (sq ft)</label>
-                          <input
-                            type="text"
-                            value={editJobForm.house_size}
-                            onChange={(e) => setEditJobForm({ ...editJobForm, house_size: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                            placeholder="e.g., 2000"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Stories</label>
-                          <select
-                            value={editJobForm.stories}
-                            onChange={(e) => setEditJobForm({ ...editJobForm, stories: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                          >
-                            <option value="">Select one</option>
-                            <option value="1">1 Story</option>
-                            <option value="2">2 Stories</option>
-                            <option value="3">3+ Stories</option>
-                            <option value="n/a">Not applicable</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Property Type</label>
-                        <select
-                          value={editJobForm.property_type}
-                          onChange={(e) => setEditJobForm({ ...editJobForm, property_type: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                        >
-                          <option value="">Select one</option>
-                          <option value="single_family">House</option>
-                          <option value="condo">Condo</option>
-                          <option value="townhouse">Townhouse</option>
-                          <option value="apartment">Apartment</option>
-                          <option value="commercial">Commercial</option>
-                          <option value="n/a">Not applicable</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {renderCategoryFields(editJobForm, setEditJobForm, editJobCategoryFields, editJobCategory)}
-
-                <button
-                  onClick={handleEditJob}
-                  disabled={
-                    uploading ||
-                    !editJobForm.title ||
-                    !editJobForm.service ||
-                    !editJobForm.completion_timeline ||
-                    !editJobForm.address ||
-                    !editJobForm.city ||
-                    !editJobForm.region ||
-                    !editJobForm.postal_code ||
-                    editJobForm.job_details.trim().length < 10 // Add validation for minimum length
-                  }
-                  className="w-full bg-[#328d87] text-white py-3 rounded-lg hover:opacity-90 transition-opacity font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {uploading ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-      {/* Bids Modal */}
-      {selectedMissionForBids && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeBidsModal}>
-          <div
-            className="bg-white/98 backdrop-blur-sm rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Bids for "{selectedMissionForBids.title}"</h2>
-                <p className="text-sm text-gray-600 mt-1">{bidsForMission.length} bid(s) received</p>
-              </div>
-              <button onClick={closeBidsModal} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              {loadingBids ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">Loading bids...</p>
-                </div>
-              ) : bidsError ? (
-                <div className="text-center py-12">
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-                    <p className="text-red-800 font-medium mb-2">Error Loading Bids</p>
-                    <p className="text-red-600 text-sm">{bidsError}</p>
-                    <button
-                      onClick={() => fetchBidsForMission(selectedMissionForBids.id)}
-                      className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                    >
-                      Try Again
-                    </button>
-                  </div>
-                </div>
-              ) : bidsForMission.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No bids yet</p>
-                  <p className="text-sm text-gray-400 mt-2">Contractors will submit their bids soon!</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {bidsForMission.map((bid) => {
-                    const isUpdating = updatingBidId === bid.id
-                    const bidStatus = bid.status || "pending"
-                    const isAccepted = bidStatus === "accepted"
-                    const isRejected = bidStatus === "rejected"
-                    const isConsidering = bidStatus === "considering"
-
-                    const hasLogo = bid.logo_url && bid.logo_url.trim() !== ""
-                    // const hasAgentPhoto = bid.agent_photo_url && bid.agent_photo_url.trim() !== "" // Removed check as per update
-                    const hasYearsInBusiness = bid.years_in_business && Number(bid.years_in_business) > 0
-                    const hasBusinessAddress = bid.business_address || bid.business_city
-
-                    return (
-                      <div
-                        key={bid.id}
-                        className={`bg-white border-2 rounded-xl p-6 transition-all ${
-                          isAccepted
-                            ? "border-green-500 bg-green-50"
-                            : isRejected
-                              ? "border-red-300 bg-gray-50 opacity-60"
-                              : isConsidering
-                                ? "border-yellow-500 bg-yellow-50"
-                                : "border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        {/* Company Logo and Info */}
-                        <div className="flex flex-col gap-4 mb-6">
-                          {/* Logo - centered on mobile, left-aligned on desktop */}
-                          <div className="flex justify-center md:justify-start">
-                            <div className="flex-shrink-0">
-                              {hasLogo ? (
-                                <img
-                                  src={bid.logo_url || "/placeholder.svg"}
-                                  alt={`${bid.company_name || "Company"} logo`}
-                                  className="w-24 h-24 rounded-lg object-cover border-2 border-gray-200"
-                                />
-                              ) : (
-                                <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-[#328d87] to-[#2a7570] flex items-center justify-center border-2 border-gray-300">
-                                  <Briefcase className="h-10 w-10 text-white" />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Business info - all left-aligned on mobile */}
-                          <div className="flex-1">
-                            {/* Business name and status badges - left-aligned on mobile */}
-                            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mb-2">
-                              <div className="flex items-center gap-2">
-                                <h3 className="text-base md:text-xl font-bold text-gray-900">
-                                  {bid.company_name || bid.contractor_name || "Contractor"}
-                                </h3>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {isAccepted && (
-                                  <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-                                    ACCEPTED
-                                  </span>
-                                )}
-                                {isRejected && (
-                                  <span className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
-                                    REJECTED
-                                  </span>
-                                )}
-                                {isConsidering && (
-                                  <span className="px-3 py-1 bg-yellow-500 text-white text-xs font-bold rounded-full">
-                                    CONSIDERING
-                                  </span>
-                                )}
+                      {reviews.reviews
+                        .filter((r: any) => r.source === "google")
+                        .slice(0, 3)
+                        .map((review: any) => (
+                          <div key={review.id} className="border-b pb-4 last:border-b-0">
+                            <div className="flex items-start justify-between mb-2">
+                              <p className="font-semibold">{review.reviewer_name}</p>
+                              <div className="flex items-center gap-1">
+                                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                                <span className="font-semibold">{review.rating}</span>
                               </div>
                             </div>
-
-                            {/* Reviews section - left-aligned on mobile */}
-                            <div className="mb-3">
-                              {bid.average_rating !== undefined && bid.average_rating !== null ? (
-                                <button
-                                  onClick={() => {
-                                    setSelectedContractorReviews({
-                                      contractor_id: bid.contractor_id,
-                                      company_name: bid.company_name || bid.contractor_name || "Contractor",
-                                      homehero_rating: bid.homehero_rating,
-                                      google_rating: bid.google_rating,
-                                      average_rating: bid.average_rating,
-                                      homehero_review_count: bid.homehero_review_count,
-                                      google_review_count: bid.google_review_count,
-                                      google_reviews: bid.google_reviews,
-                                    })
-                                    setShowReviewsModal(true)
-                                  }}
-                                  className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
-                                >
-                                  <div className="flex items-center gap-1.5 bg-yellow-50 px-3 py-2 rounded-lg border border-yellow-200">
-                                    <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                                    <span className="text-xl font-bold text-gray-900">
-                                      {bid.average_rating.toFixed(1)}
-                                    </span>
-                                  </div>
-                                  {(bid.homehero_review_count || bid.google_review_count) && (
-                                    <span className="text-base text-gray-600 group-hover:text-gray-900 transition-colors">
-                                      (
-                                      {(Number(bid.homehero_review_count) || 0) +
-                                        (Number(bid.google_review_count) || 0)}{" "}
-                                      reviews)
-                                    </span>
-                                  )}
-                                </button>
-                              ) : (
-                                <div className="flex items-center gap-2 text-gray-400">
-                                  <Star className="h-5 w-5" />
-                                  <span className="text-base italic">No reviews yet</span>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
-                              {hasYearsInBusiness && (
-                                <span className="text-gray-600">{bid.years_in_business} years in business</span>
-                              )}
-                            </div>
-
-                            {hasBusinessAddress && (
-                              <div className="flex items-start gap-2 text-sm text-gray-600 mt-2">
-                                <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                <span>
-                                  {bid.business_address && `${bid.business_address}, `}
-                                  {bid.business_city && `${bid.business_city}, `}
-                                  {bid.business_region && `${bid.business_region} `}
-                                  {bid.business_postal_code}
-                                </span>
-                              </div>
+                            <p className="text-sm text-gray-700">{review.comment}</p>
+                            {review.relative_time_description && (
+                              <p className="text-xs text-gray-500 mt-1">{review.relative_time_description}</p>
                             )}
                           </div>
-                        </div>
-
-                        {/* Bid Amount */}
-                        <div className="bg-gradient-to-r from-[#328d87]/10 to-[#328d87]/5 rounded-lg p-4 mb-6">
-                          <p className="text-sm text-gray-600 mb-1">Bid Amount</p>
-                          <p className="text-4xl font-bold text-[#328d87]">${Math.round(Number(bid.quote))}</p>
-                          <p className="text-xs text-gray-500 mt-3 italic">
-                            Note: Bid prices are estimates based on the information provided and may vary depending on
-                            actual job requirements and site conditions.
-                          </p>
-                        </div>
-
-                        {/* Agent Photo and Name Above Message */}
-                        <div className="flex flex-col items-start gap-3 mb-6 pb-6 border-b border-gray-200">
-                          {bid.agent_photo_url || bid.profile_photo_url || bid.profile_photo ? (
-                            <img
-                              src={
-                                bid.agent_photo_url ||
-                                bid.profile_photo_url ||
-                                bid.profile_photo ||
-                                "/placeholder.svg" ||
-                                "/placeholder.svg"
-                              }
-                              alt={bid.contractor_name || "Agent"}
-                              className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
-                            />
-                          ) : (
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#328d87] to-[#2a7570] flex items-center justify-center border-2 border-gray-300">
-                              <svg className="h-8 w-8 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </div>
-                          )}
-                          <h3 className="font-semibold text-gray-900 text-base">
-                            {bid.contractor_name || "Contractor"}
-                          </h3>
-                          {bid.phone_verified && <VerifiedBadge type="phone" size="sm" showText={true} />}
-                          {bid.is_google_verified && <VerifiedBadge type="google" size="sm" showText={true} />}
-                          <p className="text-sm text-gray-500">{getRelativeTime(bid.created_at || "")}</p>
-                        </div>
-
-                        {bid.message && (
-                          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 md:ml-15">
-                            <p className="text-gray-700 whitespace-pre-wrap text-left">{bid.message}</p>
-                          </div>
-                        )}
-
-                        {/* Additional Details */}
-                        {bid.estimated_duration && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                            <Calendar className="h-4 w-4" />
-                            <span>
-                              <span className="font-medium">Estimated Duration:</span> {bid.estimated_duration}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        {!isRejected && (
-                          <div className="flex flex-col md:flex-row gap-3 pt-4 border-t border-gray-200">
-                            <button
-                              onClick={() => handleBidAction(bid.id, "considering")}
-                              disabled={isUpdating || isAccepted || isConsidering}
-                              className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${
-                                isConsidering
-                                  ? "bg-yellow-500 text-white cursor-default"
-                                  : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                              {isUpdating ? "Updating..." : isConsidering ? "Considering" : "Mark as Considering"}
-                            </button>
-                            <button
-                              onClick={() => handleBidAction(bid.id, "accepted")}
-                              disabled={isUpdating || isAccepted}
-                              className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${
-                                isAccepted
-                                  ? "bg-green-500 text-white cursor-default"
-                                  : "bg-green-100 text-green-700 hover:bg-green-200"
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                              {isUpdating ? "Updating..." : isAccepted ? "Accepted" : "Accept Bid"}
-                            </button>
-                            <button
-                              onClick={() => handleBidAction(bid.id, "rejected")}
-                              disabled={isUpdating || isAccepted}
-                              className="flex-1 px-6 py-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {isUpdating ? "Updating..." : "Reject"}
-                            </button>
-                          </div>
-                        )}
-
-                        {isRejected && (
-                          <div className="pt-4 border-t border-gray-200">
-                            <p className="text-sm text-gray-500 italic text-center">This bid has been rejected</p>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                        ))}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Message Modal */}
-      {showMessageModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">
-                {messageForm.action === "considering" && "Mark as Considering"}
-                {messageForm.action === "accepted" && "Accept Bid"}
-                {messageForm.action === "rejected" && "Reject Bid"}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowMessageModal(false)
-                  setMessageForm({ bidId: 0, action: "", message: "" })
-                  setActionMessage(null)
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            {actionMessage && (
-              <div
-                className={`mb-4 p-4 rounded-lg ${
-                  actionMessage.type === "success"
-                    ? "bg-green-50 border border-green-200"
-                    : "bg-red-50 border border-red-200"
-                }`}
-              >
-                <p
-                  className={`text-sm font-medium ${
-                    actionMessage.type === "success" ? "text-green-800" : "text-red-800"
-                  }`}
-                >
-                  {actionMessage.text}
-                </p>
-              </div>
-            )}
-
-            <p className="text-gray-600 mb-4">
-              {messageForm.action === "accepted" && "Send a message to the contractor (required):"}
-              {messageForm.action === "considering" && "Optionally send a message to the contractor:"}
-              {messageForm.action === "rejected" && "Optionally send a message to the contractor:"}
-            </p>
-
-            <textarea
-              value={messageForm.message}
-              onChange={(e) => setMessageForm({ ...messageForm, message: e.target.value })}
-              placeholder={
-                messageForm.action === "accepted"
-                  ? "Congratulations! I'd like to move forward with your bid. Please contact me at..."
-                  : messageForm.action === "considering"
-                    ? "Your bid looks promising. I have a few questions..."
-                    : "Thank you for your bid, but we've decided to go with another contractor."
-              }
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent resize-none"
-              rows={4}
-              disabled={updatingBidId !== null}
-            />
-
-            {messageForm.action === "accepted" && !messageForm.message.trim() && (
-              <p className="text-sm text-red-600 mt-2">Message is required when accepting a bid</p>
-            )}
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowMessageModal(false)
-                  setMessageForm({ bidId: 0, action: "", message: "" })
-                  setActionMessage(null)
-                }}
-                disabled={updatingBidId !== null}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitBidActionWithMessage}
-                disabled={updatingBidId !== null || (messageForm.action === "accepted" && !messageForm.message.trim())}
-                className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  messageForm.action === "considering"
-                    ? "bg-yellow-500 text-white hover:bg-yellow-600"
-                    : messageForm.action === "accepted"
-                      ? "bg-green-500 text-white hover:bg-green-600"
-                      : "bg-red-500 text-white hover:bg-red-600"
-                }`}
-              >
-                {updatingBidId !== null ? "Updating..." : "Confirm"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDeleteConfirm && missionToDelete && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white/98 backdrop-blur-sm rounded-xl max-w-md w-full p-6">
-            {deleteSuccess ? (
-              <>
-                <div className="flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+              {reviews.reviews.filter((r: any) => r.source === "homehero").length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-lg">Bidrr Reviews</h3>
+                    <div className="flex items-center gap-2">
+                      <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                      <span className="font-semibold">
+                        {reviews.bidrr_rating?.toFixed(1) ||
+                          (
+                            reviews.reviews
+                              .filter((r: any) => r.source === "homehero")
+                              .reduce((acc: number, r: any) => acc + r.rating, 0) /
+                            reviews.reviews.filter((r: any) => r.source === "homehero").length
+                          ).toFixed(1)}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        ({reviews.reviews.filter((r: any) => r.source === "homehero").length})
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2 text-center">Job Deleted Successfully!</h2>
-                <p className="text-gray-600 text-center">The job posting has been removed.</p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Delete Job Posting?</h2>
-                <p className="text-gray-600 mb-6">
-                  Are you sure you want to delete "{missionToDelete.title}"? This action cannot be undone.
-                  {missionToDelete.bids_count > 0 && (
-                    <span className="block mt-2 text-red-600 font-semibold">
-                      Warning: This job has {missionToDelete.bids_count} bid(s). Deleting will remove all associated
-                      bids.
-                    </span>
+
+                  <button
+                    onClick={() => setShowBidrrReviews(!showBidrrReviews)}
+                    className="flex items-center gap-1 text-blue-600 hover:underline mb-4"
+                  >
+                    {showBidrrReviews ? "Hide" : "Show"} recent Bidrr reviews
+                    {showBidrrReviews ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+
+                  {showBidrrReviews && (
+                    <div className="space-y-4">
+                      {reviews.reviews
+                        .filter((r: any) => r.source === "homehero")
+                        .slice(0, 3)
+                        .map((review: any) => {
+                          const displayName = review.reviewer_name || "Anonymous User"
+
+                          return (
+                            <div key={review.id} className="border-b pb-4 last:border-b-0">
+                              <div className="flex items-start justify-between mb-2">
+                                <p className="font-semibold">{displayName}</p>
+                                <div className="flex items-center gap-1">
+                                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                                  <span className="font-semibold">{review.rating}</span>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-700">{review.comment}</p>
+                              {review.created_at && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {new Date(review.created_at).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+                    </div>
                   )}
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      setShowDeleteConfirm(false)
-                      setMissionToDelete(null)
-                    }}
-                    disabled={deletingMissionId !== null}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => handleDeleteMission(missionToDelete.id)}
-                    disabled={deletingMissionId !== null}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                  >
-                    {deletingMissionId === missionToDelete.id ? "Deleting..." : "Delete Job"}
-                  </button>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+              )}
 
-      {previewImage && (
-        <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh]">
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-10 right-0 p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <X className="h-6 w-6" />
-            </button>
-            <img
-              src={previewImage || "/placeholder.svg"}
-              alt="Preview"
-              className="max-w-full max-h-[90vh] rounded-lg"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Reviews Modal */}
-      {showReviewsModal && selectedContractorReviews && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
-          onClick={() => setShowReviewsModal(false)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="text-2xl font-bold text-gray-900">{selectedContractorReviews.company_name} Reviews</h2>
-              <button
-                onClick={() => setShowReviewsModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
+              {reviews.total_reviews === 0 && <div className="py-8 text-center text-gray-600">No reviews yet</div>}
             </div>
-
-            <div className="p-6 space-y-6">
-              <ReviewsModalContent contractorId={selectedContractorReviews.contractor_id} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDetailsInfoModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowDetailsInfoModal(false)}
-        >
-          <div className="bg-white rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Info className="h-6 w-6 text-red-600" />
-                <h3 className="text-lg font-bold text-gray-900">Requests for More Details</h3>
-              </div>
-              <button
-                onClick={() => setShowDetailsInfoModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
-            <p className="text-gray-700 leading-relaxed">
-              Receiving Requests for More Details means Contractors are unable to provide a bid on your job with the
-              details you've posted. If the number is greater than 0, please add more details to your post to help
-              contractors provide accurate quotes.
-            </p>
-            <button
-              onClick={() => setShowDetailsInfoModal(false)}
-              className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
+          ) : (
+            <div className="py-8 text-center text-gray-600">Failed to load reviews</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

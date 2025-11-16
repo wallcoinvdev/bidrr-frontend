@@ -1,59 +1,55 @@
 "use client"
 
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { Send, AlertCircle, X, Trash2 } from "lucide-react"
 import { useState, useEffect } from "react"
-import { apiClient, ApiError } from "@/lib/api-client"
+import { DashboardLayout } from "@/components/dashboard-layout"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Send, MoreVertical } from 'lucide-react'
+import { apiClient } from "@/lib/api-client"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
-import { ReportUserModal } from "@/components/report-user-modal"
-
-interface Conversation {
-  id: number
-  contractor_id: number
-  contractor_name: string
-  contractor_company: string
-  mission_id: number
-  mission_title: string
-  last_message: string
-  last_message_at: string
-  unread_count: number
-  can_send?: boolean // Added optional can_send flag (always true for homeowners)
-}
 
 interface Message {
   id: number
-  conversation_id: number
   sender_id: number
   sender_name: string
   content: string
   created_at: string
 }
 
-interface MessagesResponse {
-  messages: Message[]
-  can_send?: boolean
+interface Conversation {
+  id: number
+  contractor_id: number
+  contractor_name: string
+  contractor_company: string
+  mission_title: string
+  last_message: string
+  last_message_at: string
+  unread_count: number
 }
 
 export default function MessagesPage() {
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
-  const [showFilters, setShowFilters] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
-  const [newMessage, setNewMessage] = useState("")
+  const [messageInput, setMessageInput] = useState("")
   const [loading, setLoading] = useState(true)
-  const [loadingMessages, setLoadingMessages] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null) // Added error state for inline error display
-  const [expandedConversationId, setExpandedConversationId] = useState<number | null>(null) // Added state to track which conversation's chat is expanded on mobile
-  const [showChatModal, setShowChatModal] = useState(false)
-  const [showReportModal, setShowReportModal] = useState(false) // Added state for report user modal
-  const [deletingConversation, setDeletingConversation] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showMobileChat, setShowMobileChat] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchUserProfile()
     fetchConversations()
   }, [])
 
@@ -63,27 +59,18 @@ export default function MessagesPage() {
     }
   }, [selectedConversation])
 
-  const fetchUserProfile = async () => {
-    try {
-      const data = await apiClient.request<{ id: number }>("/api/users/profile", { requiresAuth: true })
-      setCurrentUserId(data.id)
-    } catch (error) {
-      console.error("[v0] Error fetching user profile:", error)
-    }
-  }
-
   const fetchConversations = async () => {
     try {
-      setLoading(true)
-      const data = await apiClient.request<Conversation[]>("/api/conversations", { requiresAuth: true })
-      console.log("[v0] Conversations fetched:", data)
-      const normalizedData = data.map((conv) => ({
-        ...conv,
-        unread_count: Number(conv.unread_count) || 0,
-      }))
-      setConversations(normalizedData)
+      const data = await apiClient.request<Conversation[]>("/api/conversations", {
+        requiresAuth: true,
+      })
+
+      setConversations(data || [])
+      if (data && data.length > 0 && !selectedConversation) {
+        setSelectedConversation(data[0])
+      }
     } catch (error) {
-      console.error("[v0] Error fetching conversations:", error)
+      console.error("Error fetching conversations:", error)
       setConversations([])
     } finally {
       setLoading(false)
@@ -92,491 +79,232 @@ export default function MessagesPage() {
 
   const fetchMessages = async (conversationId: number) => {
     try {
-      setLoadingMessages(true)
-      const response = await apiClient.request<Message[] | MessagesResponse>(
-        `/api/conversations/${conversationId}/messages`,
-        {
-          requiresAuth: true,
-        },
-      )
-
-      const data = Array.isArray(response) ? response : response.messages
-      console.log("[v0] Messages fetched:", data)
-      setMessages(data)
-
-      const conversation = conversations.find((c) => c.id === conversationId)
-      console.log("[v0] Found conversation:", conversation)
-      console.log("[v0] Unread count:", conversation?.unread_count, "Type:", typeof conversation?.unread_count)
-
-      // Always call mark as read when viewing a conversation
-      console.log("[v0] Calling markConversationAsRead for conversation:", conversationId)
-      await markConversationAsRead(conversationId)
-    } catch (error) {
-      console.error("[v0] Error fetching messages:", error)
-      setMessages([])
-    } finally {
-      setLoadingMessages(false)
-    }
-  }
-
-  const markConversationAsRead = async (conversationId: number) => {
-    try {
-      console.log("[v0] Marking conversation as read:", conversationId)
-
-      const response = await apiClient.request(`/api/conversations/${conversationId}/mark-read`, {
-        method: "PUT",
+      const data = await apiClient.request<{ messages: Message[] }>(`/api/conversations/${conversationId}/messages`, {
         requiresAuth: true,
       })
 
-      console.log("[v0] Mark as read response:", response)
-
-      // Update local state: set unread_count to 0 for this conversation
-      setConversations((prev) => prev.map((conv) => (conv.id === conversationId ? { ...conv, unread_count: 0 } : conv)))
-
-      // Dispatch event to update badge count in sidebar
-      console.log("[v0] Dispatching notificationUpdated event")
-      window.dispatchEvent(new CustomEvent("notificationUpdated"))
-
-      console.log("[v0] Conversation marked as read successfully:", conversationId)
+      setMessages(data.messages || [])
     } catch (error) {
-      console.error("[v0] Error marking conversation as read:", error)
+      console.error("Error fetching messages:", error)
+      setMessages([])
     }
   }
 
-  const handleSendMessage = async () => {
-    if (!selectedConversation || !newMessage.trim() || sending) return
-
-    setErrorMessage(null) // Clear any previous error messages
+  const sendMessage = async () => {
+    if (!messageInput.trim() || !selectedConversation) return
 
     try {
-      setSending(true)
       await apiClient.request(`/api/conversations/${selectedConversation.id}/messages`, {
         method: "POST",
-        body: JSON.stringify({ content: newMessage }),
+        body: JSON.stringify({ content: messageInput }),
         requiresAuth: true,
       })
-      setNewMessage("")
-      // Refresh messages
-      await fetchMessages(selectedConversation.id)
-      // Refresh conversations to update last message
-      await fetchConversations()
+      setMessageInput("")
+      fetchMessages(selectedConversation.id)
+      fetchConversations()
+      toast({
+        title: "Success",
+        description: "Message sent successfully",
+      })
     } catch (error) {
-      console.error("[v0] Error sending message:", error)
-      if (error instanceof ApiError) {
-        const message = error.errorData?.message || "Please try again."
-        setErrorMessage(message)
-        toast({
-          title: error.errorData?.error || "Failed to send message",
-          description: message,
-          variant: "destructive",
-        })
-      } else if (error instanceof Error) {
-        const message = error.message || "Please try again."
-        setErrorMessage(message)
-        toast({
-          title: "Failed to send message",
-          description: message,
-          variant: "destructive",
-        })
-      } else {
-        const message = "Please try again."
-        setErrorMessage(message)
-        toast({
-          title: "Failed to send message",
-          description: message,
-          variant: "destructive",
-        })
-      }
-    } finally {
-      setSending(false)
+      console.error("Error sending message:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleDeleteConversation = async () => {
-    if (!selectedConversation || deletingConversation) return
+  const deleteConversation = async () => {
+    if (!selectedConversation) return
 
     try {
-      setDeletingConversation(true)
       await apiClient.request(`/api/conversations/${selectedConversation.id}`, {
         method: "DELETE",
         requiresAuth: true,
       })
-
-      setConversations((prev) => prev.filter((conv) => conv.id !== selectedConversation.id))
       setSelectedConversation(null)
-      setShowChatModal(false)
+      setMessages([])
+      fetchConversations()
       setShowDeleteDialog(false)
-
       toast({
-        title: "Conversation deleted",
-        description: "The conversation has been removed from your view.",
+        title: "Success",
+        description: "Conversation deleted successfully",
       })
     } catch (error) {
-      console.error("[v0] Error deleting conversation:", error)
+      console.error("Error deleting conversation:", error)
       toast({
-        title: "Feature not available",
-        description: "The delete conversation feature needs to be added to the backend. Please contact support.",
+        title: "Error",
+        description: "Failed to delete conversation",
         variant: "destructive",
       })
-    } finally {
-      setDeletingConversation(false)
     }
   }
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
-
-    if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? "s" : ""} ago`
-    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`
-    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
   }
 
-  const handleReportSuccess = (userName: string, category: string) => {
-    toast({
-      title: "Report Submitted",
-      description: `You have reported ${userName} for ${category.toLowerCase()}. Your report has been sent to our admin team for review.`,
-      duration: 6000,
-      className: "bg-red-50 border-red-200 border",
-    })
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+
+    if (diffHours < 1) return "Just now"
+    if (diffHours < 24) return `${diffHours} hours ago`
+    const diffDays = Math.floor(diffHours / 24)
+    if (diffDays === 1) return "Yesterday"
+    return `${diffDays} days ago`
   }
 
   return (
     <DashboardLayout userRole="homeowner">
-      {showChatModal && selectedConversation && (
-        <div className="fixed inset-0 bg-white z-50 flex flex-col md:hidden">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold text-gray-900 truncate">
-                {selectedConversation.contractor_company || selectedConversation.contractor_name}
-              </h2>
-              <p className="text-sm text-gray-600 truncate">{selectedConversation.mission_title}</p>
-            </div>
-            <div className="flex items-center gap-2 ml-4">
-              <button
-                onClick={() => setShowDeleteDialog(true)}
-                className="p-2 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                title="Delete conversation"
-              >
-                <Trash2 className="h-5 w-5 text-red-600" />
-              </button>
-              <button
-                onClick={() => setShowChatModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-              >
-                <X className="h-6 w-6 text-gray-600" />
-              </button>
-            </div>
+      <div className="flex h-[calc(100vh-80px)] gap-4 overflow-hidden">
+        {/* Left Panel - Conversations List - Hidden on mobile when chat is open */}
+        <Card className={`${showMobileChat ? "hidden md:flex" : "flex"} w-full md:w-80 flex-col overflow-hidden`}>
+          <div className="p-4 sm:p-6 border-b flex-shrink-0">
+            <h2 className="text-xl sm:text-2xl font-bold">Messages</h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-            {loadingMessages ? (
-              <div className="text-center text-gray-500">Loading messages...</div>
-            ) : messages.length === 0 ? (
-              <div className="text-center text-gray-400 text-sm">No messages in this conversation yet</div>
-            ) : (
-              messages.map((msg) => {
-                const isCurrentUser = currentUserId === msg.sender_id
-                return (
-                  <div key={msg.id} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[75%] rounded-lg p-3 ${
-                        isCurrentUser ? "bg-[#328d87] text-white" : "bg-white text-gray-900 border border-gray-200"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
-                      <p className={`text-xs mt-1 ${isCurrentUser ? "text-white/70" : "text-gray-500"}`}>
-                        {new Date(msg.created_at).toLocaleTimeString("en-US", {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          <div className="p-4 border-t border-gray-200 bg-white">
-            {errorMessage && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-900">{errorMessage}</p>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => {
-                  setNewMessage(e.target.value)
-                  if (errorMessage) setErrorMessage(null)
-                }}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSendMessage()
-                  }
-                }}
-                placeholder="Type a message..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm"
-                disabled={sending}
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sending}
-                className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-              >
-                <Send className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="p-4 border-t border-gray-200 bg-blue-50">
-            <p className="text-xs text-gray-700">
-              <strong>Note:</strong> You can message contractors at any time. Contractors can only send an initial
-              message with a bid or respond to your messages.
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="md:hidden flex flex-col h-[calc(100vh-8rem)]">
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">Messages</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {loading ? (
-              <div className="p-4 text-center text-gray-500">Loading conversations...</div>
+              <div className="p-6 text-center text-muted-foreground">Loading conversations...</div>
             ) : conversations.length === 0 ? (
-              <div className="p-4 text-center">
-                <p className="text-gray-500 text-sm">No messages yet</p>
-                <p className="text-gray-400 text-xs mt-2">Messages from contractors will appear here</p>
-              </div>
+              <div className="p-6 text-center text-muted-foreground">No conversations yet</div>
             ) : (
               conversations.map((conv) => (
                 <button
                   key={conv.id}
                   onClick={() => {
                     setSelectedConversation(conv)
-                    setShowChatModal(true)
+                    setShowMobileChat(true)
                   }}
-                  className="w-full p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="flex items-start justify-between mb-1">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">
-                        {conv.contractor_company || conv.contractor_name}
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-1 truncate">{conv.mission_title}</p>
-                    </div>
-                    {conv.unread_count > 0 && (
-                      <div className="w-5 h-5 bg-[#328d87] rounded-full flex items-center justify-center flex-shrink-0 ml-2">
-                        <span className="text-xs text-white font-bold">{conv.unread_count}</span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600 truncate">{conv.last_message}</p>
-                  <p className="text-xs text-gray-400 mt-1">{formatTimestamp(conv.last_message_at)}</p>
-                </button>
-              ))
-            )}
-          </div>
-          <div className="p-4 border-t border-gray-200 bg-blue-50">
-            <p className="text-xs text-gray-700">
-              <strong>Note:</strong> You can message contractors at any time. Contractors can only send an initial
-              message with a bid or respond to your messages.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop view */}
-      <div className="hidden md:flex gap-6 h-[calc(100vh-12rem)]">
-        <div className="w-80 bg-white rounded-xl border border-gray-200 flex flex-col flex-shrink-0">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">Messages</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="p-4 text-center text-gray-500">Loading conversations...</div>
-            ) : conversations.length === 0 ? (
-              <div className="p-4 text-center">
-                <p className="text-gray-500 text-sm">No messages yet</p>
-                <p className="text-gray-400 text-xs mt-2">Messages from contractors will appear here</p>
-              </div>
-            ) : (
-              conversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => setSelectedConversation(conv)}
-                  className={`w-full p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors text-left ${
-                    selectedConversation?.id === conv.id ? "bg-gray-50" : ""
+                  className={`w-full p-4 text-left border-b hover:bg-muted/50 transition-colors ${
+                    selectedConversation?.id === conv.id ? "bg-muted" : ""
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-1">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900">{conv.contractor_company || conv.contractor_name}</h3>
-                      <p className="text-xs text-gray-500 mt-1">{conv.mission_title}</p>
-                    </div>
-                    {conv.unread_count > 0 && (
-                      <div className="w-5 h-5 bg-[#328d87] rounded-full flex items-center justify-center">
-                        <span className="text-xs text-white font-bold">{conv.unread_count}</span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600 truncate">{conv.last_message}</p>
-                  <p className="text-xs text-gray-400 mt-1">{formatTimestamp(conv.last_message_at)}</p>
+                  <div className="font-semibold text-sm mb-1 truncate">{conv.contractor_company}</div>
+                  <div className="text-xs text-muted-foreground mb-2 truncate">{conv.mission_title}</div>
+                  <div className="text-sm text-foreground mb-1 line-clamp-1 break-words">{conv.last_message}</div>
+                  <div className="text-xs text-muted-foreground">{formatRelativeTime(conv.last_message_at)}</div>
                 </button>
               ))
             )}
           </div>
-          <div className="p-4 border-t border-gray-200 bg-blue-50">
-            <p className="text-xs text-gray-700">
-              <strong>Note:</strong> You can message contractors at any time. Contractors can only send an initial
-              message with a bid or respond to your messages.
+
+          <div className="p-3 sm:p-4 border-t bg-muted/30 flex-shrink-0">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold">Note:</span> You can message contractors at any time. Contractors can only
+              send an initial message with a bid or respond to your messages. Once a bid is accepted, messaging becomes unrestricted.
             </p>
           </div>
-        </div>
+        </Card>
 
-        {selectedConversation && (
-          <div className="flex-1 min-w-0 bg-white rounded-xl border border-gray-200 flex flex-col">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-bold text-gray-900 truncate">
-                  {selectedConversation.contractor_company || selectedConversation.contractor_name}
-                </h2>
-                <p className="text-sm text-gray-600 truncate">{selectedConversation.mission_title}</p>
-              </div>
-              <div className="flex items-center gap-2 ml-4">
+        {/* Right Panel - Chat View - Full width on mobile when conversation selected */}
+        <Card
+          className={`${!showMobileChat && selectedConversation ? "hidden md:flex" : "flex"} flex-1 flex-col overflow-hidden`}
+        >
+          {selectedConversation ? (
+            <>
+              <div className="p-4 sm:p-6 border-b flex items-center justify-between flex-shrink-0">
                 <button
-                  onClick={() => setShowDeleteDialog(true)}
-                  className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium flex items-center gap-2"
+                  onClick={() => setShowMobileChat(false)}
+                  className="md:hidden mr-2 p-2 hover:bg-muted rounded-lg flex-shrink-0"
                 >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
                 </button>
-                <button
-                  onClick={() => setShowReportModal(true)}
-                  className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
-                >
-                  Report User
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {loadingMessages ? (
-                <div className="text-center text-gray-500">Loading messages...</div>
-              ) : messages.length === 0 ? (
-                <div className="text-center text-gray-400 text-sm">No messages in this conversation yet</div>
-              ) : (
-                messages.map((msg) => {
-                  const isCurrentUser = currentUserId === msg.sender_id
-                  return (
-                    <div key={msg.id} className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
-                      <div
-                        className={`max-w-[70%] rounded-lg p-3 ${
-                          isCurrentUser ? "bg-[#328d87] text-white" : "bg-gray-100 text-gray-900"
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                        <p className={`text-xs mt-1 ${isCurrentUser ? "text-white/70" : "text-gray-500"}`}>
-                          {new Date(msg.created_at).toLocaleTimeString("en-US", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-            <div className="p-4 border-t border-gray-200">
-              {errorMessage && (
-                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-900">{errorMessage}</p>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-sm font-semibold truncate">{selectedConversation.contractor_company}</h2>
+                  <p className="text-xs text-muted-foreground truncate">{selectedConversation.mission_title}</p>
                 </div>
-              )}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => {
-                    setNewMessage(e.target.value)
-                    if (errorMessage) setErrorMessage(null)
-                  }}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSendMessage()
-                    }
-                  }}
-                  placeholder="Type a message..."
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                  disabled={sending}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || sending}
-                  className="px-4 py-2 bg-[#328d87] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                >
-                  <Send className="h-5 w-5" />
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="flex-shrink-0">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem className="text-red-600 focus:text-red-600">Report User</DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-600"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      Delete Conversation
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
+
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4">
+                {messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm sm:text-base px-4">
+                    No messages yet. Start the conversation!
+                  </div>
+                ) : (
+                  messages.map((msg) => {
+                    const isFromHomeowner = msg.sender_id !== selectedConversation.contractor_id
+                    return (
+                      <div key={msg.id} className={`flex ${isFromHomeowner ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`max-w-[85%] sm:max-w-[70%] rounded-lg p-3 ${
+                            isFromHomeowner ? "bg-teal-600 text-white" : "bg-muted text-foreground"
+                          }`}
+                        >
+                          <p className="text-sm break-words overflow-wrap-anywhere">{msg.content}</p>
+                          <p className={`text-xs mt-1 ${isFromHomeowner ? "text-teal-100" : "text-muted-foreground"}`}>
+                            {formatTime(msg.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              <div className="p-3 sm:p-6 border-t flex-shrink-0">
+                <div className="flex gap-2">
+                  <Input
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                    placeholder="Type a message..."
+                    className="flex-1 min-w-0"
+                  />
+                  <Button onClick={sendMessage} size="icon" className="bg-teal-600 hover:bg-teal-700 flex-shrink-0">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm sm:text-base p-4 text-center">
+              Select a conversation to view messages
             </div>
-          </div>
-        )}
+          )}
+        </Card>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      {showDeleteDialog && selectedConversation && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Conversation?</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              This will remove the conversation from your view only. The contractor will still be able to see it. This
-              action cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowDeleteDialog(false)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConversation}
-                disabled={deletingConversation}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-              >
-                {deletingConversation ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Report User Modal */}
-      {selectedConversation && (
-        <ReportUserModal
-          isOpen={showReportModal}
-          onClose={() => setShowReportModal(false)}
-          reportedUserId={selectedConversation.contractor_id}
-          reportedUserName={selectedConversation.contractor_company || selectedConversation.contractor_name}
-          reportedUserRole="contractor"
-          conversationId={selectedConversation.id}
-          onReportSuccess={handleReportSuccess}
-        />
-      )}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteConversation} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }

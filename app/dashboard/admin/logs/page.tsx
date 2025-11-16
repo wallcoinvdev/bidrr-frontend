@@ -1,241 +1,205 @@
 "use client"
 
-import { AlertTriangle, Trash2, Search, Filter, Download } from "lucide-react"
 import { useState, useEffect } from "react"
-import { errorLogger, type ErrorLog } from "@/lib/error-logger"
-import { ConfirmDialog } from "@/components/confirm-dialog"
+import { Search, RefreshCw, Trash2, Loader2 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 
-export default function AdminLogs() {
+interface ErrorLog {
+  log_id: number
+  error_id: string
+  error_name: string
+  error_message: string
+  error_type: string
+  timestamp: string
+  user_id?: number
+  user_email?: string
+  endpoint?: string
+  status_code?: number
+  stack_trace?: string
+  severity: string
+  resolved: boolean
+  created_at: string
+}
+
+export default function ErrorLogsPage() {
+  const [loading, setLoading] = useState(true)
   const [logs, setLogs] = useState<ErrorLog[]>([])
-  const [filteredLogs, setFilteredLogs] = useState<ErrorLog[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [filterType, setFilterType] = useState<string>("all")
-  const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [typeFilter, setTypeFilter] = useState("all")
 
   useEffect(() => {
-    loadLogs()
+    fetchLogs()
   }, [])
 
-  useEffect(() => {
-    filterLogs()
-  }, [logs, searchQuery, filterType])
-
-  const loadLogs = () => {
-    const allLogs = errorLogger.getLogs()
-    setLogs(allLogs)
-  }
-
-  const filterLogs = () => {
-    let filtered = [...logs]
-
-    // Filter by type
-    if (filterType !== "all") {
-      filtered = filtered.filter((log) => log.errorName === filterType)
-    }
-
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(
-        (log) =>
-          log.error.toLowerCase().includes(query) ||
-          log.endpoint?.toLowerCase().includes(query) ||
-          log.userEmail?.toLowerCase().includes(query) ||
-          log.userId?.toString().includes(query),
-      )
-    }
-
-    setFilteredLogs(filtered)
-  }
-
-  const clearAllLogs = () => {
-    errorLogger.clearLogs()
-    loadLogs()
-  }
-
-  const exportLogs = () => {
-    const dataStr = JSON.stringify(logs, null, 2)
-    const dataBlob = new Blob([dataStr], { type: "application/json" })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `error-logs-${new Date().toISOString()}.json`
-    link.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const getErrorTypeColor = (errorName: string) => {
-    switch (errorName) {
-      case "ApiError":
-        return "bg-red-100 text-red-700"
-      case "NetworkError":
-        return "bg-orange-100 text-orange-700"
-      case "AuthenticationError":
-        return "bg-yellow-100 text-yellow-700"
-      default:
-        return "bg-gray-100 text-gray-700"
+  const fetchLogs = async () => {
+    try {
+      setLoading(true)
+      const data = await apiClient.request<{ logs: ErrorLog[]; total: number }>("/api/admin/error-logs", {
+        requiresAuth: true,
+      })
+      setLogs(data.logs || [])
+    } catch (error) {
+      console.error("Error fetching logs:", error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const uniqueErrorTypes = Array.from(new Set(logs.map((log) => log.errorName)))
+  const handleClearAll = async () => {
+    if (!confirm("Are you sure you want to clear all error logs?")) return
+    try {
+      await apiClient.request("/api/admin/error-logs", {
+        method: "DELETE",
+        requiresAuth: true,
+      })
+      fetchLogs()
+    } catch (error) {
+      console.error("Error clearing logs:", error)
+    }
+  }
+
+  const filteredLogs = logs.filter((log) => {
+    const messageMatch = log.error_message?.toLowerCase().includes(searchQuery.toLowerCase()) || false
+    const endpointMatch = log.endpoint?.toLowerCase().includes(searchQuery.toLowerCase()) || false
+    const emailMatch = log.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) || false
+    const matchesSearch = messageMatch || endpointMatch || emailMatch
+    const matchesType = typeFilter === "all" || log.error_type === typeFilter
+    return matchesSearch && matchesType
+  })
+
+  const apiErrors = logs.filter((log) => log.error_type === "backend").length
+  const authErrors = logs.filter((log) => log.error_name.toLowerCase().includes("auth")).length
+  const networkErrors = logs.filter((log) => log.error_type === "frontend").length
+  const buildErrors = logs.filter((log) => log.error_name.toLowerCase().includes("build")).length
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div>
+      <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Error Logs</h1>
-          <p className="text-gray-600 mt-2">Monitor and track application errors (frontend and backend)</p>
+          <p className="text-gray-600 mt-2">Monitor and resolve application errors (frontend and backend)</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+        <div className="flex gap-2">
           <button
-            onClick={exportLogs}
-            disabled={logs.length === 0}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={fetchLogs}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
           >
-            <Download className="h-4 w-4" />
-            Export
+            <RefreshCw className="w-4 h-4" />
+            Refresh
           </button>
           <button
-            onClick={() => setShowClearConfirm(true)}
-            disabled={logs.length === 0}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleClearAll}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="w-4 h-4" />
             Clear All
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by error message, endpoint, user email, or user ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Types</option>
-              {uniqueErrorTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
+      <div className="mb-6 flex gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by error message, endpoint, user, email, or user ID..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent"
+          />
         </div>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent"
+        >
+          <option value="all">All Types</option>
+          <option value="frontend">Frontend Errors</option>
+          <option value="backend">Backend/API Errors</option>
+        </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-600 mb-1">Total Errors</p>
-          <p className="text-2xl font-bold text-gray-900">{logs.length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="grid grid-cols-4 gap-6 mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
           <p className="text-sm text-gray-600 mb-1">API Errors</p>
-          <p className="text-2xl font-bold text-red-600">{logs.filter((log) => log.errorName === "ApiError").length}</p>
+          <p className="text-3xl font-bold text-gray-900">{apiErrors}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-600 mb-1">Network Errors</p>
-          <p className="text-2xl font-bold text-orange-600">
-            {logs.filter((log) => log.errorName === "NetworkError").length}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
           <p className="text-sm text-gray-600 mb-1">Auth Errors</p>
-          <p className="text-2xl font-bold text-yellow-600">
-            {logs.filter((log) => log.errorName === "AuthenticationError").length}
-          </p>
+          <p className="text-3xl font-bold text-red-600">{authErrors}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-600 mb-1">Network Errors</p>
+          <p className="text-3xl font-bold text-green-600">{networkErrors}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-600 mb-1">Build Errors</p>
+          <p className="text-3xl font-bold text-yellow-600">{buildErrors}</p>
         </div>
       </div>
 
-      {filteredLogs.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Error Logs</h3>
-          <p className="text-gray-600">
-            {logs.length === 0 ? "No errors have been logged yet." : "No errors match your search criteria."}
-          </p>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-[#0F3D3E]" />
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredLogs.map((log) => (
-            <div
-              key={log.id}
-              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getErrorTypeColor(log.errorName)}`}>
-                      {log.errorName}
-                    </span>
-                    {log.statusCode && (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                        {log.statusCode}
-                      </span>
-                    )}
-                    {log.endpoint && <span className="text-xs text-gray-500 font-mono truncate">{log.endpoint}</span>}
+          {filteredLogs.length === 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+              <p className="text-gray-500">No error logs found</p>
+            </div>
+          ) : (
+            filteredLogs.map((log) => (
+              <div key={log.log_id} className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Error:</span>
+                    <span className="text-sm text-gray-900">{new Date(log.timestamp).toLocaleString()}</span>
                   </div>
-
-                  <p className="text-sm font-medium text-gray-900 mb-2">{log.error}</p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-xs text-gray-600">
-                    <div>
-                      <span className="font-medium">Time:</span> {new Date(log.timestamp).toLocaleString()}
-                    </div>
-                    {log.userId && (
-                      <div>
-                        <span className="font-medium">User ID:</span> {log.userId}
-                      </div>
-                    )}
-                    {log.userEmail && (
-                      <div className="truncate">
-                        <span className="font-medium">Email:</span> {log.userEmail}
-                      </div>
-                    )}
-                    <div className="truncate">
-                      <span className="font-medium">URL:</span> {log.url}
-                    </div>
-                  </div>
-
-                  {log.stack && (
-                    <details className="mt-2">
-                      <summary className="text-xs text-blue-600 cursor-pointer hover:underline">
-                        View Stack Trace
-                      </summary>
-                      <pre className="mt-2 p-2 bg-gray-50 rounded text-xs overflow-x-auto">{log.stack}</pre>
-                    </details>
+                  {log.severity === "critical" && (
+                    <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-medium">CRITICAL</span>
+                  )}
+                  {log.severity === "high" && (
+                    <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-medium">HIGH</span>
+                  )}
+                  {log.error_type === "backend" && (
+                    <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-medium">API</span>
                   )}
                 </div>
+
+                <p className="font-medium text-gray-900 mb-2">{log.error_name}</p>
+                <p className="text-sm text-gray-600 mb-2">{log.error_message}</p>
+
+                <div className="grid grid-cols-3 gap-4 text-sm mb-2">
+                  <div>
+                    <span className="text-gray-600">Time:</span>
+                    <span className="ml-2 text-gray-900">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Type:</span>
+                    <span className="ml-2 text-gray-900">{log.error_type}</span>
+                  </div>
+                  {log.user_email && (
+                    <div>
+                      <span className="text-gray-600">Email:</span>
+                      <span className="ml-2 text-gray-900">{log.user_email}</span>
+                    </div>
+                  )}
+                </div>
+
+                {log.endpoint && (
+                  <p className="text-sm text-gray-600 mb-2">
+                    <span className="font-medium">URL:</span> {log.endpoint}
+                  </p>
+                )}
+
+                {log.stack_trace && <button className="text-sm text-blue-600 hover:underline">View Stack Trace</button>}
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
-
-      <ConfirmDialog
-        isOpen={showClearConfirm}
-        onClose={() => setShowClearConfirm(false)}
-        onConfirm={clearAllLogs}
-        title="Clear All Error Logs?"
-        message="This will permanently delete all error logs. This action cannot be undone."
-        confirmText="Clear All"
-        cancelText="Cancel"
-        variant="danger"
-      />
     </div>
   )
 }

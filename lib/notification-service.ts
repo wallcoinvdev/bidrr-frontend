@@ -13,6 +13,7 @@ class NotificationService {
 
   off(event: string, callback: EventCallback) {
     if (!this.events.has(event)) return
+
     const callbacks = this.events.get(event)!
     const index = callbacks.indexOf(callback)
     if (index > -1) {
@@ -22,12 +23,13 @@ class NotificationService {
 
   emit(event: string, ...args: any[]) {
     if (!this.events.has(event)) return
+
     const callbacks = this.events.get(event)!
     callbacks.forEach((callback) => {
       try {
         callback(...args)
       } catch (error) {
-        console.error(`[v0] Error in notification service callback:`, error)
+        console.error(`Error in notification service callback:`, error)
       }
     })
   }

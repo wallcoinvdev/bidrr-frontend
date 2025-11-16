@@ -1,274 +1,223 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mail, Send, Users, CheckCircle, AlertCircle } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Mail, Send, Plus, Users, BarChart3 } from "lucide-react"
 
-interface EmailTemplate {
-  id: string
-  name: string
-  description: string
-  category: "welcome" | "notification" | "marketing" | "transactional"
-  subject: string
-  preview: string
-}
-
-const emailTemplates: EmailTemplate[] = [
+const EMAIL_TEMPLATES = [
   {
-    id: "welcome-homeowner",
+    id: 1,
     name: "Welcome Email - Homeowner",
-    description: "Sent when a new homeowner signs up",
     category: "welcome",
     subject: "Welcome to Bidrr!",
     preview: "Welcome to Bidrr! We're excited to help you find the perfect contractor...",
+    description: "Sent when a new homeowner signs up",
   },
   {
-    id: "welcome-contractor",
+    id: 2,
     name: "Welcome Email - Contractor",
-    description: "Sent when a new contractor signs up",
     category: "welcome",
     subject: "Welcome to Bidrr - Start Bidding Today!",
     preview: "Welcome to Bidrr! Start browsing jobs and submitting bids...",
+    description: "Sent when a new contractor signs up",
   },
   {
-    id: "job-posted",
+    id: 3,
     name: "New Job Posted",
-    description: "Notify contractors of new jobs in their area",
     category: "notification",
     subject: "New Job Posted in Your Area",
     preview: "A new job matching your skills has been posted...",
+    description: "Notify contractors of new jobs in their area",
   },
   {
-    id: "bid-received",
+    id: 4,
     name: "Bid Received",
-    description: "Notify homeowner when their job receives a bid",
     category: "notification",
     subject: "You've Received a New Bid!",
     preview: "Great news! A contractor has submitted a bid on your job...",
+    description: "Notify homeowner when their job receives a bid",
   },
   {
-    id: "job-accepted",
+    id: 5,
     name: "Job Accepted",
-    description: "Notify contractor when their bid is accepted",
     category: "notification",
     subject: "Congratulations! Your Bid Was Accepted",
     preview: "Your bid has been accepted! Here's what happens next...",
+    description: "Notify contractor when their bid is accepted",
   },
   {
-    id: "job-completed",
+    id: 6,
     name: "Job Completed",
-    description: "Request review after job completion",
     category: "transactional",
     subject: "How Was Your Experience?",
     preview: "We hope your project went well! Please take a moment to review...",
+    description: "Request review after job completion",
   },
   {
-    id: "verification-reminder",
+    id: 7,
     name: "Verification Reminder",
-    description: "Remind contractors to complete verification",
     category: "transactional",
     subject: "Complete Your Profile Verification",
     preview: "Get more jobs by completing your profile verification...",
+    description: "Remind contractors to complete verification",
   },
   {
-    id: "inactive-user",
+    id: 8,
     name: "Re-engagement Campaign",
-    description: "Re-engage inactive users",
     category: "marketing",
     subject: "We Miss You! Come Back to Bidrr",
     preview: "It's been a while since we've seen you. Here's what's new...",
+    description: "Re-engage inactive users",
   },
   {
-    id: "newsletter",
+    id: 9,
     name: "Monthly Newsletter",
-    description: "Monthly platform updates and tips",
     category: "marketing",
     subject: "Bidrr Monthly Newsletter",
     preview: "This month's platform updates, success stories, and tips...",
+    description: "Monthly platform updates and tips",
   },
   {
-    id: "seasonal-promo",
+    id: 10,
     name: "Seasonal Promotion",
-    description: "Seasonal campaigns and promotions",
     category: "marketing",
     subject: "Spring Home Improvement Season is Here!",
     preview: "Get ready for spring with these home improvement ideas...",
+    description: "Seasonal campaigns and promotions",
   },
 ]
 
-export default function AdminEmailsPage() {
-  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null)
-  const [categoryFilter, setCategoryFilter] = useState<string>("all")
-  const { toast } = useToast()
+export default function EmailCampaignsPage() {
+  const [activeTab, setActiveTab] = useState("all")
 
   const filteredTemplates =
-    categoryFilter === "all" ? emailTemplates : emailTemplates.filter((t) => t.category === categoryFilter)
-
-  const handleSendTest = (template: EmailTemplate) => {
-    toast({
-      title: "Test Email Sent",
-      description: `Test email for "${template.name}" sent to your email`,
-    })
-  }
-
-  const handleCreateCampaign = (template: EmailTemplate) => {
-    toast({
-      title: "Coming Soon",
-      description: "Email campaign creation will be available once MailerSend is integrated",
-    })
-  }
+    activeTab === "all" ? EMAIL_TEMPLATES : EMAIL_TEMPLATES.filter((t) => t.category === activeTab)
 
   const getCategoryBadge = (category: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      welcome: "default",
-      notification: "secondary",
-      marketing: "outline",
-      transactional: "destructive",
+    const colors = {
+      welcome: "bg-black text-white",
+      notification: "bg-gray-100 text-gray-800",
+      transactional: "bg-red-100 text-red-800",
+      marketing: "bg-white text-gray-800 border border-gray-300",
     }
-    return <Badge variant={variants[category] || "default"}>{category}</Badge>
+    return colors[category as keyof typeof colors] || "bg-gray-100 text-gray-800"
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Email Campaigns</h1>
-        <p className="text-muted-foreground">
-          Manage email templates and campaigns (MailerSend integration coming soon)
-        </p>
+    <div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Email Campaigns</h1>
+        <p className="text-gray-600 mt-2">Manage email templates and campaigns (MailerSend integration coming soon)</p>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Templates</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{emailTemplates.length}</div>
-            <p className="text-xs text-muted-foreground">Ready to use</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Campaigns Sent</CardTitle>
-            <Send className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">Awaiting MailerSend setup</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Recipients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">No campaigns sent yet</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Rate</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">No data yet</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Email Templates</CardTitle>
-          <CardDescription>Pre-configured email templates for various campaigns</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={categoryFilter} onValueChange={setCategoryFilter}>
-            <TabsList className="w-full justify-start overflow-x-auto">
-              <TabsTrigger value="all">All Templates</TabsTrigger>
-              <TabsTrigger value="welcome">Welcome</TabsTrigger>
-              <TabsTrigger value="notification">Notifications</TabsTrigger>
-              <TabsTrigger value="marketing">Marketing</TabsTrigger>
-              <TabsTrigger value="transactional">Transactional</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value={categoryFilter} className="space-y-4 mt-4">
-              <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                {filteredTemplates.map((template) => (
-                  <Card key={template.id}>
-                    <CardHeader>
-                      <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
-                        <div className="space-y-1 flex-1">
-                          <CardTitle className="text-base break-words">{template.name}</CardTitle>
-                          <CardDescription className="text-sm break-words">{template.description}</CardDescription>
-                        </div>
-                        {getCategoryBadge(template.category)}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <p className="text-sm font-medium mb-1">Subject:</p>
-                        <p className="text-sm text-muted-foreground break-words">{template.subject}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium mb-1">Preview:</p>
-                        <p className="text-sm text-muted-foreground line-clamp-2">{template.preview}</p>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 bg-transparent w-full sm:w-auto"
-                          onClick={() => handleSendTest(template)}
-                        >
-                          <Send className="h-4 w-4 mr-1" />
-                          Send Test
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="flex-1 w-full sm:w-auto"
-                          onClick={() => handleCreateCampaign(template)}
-                        >
-                          <Mail className="h-4 w-4 mr-1" />
-                          Create Campaign
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      <Card className="border-dashed">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <AlertCircle className="h-6 w-6 text-primary" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold">MailerSend Integration Required</h3>
-              <p className="text-sm text-muted-foreground">
-                To send email campaigns, you'll need to integrate MailerSend. Once configured, you'll be able to create
-                campaigns, schedule sends, and track performance metrics.
-              </p>
-            </div>
+      <div className="grid grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <Mail className="w-5 h-5 text-gray-400" />
           </div>
-        </CardContent>
-      </Card>
+          <p className="text-sm text-gray-600 mb-1">Total Templates</p>
+          <p className="text-3xl font-bold text-gray-900 mb-1">10</p>
+          <p className="text-xs text-gray-500">Ready to use</p>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <Send className="w-5 h-5 text-gray-400" />
+          </div>
+          <p className="text-sm text-gray-600 mb-1">Campaigns Sent</p>
+          <p className="text-3xl font-bold text-gray-900 mb-1">0</p>
+          <p className="text-xs text-gray-500">No active MailerSend setup</p>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <Users className="w-5 h-5 text-gray-400" />
+          </div>
+          <p className="text-sm text-gray-600 mb-1">Total Recipients</p>
+          <p className="text-3xl font-bold text-gray-900 mb-1">0</p>
+          <p className="text-xs text-gray-500">No campaigns sent yet</p>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <BarChart3 className="w-5 h-5 text-gray-400" />
+          </div>
+          <p className="text-sm text-gray-600 mb-1">Open Rate</p>
+          <p className="text-3xl font-bold text-gray-900 mb-1">--</p>
+          <p className="text-xs text-gray-500">Not yet</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Email Templates</h2>
+          <p className="text-sm text-gray-600">Pre-configured email templates for various campaigns</p>
+        </div>
+
+        <div className="flex gap-2 mb-6 border-b border-gray-200">
+          {["all", "welcome", "notification", "marketing", "transactional"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium capitalize ${
+                activeTab === tab ? "border-b-2 border-[#0F3D3E] text-[#0F3D3E]" : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              {tab === "all" ? "All Templates" : tab}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          {filteredTemplates.map((template) => (
+            <div key={template.id} className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-start justify-between mb-3">
+                <h3 className="font-semibold text-gray-900">{template.name}</h3>
+                <span className={`text-xs px-2 py-1 rounded font-medium ${getCategoryBadge(template.category)}`}>
+                  {template.category}
+                </span>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-3">{template.description}</p>
+
+              <div className="mb-3">
+                <p className="text-xs text-gray-600 mb-1">
+                  <span className="font-medium">Subject:</span>
+                </p>
+                <p className="text-sm text-gray-900">{template.subject}</p>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-xs text-gray-600 mb-1">
+                  <span className="font-medium">Preview:</span>
+                </p>
+                <p className="text-sm text-gray-600">{template.preview}</p>
+              </div>
+
+              <div className="flex gap-2">
+                <button className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm flex items-center justify-center gap-2">
+                  <Send className="w-4 h-4" />
+                  Send Test
+                </button>
+                <button className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 text-sm flex items-center justify-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Create Campaign
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+          <Mail className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold text-blue-900 mb-1">MailerSend Integration Required</p>
+            <p className="text-sm text-blue-800">
+              To send real campaigns, you'll need to integrate MailerSend. Once configured, you'll be able to create
+              campaigns, schedule sends, and track performance metrics.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
