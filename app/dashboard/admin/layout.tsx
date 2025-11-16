@@ -1,26 +1,11 @@
 "use client"
 
 import type React from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter } from 'next/navigation'
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useEffect, useState } from "react"
-import {
-  Home,
-  BarChart3,
-  DollarSign,
-  Users,
-  Briefcase,
-  MessageSquare,
-  Mail,
-  FileText,
-  AlertTriangle,
-  ScrollText,
-  Settings,
-  LogOut,
-  Loader2,
-  Shield,
-} from "lucide-react"
+import { Home, BarChart3, DollarSign, Users, Briefcase, MessageSquare, Mail, FileText, AlertTriangle, ScrollText, Settings, LogOut, Loader2, Shield, Menu, X } from 'lucide-react'
 
 const adminNavItems = [
   { href: "/dashboard/admin", label: "Overview", icon: Home },
@@ -41,6 +26,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const router = useRouter()
   const { user, loading, logout } = useAuth()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [badges, setBadges] = useState<Record<string, number>>({
     users: 3,
     jobs: 1,
@@ -68,12 +54,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-[#0F3D3E] text-white flex flex-col">
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-50
+        w-64 bg-[#0F3D3E] text-white flex flex-col
+        transform transition-transform duration-300 ease-in-out
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         <div className="p-6 border-b border-[#1a5557]">
-          <div className="flex items-center gap-2 mb-1">
-            <Shield className="w-5 h-5 text-yellow-400" />
-            <h1 className="text-xl font-bold">Admin Panel</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 mb-1">
+              <Shield className="w-5 h-5 text-yellow-400" />
+              <h1 className="text-xl font-bold">Admin Panel</h1>
+            </div>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden text-white hover:bg-[#1a5557] p-1 rounded"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
@@ -88,6 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors relative ${
                   isActive ? "bg-[#1a5557] text-white" : "text-gray-300 hover:bg-[#1a5557] hover:text-white"
                 }`}
@@ -115,17 +121,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        {/* Top Bar */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4 flex justify-end">
-          <div className="w-10 h-10 rounded-full bg-yellow-400 text-gray-900 flex items-center justify-center font-bold text-sm">
+      <main className="flex-1 overflow-auto w-full">
+        <div className="bg-white border-b border-gray-200 px-4 lg:px-8 py-4 flex items-center justify-between">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="lg:hidden text-gray-700 hover:bg-gray-100 p-2 rounded"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          
+          <div className="ml-auto w-10 h-10 rounded-full bg-yellow-400 text-gray-900 flex items-center justify-center font-bold text-sm">
             GA
           </div>
         </div>
 
-        {/* Page Content */}
-        <div className="p-8">{children}</div>
+        <div className="p-4 lg:p-8">{children}</div>
       </main>
     </div>
   )
