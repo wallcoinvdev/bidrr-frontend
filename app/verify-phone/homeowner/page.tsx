@@ -4,8 +4,8 @@ import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { ArrowLeft, BadgeCheck, AlertCircle, X } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { ArrowLeft, BadgeCheck, AlertCircle, X } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { apiClient } from "@/lib/api-client"
 
@@ -20,8 +20,8 @@ export default function HomeownerPhoneVerification() {
     if (data.phone) {
       return data.phone.replace(/^\+1/, "")
     }
-    
-    // Fallback to sessionStorage only in browser
+
+    // Only access sessionStorage on client side
     if (typeof window !== "undefined") {
       const savedFormData = sessionStorage.getItem("onboarding_form_data")
       if (savedFormData) {
@@ -35,7 +35,7 @@ export default function HomeownerPhoneVerification() {
         }
       }
     }
-    
+
     return ""
   }
 
@@ -137,7 +137,7 @@ export default function HomeownerPhoneVerification() {
           role: "homeowner",
           email: formData.email, // Include email as backend expects it
         },
-        { requiresAuth: false }
+        { requiresAuth: false },
       )
 
       console.log("[v0] ✅ Verification code sent successfully")
@@ -201,7 +201,7 @@ export default function HomeownerPhoneVerification() {
       console.log("[v0] Code length:", verificationCode.length)
       console.log("[v0] Timestamp:", new Date().toISOString())
 
-      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || "unknown"
+      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
       console.log("[v0] Hero heading variation for this conversion:", heroHeadingVariation)
 
       const signupPayload: any = {
@@ -324,7 +324,7 @@ export default function HomeownerPhoneVerification() {
 
       const formData = JSON.parse(savedFormData)
 
-      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || "unknown"
+      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
 
       const signupPayload: any = {
         phone_number: formData.phone_number,

@@ -169,7 +169,7 @@ export default function LoginPage() {
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
               <h1 className="text-3xl font-bold text-center text-[#03353a] mb-2">Verify Your Identity</h1>
               <p className="text-center text-[#03353a]/70 mb-8">
-                We've sent a 6-digit code to {phoneNumber?.replace(/^(\+?1)?(\d{3})(\d{3})(\d{4})$/, "+1 ($2) $3-$4")}
+                We've sent a 6-digit code to {phoneNumber?.replace(/(\d{3})(\d{3})(\d{4})/, "($1) $2-$3")}
               </p>
 
               {error && (

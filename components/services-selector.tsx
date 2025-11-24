@@ -2,15 +2,16 @@
 import { useState, useRef, useEffect } from "react"
 import type React from "react"
 
-import { Search, X } from 'lucide-react'
+import { Search, X } from "lucide-react"
 import { SERVICES } from "@/lib/services"
 
 interface ServicesSelectorProps {
   value: string[]
   onChange: (services: string[]) => void
+  error?: string
 }
 
-export function ServicesSelector({ value, onChange }: ServicesSelectorProps) {
+export function ServicesSelector({ value, onChange, error }: ServicesSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [showDropdown, setShowDropdown] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -70,7 +71,9 @@ export function ServicesSelector({ value, onChange }: ServicesSelectorProps) {
             onFocus={() => searchQuery.trim() && setShowDropdown(true)}
             onKeyDown={handleKeyDown}
             placeholder="Add services"
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+            className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent ${
+              error ? "border-red-500" : "border-gray-300"
+            }`}
           />
         </div>
 
@@ -90,6 +93,9 @@ export function ServicesSelector({ value, onChange }: ServicesSelectorProps) {
           </div>
         )}
       </div>
+
+      {/* Inline error message display */}
+      {error && <p className="text-sm text-red-600 flex items-center gap-1">{error}</p>}
 
       {/* Selected Services Tags */}
       {value.length > 0 && (
@@ -112,7 +118,7 @@ export function ServicesSelector({ value, onChange }: ServicesSelectorProps) {
         </div>
       )}
 
-      {value.length === 0 && <p className="text-sm text-gray-500">Start typing to search and add services</p>}
+      {value.length === 0 && !error && <p className="text-sm text-gray-500">Start typing to search and add services</p>}
     </div>
   )
 }

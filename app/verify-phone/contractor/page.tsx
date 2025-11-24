@@ -4,8 +4,8 @@ import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { ArrowLeft, BadgeCheck, AlertCircle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { ArrowLeft, BadgeCheck, AlertCircle } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { apiClient } from "@/lib/api-client"
 
@@ -20,8 +20,8 @@ export default function ContractorPhoneVerification() {
     if (data.phone) {
       return data.phone.replace(/^\+1/, "")
     }
-    
-    // Fallback to sessionStorage only in browser
+
+    // Only access sessionStorage on client side
     if (typeof window !== "undefined") {
       const savedFormData = sessionStorage.getItem("onboarding_form_data")
       if (savedFormData) {
@@ -35,7 +35,7 @@ export default function ContractorPhoneVerification() {
         }
       }
     }
-    
+
     return ""
   }
 
@@ -92,7 +92,7 @@ export default function ContractorPhoneVerification() {
           role: "contractor",
           email: formData.email,
         },
-        { requiresAuth: false }
+        { requiresAuth: false },
       )
 
       sessionStorage.setItem("pending_phone_number", fullPhoneNumber)
@@ -143,7 +143,7 @@ export default function ContractorPhoneVerification() {
 
       const formData = JSON.parse(savedFormData)
 
-      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || "unknown"
+      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
 
       const signupPayload: any = {
         phone_number: fullPhoneNumber,
@@ -238,7 +238,7 @@ export default function ContractorPhoneVerification() {
 
       const formData = JSON.parse(savedFormData)
 
-      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || "unknown"
+      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
 
       const signupPayload: any = {
         phone_number: formData.phone_number,

@@ -1,15 +1,15 @@
 "use client"
 
 import type React from "react"
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Eye, EyeOff, User } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Eye, EyeOff, User } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { ServicesSelector } from "@/components/services-selector"
 import TermsModal from "@/components/terms-modal"
 
-export default function PersonalInformation() {
+export default function PersonalInfoPage() {
   const router = useRouter()
   const { data, updateData } = useOnboarding()
   const searchParams = useSearchParams()
@@ -43,6 +43,7 @@ export default function PersonalInformation() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [servicesError, setServicesError] = useState<string | null>(null)
 
   useEffect(() => {
     if (roleFromUrl && (roleFromUrl === "homeowner" || roleFromUrl === "contractor")) {
@@ -54,6 +55,7 @@ export default function PersonalInformation() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setServicesError(null)
 
     try {
       if (!region || region === "") {
@@ -78,6 +80,12 @@ export default function PersonalInformation() {
 
       if (data.role === "contractor" && (!businessRegion || businessRegion === "")) {
         throw new Error("Please select a province for your business")
+      }
+
+      if (data.role === "contractor" && services.length === 0) {
+        setServicesError("Please select at least one service you offer")
+        setIsLoading(false)
+        return
       }
 
       const actualCountryCode = countryCode.split("-")[0]
@@ -375,7 +383,7 @@ export default function PersonalInformation() {
             {/* Contractor-specific fields */}
             {data.role === "contractor" && (
               <div className="space-y-4 pt-6 border-t">
-                <h3 className="text-xl font-semibold text-[#03353a]">Business Information</h3>
+                <h2 className="text-xl font-semibold text-[#03353a]">Business Information</h2>
                 <div>
                   <label className="block text-sm font-medium text-[#03353a] mb-2">
                     Company Name <span className="text-red-500">*</span>
@@ -519,7 +527,16 @@ export default function PersonalInformation() {
                     Services Offered <span className="text-red-500">*</span>
                   </label>
                   <p className="text-xs text-[#03353a]/60 mb-2">Select all services you offer</p>
-                  <ServicesSelector value={services} onChange={setServices} />
+                  <ServicesSelector
+                    value={services}
+                    onChange={(newServices) => {
+                      setServices(newServices)
+                      if (newServices.length > 0) {
+                        setServicesError(null)
+                      }
+                    }}
+                    error={servicesError || undefined}
+                  />
                 </div>
               </div>
             )}

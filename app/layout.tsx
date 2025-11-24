@@ -1,13 +1,12 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Montserrat, Lora } from 'next/font/google'
+import { Montserrat, Lora } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
 import { Toaster } from "@/components/ui/toaster"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { MaintenanceBanner } from "@/components/maintenance-banner"
 import { AnnouncementBanner } from "@/components/announcement-banner"
-import Script from "next/script"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -36,21 +35,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${montserrat.variable} ${lora.variable} antialiased`}>
-      <head>
-        <Script
-          async
-          src="https://www.googletagmanager.com/gtag/js?id=G-Z5SY6NBWC9"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-Z5SY6NBWC9');
-          `}
-        </Script>
-      </head>
       <body>
         <ErrorBoundary>
           <MaintenanceBanner />
