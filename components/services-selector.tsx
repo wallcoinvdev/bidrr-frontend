@@ -2,8 +2,8 @@
 import { useState, useRef, useEffect } from "react"
 import type React from "react"
 
-import { Search, X } from "lucide-react"
-import { SERVICES } from "@/lib/services"
+import { Search, X, Plus } from "lucide-react"
+import { SERVICES, getSuggestedServices } from "@/lib/services"
 
 interface ServicesSelectorProps {
   value: string[]
@@ -20,6 +20,8 @@ export function ServicesSelector({ value, onChange, error }: ServicesSelectorPro
   const filteredServices = SERVICES.filter(
     (service) => service.toLowerCase().includes(searchQuery.toLowerCase()) && !value.includes(service),
   )
+
+  const suggestedServices = getSuggestedServices(value)
 
   // Handle clicking outside to close suggestions
   useEffect(() => {
@@ -115,6 +117,25 @@ export function ServicesSelector({ value, onChange, error }: ServicesSelectorPro
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {suggestedServices.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-600 font-medium">Suggested services you might also offer:</p>
+          <div className="flex flex-wrap gap-2">
+            {suggestedServices.map((service) => (
+              <button
+                key={service}
+                type="button"
+                onClick={() => addService(service)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-700 rounded-full border border-gray-300 hover:bg-gray-100 hover:border-gray-400 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="text-sm">{service}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
