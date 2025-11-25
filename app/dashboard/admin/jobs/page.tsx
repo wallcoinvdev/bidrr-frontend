@@ -33,31 +33,31 @@ function JobDetailsModal({ job, onClose }: { job: Job | null; onClose: () => voi
   if (!job) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-x-hidden">
       <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">Job Details</h2>
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex justify-between items-center">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Job Details</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           <div>
-            <div className="flex items-center gap-3 mb-3">
-              <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 break-words">{job.title}</h3>
               <Badge className={getStatusColor(job.status)}>
                 {job.status === "in_progress" ? "in progress" : job.status}
               </Badge>
               {job.is_flagged && <Badge className="bg-red-100 text-red-700">Flagged</Badge>}
             </div>
-            <p className="text-gray-600">{job.description}</p>
+            <p className="text-gray-600 break-words">{job.description}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-500">Service Type</label>
-              <p className="text-gray-900">{job.service_type}</p>
+              <p className="text-gray-900 break-words">{job.service_type}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Status</label>
@@ -65,11 +65,11 @@ function JobDetailsModal({ job, onClose }: { job: Job | null; onClose: () => voi
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Location</label>
-              <p className="text-gray-900">{job.location}</p>
+              <p className="text-gray-900 break-words">{job.location}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Posted By</label>
-              <p className="text-gray-900">{job.homeowner_name}</p>
+              <p className="text-gray-900 break-words">{job.homeowner_name}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Number of Bids</label>
@@ -84,7 +84,7 @@ function JobDetailsModal({ job, onClose }: { job: Job | null; onClose: () => voi
           {job.is_flagged && job.flag_reason && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <label className="text-sm font-medium text-red-900">Flag Reason</label>
-              <p className="text-red-700 mt-1">{job.flag_reason}</p>
+              <p className="text-red-700 mt-1 break-words">{job.flag_reason}</p>
             </div>
           )}
         </div>
@@ -224,16 +224,16 @@ export default function JobsPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-bold text-gray-900">Job Management</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Job Management</h1>
         <p className="text-gray-500 mt-2">Monitor and manage all job postings on the platform</p>
       </div>
 
       {/* Job Heat Map */}
-      <Card className="p-6 bg-white border border-gray-200 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Job Heat Map</h2>
+      <Card className="p-4 sm:p-6 bg-white border border-gray-200 shadow-sm">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Job Heat Map</h2>
         <p className="text-sm text-gray-600 mb-4">Geographic distribution of 1 job across the platform</p>
 
-        <div className="h-[400px] bg-gray-100 rounded-lg overflow-hidden relative">
+        <div className="h-[300px] sm:h-[400px] bg-gray-100 rounded-lg overflow-hidden relative">
           <iframe
             width="100%"
             height="100%"
@@ -262,8 +262,8 @@ export default function JobsPage() {
       </Card>
 
       {/* Job Overview */}
-      <Card className="p-6 bg-white border border-gray-200 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Job Overview</h2>
+      <Card className="p-4 sm:p-6 bg-white border border-gray-200 shadow-sm">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Job Overview</h2>
         <p className="text-sm text-gray-600 mb-6">View and manage all jobs posted on HomeHero</p>
 
         {/* Search */}
@@ -272,93 +272,98 @@ export default function JobsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search jobs by title, description, or homeowner..."
+              placeholder="Search jobs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent text-sm sm:text-base"
             />
           </div>
         </div>
 
         {/* Status Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
-          <button
-            onClick={() => setStatusFilter("all")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              statusFilter === "all"
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            All Jobs ({jobs.length})
-          </button>
-          <button
-            onClick={() => setStatusFilter("open")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              statusFilter === "open"
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Open ({openCount})
-          </button>
-          <button
-            onClick={() => setStatusFilter("in_progress")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              statusFilter === "in_progress"
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            In Progress ({inProgressCount})
-          </button>
-          <button
-            onClick={() => setStatusFilter("completed")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              statusFilter === "completed"
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Completed ({completedCount})
-          </button>
-          <button
-            onClick={() => setStatusFilter("flagged")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              statusFilter === "flagged"
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Flagged ({flaggedCount})
-          </button>
+        <div className="mb-6 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+          <div className="flex gap-2 border-b border-gray-200 min-w-max">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                statusFilter === "all"
+                  ? "border-gray-900 text-gray-900"
+                  : "border-transparent text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              All Jobs ({jobs.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter("open")}
+              className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                statusFilter === "open"
+                  ? "border-gray-900 text-gray-900"
+                  : "border-transparent text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Open ({openCount})
+            </button>
+            <button
+              onClick={() => setStatusFilter("in_progress")}
+              className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                statusFilter === "in_progress"
+                  ? "border-gray-900 text-gray-900"
+                  : "border-transparent text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              In Progress ({inProgressCount})
+            </button>
+            <button
+              onClick={() => setStatusFilter("completed")}
+              className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                statusFilter === "completed"
+                  ? "border-gray-900 text-gray-900"
+                  : "border-transparent text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Completed ({completedCount})
+            </button>
+            <button
+              onClick={() => setStatusFilter("flagged")}
+              className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                statusFilter === "flagged"
+                  ? "border-gray-900 text-gray-900"
+                  : "border-transparent text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Flagged ({flaggedCount})
+            </button>
+          </div>
         </div>
 
         {/* Jobs List */}
         <div className="space-y-4">
           {filteredJobs.map((job) => (
-            <div key={job.id} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
+            <div
+              key={job.id}
+              className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:border-gray-300 transition-colors"
+            >
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{job.title}</h3>
                     <Badge className={getStatusColor(job.status)}>
                       {job.status === "in_progress" ? "in progress" : job.status}
                     </Badge>
                     {job.is_flagged && <Badge className="bg-red-100 text-red-700">Flagged</Badge>}
                   </div>
-                  <p className="text-gray-600 text-sm mb-3">{job.description}</p>
-                  <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                    <span>
+                  <p className="text-gray-600 text-sm mb-3 break-words">{job.description}</p>
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
+                    <span className="break-words">
                       <strong>Service:</strong> {job.service_type}
                     </span>
-                    <span>
+                    <span className="break-words">
                       <strong>Location:</strong> {job.location}
                     </span>
                     <span>
                       <strong>{job.bids_count} bids</strong>
                     </span>
-                    <span>
+                    <span className="break-words">
                       <strong>Posted by:</strong> {job.homeowner_name}
                     </span>
                     <span>
@@ -366,7 +371,7 @@ export default function JobsPage() {
                     </span>
                   </div>
                 </div>
-                <div className="flex gap-2 ml-4">
+                <div className="flex gap-2 sm:ml-4 justify-end sm:justify-start">
                   <button
                     onClick={() => setSelectedJob(job)}
                     className="p-2 text-gray-600 hover:text-[#0F3D3E] hover:bg-gray-100 rounded-lg transition-colors"

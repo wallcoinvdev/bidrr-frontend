@@ -52,11 +52,9 @@ export default function FeedbackPage() {
     setUpdatingId(id)
 
     try {
-      await apiClient.request(`/api/admin/feedback/${id}/status`, {
-        method: "PUT",
-        body: { status: newStatus },
-        requiresAuth: true,
-      })
+      console.log("[v0] Toggling status for feedback:", id, "from", currentStatus, "to", newStatus)
+
+      await apiClient.put(`/api/admin/feedback/${id}/status`, { status: newStatus })
 
       setFeedback((prev) => prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item)))
 
@@ -65,7 +63,6 @@ export default function FeedbackPage() {
         description: `Feedback marked as ${newStatus}`,
       })
     } catch (error: any) {
-      console.error("Error updating status:", error)
       toast({
         title: "Error",
         description: "Failed to update feedback status",
@@ -81,11 +78,11 @@ export default function FeedbackPage() {
     setUpdatingId(id)
 
     try {
-      await apiClient.request(`/api/admin/feedback/${id}/flag`, {
-        method: "PUT",
-        body: { is_flagged: newFlag },
-        requiresAuth: true,
-      })
+      console.log("[v0] Toggling flag for feedback:", id, "to", newFlag)
+
+      await apiClient.put(`/api/admin/feedback/${id}/flag`, { is_flagged: newFlag })
+
+      console.log("[v0] Flag update response: success")
 
       setFeedback((prev) => prev.map((item) => (item.id === id ? { ...item, is_flagged: newFlag } : item)))
 
@@ -94,7 +91,6 @@ export default function FeedbackPage() {
         description: newFlag ? "Feedback flagged as important" : "Feedback unflagged",
       })
     } catch (error: any) {
-      console.error("Error updating flag:", error)
       toast({
         title: "Error",
         description: "Failed to update feedback flag",
@@ -128,20 +124,20 @@ export default function FeedbackPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-bold text-gray-900">User Feedback</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900">User Feedback</h1>
         <p className="text-gray-500 mt-2">View and manage feedback submitted by users</p>
       </div>
 
       {/* Feedback Section */}
-      <Card className="p-6 bg-white border border-gray-200 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Feedback Submissions</h2>
+      <Card className="p-4 md:p-6 bg-white border border-gray-200 shadow-sm">
+        <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-2">Feedback Submissions</h2>
         <p className="text-sm text-gray-600 mb-6">User feedback from the in-app feedback button</p>
 
         {/* Status Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
+        <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
           <button
             onClick={() => setStatusFilter("pending")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               statusFilter === "pending"
                 ? "border-gray-900 text-gray-900"
                 : "border-transparent text-gray-600 hover:text-gray-900"
@@ -151,7 +147,7 @@ export default function FeedbackPage() {
           </button>
           <button
             onClick={() => setStatusFilter("resolved")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               statusFilter === "resolved"
                 ? "border-gray-900 text-gray-900"
                 : "border-transparent text-gray-600 hover:text-gray-900"
@@ -161,7 +157,7 @@ export default function FeedbackPage() {
           </button>
           <button
             onClick={() => setStatusFilter("flagged")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               statusFilter === "flagged"
                 ? "border-gray-900 text-gray-900"
                 : "border-transparent text-gray-600 hover:text-gray-900"
@@ -171,7 +167,7 @@ export default function FeedbackPage() {
           </button>
           <button
             onClick={() => setStatusFilter("all")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               statusFilter === "all"
                 ? "border-gray-900 text-gray-900"
                 : "border-transparent text-gray-600 hover:text-gray-900"
@@ -195,34 +191,32 @@ export default function FeedbackPage() {
         {filteredFeedback.length > 0 && (
           <div className="space-y-4">
             {filteredFeedback.map((item) => (
-              <div key={item.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start mb-2">
+              <div key={item.id} className="border border-gray-200 rounded-lg p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    {item.is_flagged && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
-                    <div>
-                      <p className="font-semibold text-gray-900">{item.user_name}</p>
-                      <p className="text-sm text-gray-500">{new Date(item.created_at).toLocaleString()}</p>
+                    {item.is_flagged && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{item.user_name}</p>
+                      <p className="text-xs md:text-sm text-gray-500">{new Date(item.created_at).toLocaleString()}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                        item.status === "resolved" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
+                  <span
+                    className={`px-3 py-1 text-xs font-semibold rounded-full whitespace-nowrap self-start ${
+                      item.status === "resolved" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    {item.status}
+                  </span>
                 </div>
-                <p className="text-gray-700 mb-3">{item.message}</p>
+                <p className="text-gray-700 mb-3 break-words">{item.message}</p>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => toggleStatus(item.id, item.status)}
                     disabled={updatingId === item.id}
-                    className="text-xs"
+                    className="text-xs w-full sm:w-auto"
                   >
                     {updatingId === item.id ? (
                       <Loader2 className="w-3 h-3 mr-1 animate-spin" />
@@ -239,7 +233,7 @@ export default function FeedbackPage() {
                     size="sm"
                     onClick={() => toggleFlag(item.id, item.is_flagged || false)}
                     disabled={updatingId === item.id}
-                    className="text-xs"
+                    className="text-xs w-full sm:w-auto"
                   >
                     {updatingId === item.id ? (
                       <Loader2 className="w-3 h-3 mr-1 animate-spin" />
