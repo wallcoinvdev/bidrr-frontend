@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
-import { Loader2, Search, Ban, CheckCircle, UserCog } from 'lucide-react'
+import { Loader2, Search, Ban, UserCog } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
@@ -19,6 +19,7 @@ interface User {
   is_verified: boolean
   is_banned: boolean
   company_name?: string
+  services?: string[]
 }
 
 interface Stats {
@@ -47,18 +48,47 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true)
+
       const data = await apiClient.request<{ users: User[] }>("/api/admin/users", {
         requiresAuth: true,
       })
-      setUsers(data.users)
 
-      // Calculate stats
-      const totalUsers = data.users.length
-      const homeowners = data.users.filter((u) => u.role === "homeowner").length
-      const contractors = data.users.filter((u) => u.role === "contractor").length
-      setStats({ totalUsers, homeowners, contractors })
+      const contractors = data.users.filter((u) => u.role === "contractor")
+
+      console.log("[v0] Total contractors found:", contractors.length)
+
+      const usersWithServices = await Promise.all(
+        data.users.map(async (user) => {
+          if (user.role === "contractor") {
+            try {
+              console.log(`[v0] Fetching profile for contractor ${user.id}`)
+              const profile = await apiClient.request<any>(`/api/contractors/${user.id}/profile`, {
+                requiresAuth: true,
+              })
+
+              console.log(`[v0] Contractor ${user.id} profile:`, profile)
+              console.log(`[v0] Contractor ${user.id} services:`, profile.services)
+
+              return { ...user, services: profile.services || [] }
+            } catch (error: any) {
+              console.error(`[v0] Error fetching profile for contractor ${user.id}:`, error)
+              return { ...user, services: [] }
+            }
+          }
+          return user
+        }),
+      )
+
+      console.log("[v0] Users with services:", usersWithServices)
+
+      setUsers(usersWithServices)
+
+      const totalUsers = usersWithServices.length
+      const homeowners = usersWithServices.filter((u) => u.role === "homeowner").length
+      const contractorsCount = usersWithServices.filter((u) => u.role === "contractor").length
+      setStats({ totalUsers, homeowners, contractors: contractorsCount })
     } catch (error: any) {
-      console.error("Error fetching users:", error)
+      console.error("Error in fetchUsers:", error)
     } finally {
       setLoading(false)
     }
@@ -84,6 +114,28 @@ export default function UsersPage() {
     setFilteredUsers(filtered)
   }
 
+  const handleBanToggle = async (userId: number, currentlyBanned: boolean) => {
+    const action = currentlyBanned ? "unban" : "ban"
+    if (!confirm(`Are you sure you want to ${action} user #${userId}?`)) {
+      return
+    }
+
+    try {
+      await apiClient.request(`/api/admin/users/${userId}/ban`, {
+        method: "POST",
+        requiresAuth: true,
+        body: JSON.stringify({
+          is_banned: !currentlyBanned,
+          reason: currentlyBanned ? null : "Banned by admin",
+        }),
+      })
+      fetchUsers()
+    } catch (error) {
+      console.error(`Error ${action}ning user:`, error)
+      alert(`Failed to ${action} user`)
+    }
+  }
+
   const handleImpersonate = async (userId: number) => {
     const targetUser = users.find((u) => u.id === userId)
     if (!targetUser) return
@@ -98,17 +150,14 @@ export default function UsersPage() {
         requiresAuth: true,
       })
 
-      // Save both tokens
       const currentToken = localStorage.getItem("token")
       if (currentToken) {
         localStorage.setItem("admin_token", currentToken)
       }
 
-      // Save the new token and user data
       localStorage.setItem("token", response.token)
       localStorage.setItem("user", JSON.stringify(response.user))
 
-      // Redirect based on role
       if (response.user.role === "contractor") {
         window.location.href = "/dashboard/contractor"
       } else if (response.user.role === "homeowner") {
@@ -122,47 +171,6 @@ export default function UsersPage() {
     }
   }
 
-  const handleBanToggle = async (userId: number, currentlyBanned: boolean) => {
-    const action = currentlyBanned ? "unban" : "ban"
-    if (!confirm(`Are you sure you want to ${action} user #${userId}?`)) {
-      return
-    }
-
-    try {
-      // Backend expects /api/admin/users/:id/ban with is_banned in body
-      await apiClient.request(`/api/admin/users/${userId}/ban`, {
-        method: "POST",
-        requiresAuth: true,
-        body: JSON.stringify({
-          is_banned: !currentlyBanned,
-          reason: currentlyBanned ? null : "Banned by admin",
-        }),
-      })
-      fetchUsers() // Refresh the list
-    } catch (error) {
-      console.error(`Error ${action}ning user:`, error)
-      alert(`Failed to ${action} user`)
-    }
-  }
-
-  const handleVerifyToggle = async (userId: number, currentlyVerified: boolean) => {
-    const action = currentlyVerified ? "unverify" : "verify"
-    if (!confirm(`Are you sure you want to ${action} user #${userId}?`)) {
-      return
-    }
-
-    try {
-      await apiClient.request(`/api/admin/users/${userId}/${action}`, {
-        method: "POST",
-        requiresAuth: true,
-      })
-      fetchUsers() // Refresh the list
-    } catch (error) {
-      console.error(`Error ${action}ing user:`, error)
-      alert(`Failed to ${action} user`)
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -173,13 +181,11 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-4xl font-bold text-gray-900">User Management</h1>
         <p className="text-gray-500 mt-2">View, search, and manage platform users</p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 bg-white border border-gray-200 shadow-sm">
           <p className="text-sm text-gray-600 mb-2">Total Users</p>
@@ -197,7 +203,6 @@ export default function UsersPage() {
         </Card>
       </div>
 
-      {/* Search and Filter */}
       <div className="flex gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -221,7 +226,6 @@ export default function UsersPage() {
         </select>
       </div>
 
-      {/* Users Table */}
       <Card className="bg-white border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -233,7 +237,7 @@ export default function UsersPage() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Phone</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Location</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Services</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Actions</th>
               </tr>
             </thead>
@@ -249,7 +253,9 @@ export default function UsersPage() {
                       {user.phone_verified && (
                         <div className="w-2 h-2 bg-blue-500 rounded-full" title="Phone Verified"></div>
                       )}
-                      {user.is_verified && <div className="w-2 h-2 bg-yellow-500 rounded-full" title="Verified"></div>}
+                      {user.is_verified && (
+                        <div className="w-2 h-2 bg-orange-500 rounded-full" title="Google Verified"></div>
+                      )}
                     </div>
                     {user.company_name && <p className="text-sm text-gray-500">{user.company_name}</p>}
                   </td>
@@ -274,26 +280,22 @@ export default function UsersPage() {
                     </Badge>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex gap-2">
-                      {user.is_verified && <CheckCircle className="w-5 h-5 text-green-500" title="Verified" />}
-                      {user.is_banned && <Ban className="w-5 h-5 text-red-500" title="Banned" />}
-                    </div>
+                    {user.role === "contractor" && user.services && user.services.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 max-w-xs">
+                        {user.services.map((service, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs bg-gray-50">
+                            {service}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : user.role === "contractor" ? (
+                      <span className="text-gray-400 text-sm">No services</span>
+                    ) : (
+                      <span className="text-gray-400 text-sm">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
-                    {/* Action buttons for verify, ban, and impersonate */}
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleVerifyToggle(user.id, user.is_verified)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-green-600"
-                        title={user.is_verified ? "Unverify user" : "Verify user"}
-                      >
-                        {user.is_verified ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <CheckCircle className="w-5 h-5" />
-                        )}
-                      </button>
-
                       <button
                         onClick={() => handleBanToggle(user.id, user.is_banned)}
                         className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-red-600"

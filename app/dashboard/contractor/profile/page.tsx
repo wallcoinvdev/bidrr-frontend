@@ -4,11 +4,11 @@ import type React from "react"
 import { useRef } from "react"
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { User, Building2, Upload, Camera, Briefcase, LinkIcon, HelpCircle, Phone, BadgeCheck } from 'lucide-react'
+import { User, Building2, Upload, Camera, Briefcase, LinkIcon, HelpCircle, Phone, BadgeCheck } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { ServicesSelector } from "@/components/services-selector"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
@@ -365,6 +365,8 @@ export default function ContractorProfilePage() {
     setError(null)
     setSuccess(null)
 
+    console.log("[v0] Saving services:", services)
+
     try {
       await apiClient.request("/api/users/services", {
         method: "POST",
@@ -372,10 +374,11 @@ export default function ContractorProfilePage() {
         requiresAuth: true,
       })
 
+      console.log("[v0] Services saved successfully!")
       setSuccess("Services updated successfully!")
       await refreshUser()
     } catch (err) {
-      console.error("Error saving services:", err)
+      console.error("[v0] Error saving services:", err)
       setError(err instanceof Error ? err.message : "Failed to update services")
     } finally {
       setIsSavingServices(false)

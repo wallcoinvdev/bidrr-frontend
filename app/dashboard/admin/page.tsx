@@ -54,6 +54,63 @@ export default function AdminDashboard() {
     }
   }
 
+  const getTopLocations = (locationStats: Array<{ city: string; state: string; user_count: number }> | undefined) => {
+    if (!locationStats || locationStats.length === 0) return []
+
+    // Normalize state abbreviations
+    const stateAbbreviations: { [key: string]: string } = {
+      alberta: "AB",
+      "british columbia": "BC",
+      manitoba: "MB",
+      "new brunswick": "NB",
+      "newfoundland and labrador": "NL",
+      "northwest territories": "NT",
+      "nova scotia": "NS",
+      nunavut: "NU",
+      ontario: "ON",
+      "prince edward island": "PE",
+      quebec: "QC",
+      saskatchewan: "SK",
+      yukon: "YT",
+    }
+
+    // Merge duplicates with case-insensitive and abbreviation handling
+    const locationMap = new Map<string, number>()
+
+    locationStats.forEach((location) => {
+      const normalizedCity = location.city.trim().toLowerCase()
+      const normalizedState = location.state.trim().toLowerCase()
+
+      // Convert full state names to abbreviations
+      const stateAbbr = stateAbbreviations[normalizedState] || location.state.trim().toUpperCase()
+
+      // Create a unique key for each location
+      const locationKey = `${normalizedCity}|${stateAbbr}`
+
+      const currentCount = locationMap.get(locationKey) || 0
+      locationMap.set(locationKey, currentCount + Number(location.user_count))
+    })
+
+    // Convert back to array and format properly
+    const mergedLocations = Array.from(locationMap.entries()).map(([key, count]) => {
+      const [city, state] = key.split("|")
+      // Capitalize first letter of each word in city name
+      const formattedCity = city
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+
+      return {
+        city: formattedCity,
+        state: state,
+        user_count: count,
+      }
+    })
+
+    // Sort by user count descending and take top 10
+    return mergedLocations.sort((a, b) => b.user_count - a.user_count).slice(0, 10)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -61,6 +118,8 @@ export default function AdminDashboard() {
       </div>
     )
   }
+
+  const topLocations = getTopLocations(data?.locationStats)
 
   return (
     <div className="space-y-8">
@@ -154,7 +213,7 @@ export default function AdminDashboard() {
             <h2 className="text-xl font-bold text-gray-900">Top Locations</h2>
           </div>
           <div className="space-y-4">
-            {data?.locationStats?.map((location, index) => (
+            {topLocations.map((location, index) => (
               <div key={index} className="flex justify-between items-center py-3">
                 <span className="text-gray-700">
                   {location.city}, {location.state}
@@ -162,9 +221,7 @@ export default function AdminDashboard() {
                 <span className="text-2xl font-bold text-gray-900">{location.user_count}</span>
               </div>
             ))}
-            {(!data?.locationStats || data.locationStats.length === 0) && (
-              <p className="text-gray-500 text-center py-8">No location data available</p>
-            )}
+            {topLocations.length === 0 && <p className="text-gray-500 text-center py-8">No location data available</p>}
           </div>
         </Card>
       </div>

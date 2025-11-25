@@ -218,6 +218,7 @@ export default function HomeownerPhoneVerification() {
         postal_code: formData.postal_code,
         terms_accepted: true,
         terms_accepted_at: sessionStorage.getItem("terms_accepted_at") || new Date().toISOString(),
+        hero_heading_variation: heroHeadingVariation,
       }
 
       console.log("[v0] Signup payload:", JSON.stringify(signupPayload, null, 2))
