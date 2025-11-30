@@ -3,10 +3,20 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { apiClient } from "@/lib/api-client"
-import { Loader2, Briefcase, MapPin, Calendar, AlertCircle, Bell, Star, ChevronDown, ChevronUp, X, MessageCircle } from 'lucide-react'
+import {
+  Loader2,
+  Briefcase,
+  MapPin,
+  Calendar,
+  AlertCircle,
+  Star,
+  ChevronDown,
+  ChevronUp,
+  MessageCircle,
+} from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -28,9 +38,8 @@ const user = {
   name: "John Doe",
   full_name: "John Doe",
   email: "john.doe@example.com",
-  role: "homeowner"
-};
-
+  role: "homeowner",
+}
 
 interface Mission {
   id: number
@@ -52,21 +61,50 @@ interface Mission {
   rating?: number
   review_count?: number
   homeowner_contact?: { name: string }
-  considering_count?: number
   has_accepted_bid?: boolean
-  considering_bid_amount?: number
   // Added properties for editing
   address?: string
   city?: string
   region?: string
   completion_timeline?: string
   images?: string[] // Added for editing
+  // Nested types for API responses
+  bids?: Bid[]
+}
+
+interface Bid {
+  id: number
+  company_name: string
+  logo_url?: string
+  rating?: number
+  review_count?: number
+  business_address?: string
+  business_city?: string
+  business_region?: string
+  business_postal_code?: string
+  quote?: string
+  amount?: string
+  status: string
+  contractor_id: number
+  agent_photo_url?: string
+  contractor_name?: string
+  phone_verified?: boolean
+  is_google_verified?: boolean
+  created_at: string
+  message?: string
+  contractor?: {
+    company_name: string
+  }
 }
 
 interface Stats {
   total_jobs: number
   active_jobs: number
   completed_jobs: number
+}
+
+interface HiredContractorInfo {
+  companyName: string
 }
 
 export default function HomeownerDashboard() {
@@ -78,7 +116,7 @@ export default function HomeownerDashboard() {
   const [error, setError] = useState("")
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [showBidsModal, setShowBidsModal] = useState(false)
-  const [bids, setBids] = useState<any[]>([])
+  const [bids, setBids] = useState<Bid[]>([]) // Use Bid[] for type safety
   const [loadingBids, setLoadingBids] = useState(false)
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [reviews, setReviews] = useState<any>(null)
@@ -96,6 +134,10 @@ export default function HomeownerDashboard() {
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null)
   const [deletingJob, setDeletingJob] = useState(false)
+
+  const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null)
+  const [showReviewDialog, setShowReviewDialog] = useState(false)
+  const [hiredContractorInfo, setHiredContractorInfo] = useState<HiredContractorInfo | null>(null)
 
   // Full list of services from the schema
   const services = [
@@ -301,7 +343,8 @@ export default function HomeownerDashboard() {
   const fetchBidsWithReviews = async (missionId: number) => {
     setLoadingBids(true)
     try {
-      const data = await apiClient.request<any[]>(`/api/missions/${missionId}/bids`, {
+      const data = await apiClient.request<Bid[]>(`/api/missions/${missionId}/bids`, {
+        // Use Bid[] type
         requiresAuth: true,
       })
 
@@ -336,6 +379,8 @@ export default function HomeownerDashboard() {
       )
 
       setBids(bidsWithReviews)
+      // Update selectedMission with the fetched bids
+      setSelectedMission((prevMission) => (prevMission ? { ...prevMission, bids: bidsWithReviews } : null))
     } catch (error: any) {
       console.error("Error fetching bids:", error)
       alert("Failed to load bids: " + error.message)
@@ -469,64 +514,33 @@ export default function HomeownerDashboard() {
 
   const handleBidAction = async (bidId: number, status: string) => {
     try {
-      const bid = bids.find(b => b.id === bidId)
-      const homeownerName = selectedMission?.homeowner_contact?.name || "the homeowner"
-      const bidAmount = bid?.quote || bid?.amount || 0
+      const bid = selectedMission?.bids?.find((b) => b.id === bidId)
+      const contractorName = bid?.contractor?.company_name || "the contractor"
 
-      let message = ""
-      if (status === "accepted") {
-        message = `Congratulations! Your bid for "${selectedMission?.title}" was accepted by ${homeownerName}. Messaging is now open. Job location: ${selectedMission?.postal_code}. Accepted bid amount: $${bidAmount}. The homeowner will contact you soon to discuss next steps and scheduling.`
-      }
-
-      const response = await apiClient.request(`/api/bids/${bidId}/status`, {
+      await apiClient.request(`/api/bids/${bidId}/status`, {
         method: "PUT",
-        body: JSON.stringify({
-          status,
-          message
-        }),
+        body: JSON.stringify({ status, message: "Contractor hired by homeowner" }),
         requiresAuth: true,
       })
 
-      // Update the missions state with the new bid status for the selected mission
-      setMissions((prevMissions) =>
-        prevMissions.map((mission) =>
-          mission.id === selectedMission?.id
-            ? {
-                ...mission,
-                has_accepted_bid: status === "accepted",
-                considering_count:
-                  status === "considering"
-                    ? (mission.considering_count || 0) + 1
-                    : status === "accepted" || status === "rejected"
-                      ? (mission.considering_count || 0) - 1
-                      : mission.considering_count,
-              }
-            : mission,
-        ),
-      )
+      if (status === "accepted") {
+        setHiredContractorInfo({ companyName: contractorName })
+        setShowReviewDialog(true)
+      }
 
-      setBids((prev) =>
-        prev.map((bid) =>
-          bid.id === bidId ? { ...bid, status } : status === "accepted" ? { ...bid, status: "rejected" } : bid,
-        ),
-      )
-
-      // Removed alert and added toast
       toast({
-        title: "Success",
-        description: `Bid ${status} successfully!`,
+        title: "Contractor Hired",
+        description: "The contractor has been notified.",
       })
+      setSelectedMission(null) // Clear selected mission after action
+      await fetchDashboardData() // Re-fetch missions to update counts and states
+      setShowBidsModal(false) // Close bids modal
     } catch (error: any) {
       console.error("Error updating bid status:", error)
-
-      const errorMessage = error.status === 404
-        ? "This feature is not yet available. The backend endpoint needs to be implemented."
-        : error.message || "Failed to update bid status"
-
       toast({
-        title: "Unable to Update Bid",
-        description: errorMessage,
         variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to update bid status",
       })
     }
   }
@@ -578,6 +592,11 @@ export default function HomeownerDashboard() {
 
       formData.set("priority", priority)
 
+      console.log("[v0] Form data being sent:")
+      for (const [key, value] of formData.entries()) {
+        console.log(`[v0]   ${key}:`, value)
+      }
+
       if (editingMission) {
         // For updates, only append new image files
         imageFiles.forEach((file) => {
@@ -625,39 +644,32 @@ export default function HomeownerDashboard() {
 
   const getPriorityBadge = (mission: Mission) => {
     if (mission.priority === "high") {
-      return <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">High Priority</span>
+      return <span className="text-[9px] bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">High Priority</span>
     } else if (mission.priority === "medium") {
       return (
-        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-semibold">Medium Priority</span>
+        <span className="text-[9px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-semibold">
+          Medium Priority
+        </span>
       )
     } else if (mission.priority === "low") {
-      return <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">Low Priority</span>
+      return <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">Low Priority</span>
     }
     return null
   }
 
   const getBorderColor = (mission: Mission) => {
     const bidCount = Number(mission.bid_count) || 0
-    const consideringCount = Number(mission.considering_count) || 0
     const hasAcceptedBid = mission.has_accepted_bid
 
-    // No border for jobs with no bids
     if (bidCount === 0) {
-      return ""
+      return "border-l-4 border-l-gray-300"
     }
 
-    // Green border: Bid accepted
     if (hasAcceptedBid) {
-      return "border-green-500"
+      return "border-l-4 border-l-[#328d87]"
     }
 
-    // Yellow border: Bid being considered
-    if (consideringCount > 0) {
-      return "border-yellow-500"
-    }
-
-    // Blue border: Bids received but none considered or accepted
-    return "border-blue-500"
+    return "border-l-4 border-l-[#e2bb12]"
   }
 
   if (loading) {
@@ -725,7 +737,7 @@ export default function HomeownerDashboard() {
               {missions.map((mission) => (
                 <div
                   key={mission.id}
-                  className={`rounded-lg border-2 p-4 transition-all hover:shadow-md relative ${getBorderColor(mission)}`}
+                  className={`rounded-lg border border-gray-200 p-4 transition-all hover:shadow-md relative ${getBorderColor(mission)}`}
                 >
                   <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                     <div className="flex-1 w-full">
@@ -759,15 +771,16 @@ export default function HomeownerDashboard() {
                         )}
                       </div>
 
-                      <div className="mt-3">
-                        <button
-                          onClick={() => handleViewBids(mission)}
-                          className="inline-flex items-center gap-1 rounded bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
-                        >
-                          <Briefcase className="h-4 w-4" />
-                          Bids Received: {mission.bid_count}
-                        </button>
-                      </div>
+                      {Number(mission.bid_count) > 0 && (
+                        <div className="mt-3">
+                          <button
+                            onClick={() => handleViewBids(mission)}
+                            className="inline-flex items-center gap-1 rounded bg-[#e2bb12]/80 px-3 py-1 text-sm font-medium text-black hover:bg-[#e2bb12] transition-colors"
+                          >
+                            View Bids
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
@@ -775,8 +788,8 @@ export default function HomeownerDashboard() {
                         onClick={() => handleEditJob(mission.id)}
                         className={`flex-1 sm:flex-initial rounded border px-3 py-1 text-sm whitespace-nowrap transition-colors ${
                           mission.bid_count > 0
-                            ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                            ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : "border-gray-300 text-gray-700 hover:bg-gray-50"
                         }`}
                       >
                         Edit
@@ -790,10 +803,10 @@ export default function HomeownerDashboard() {
                     </div>
                   </div>
 
-                  {mission.considering_count && mission.considering_count > 0 && mission.considering_bid_amount && (
-                    <div className="mt-4 sm:absolute sm:bottom-4 sm:right-4 bg-yellow-100 border border-yellow-300 rounded-lg px-3 py-2 text-sm">
-                      <p className="font-semibold text-yellow-900 text-xs sm:text-sm">
-                        A bid is being considered of ${mission.considering_bid_amount}
+                  {Number(mission.bid_count) > 0 && (
+                    <div className="mt-4 sm:absolute sm:bottom-4 sm:right-4 px-3 py-2 text-sm">
+                      <p className="font-bold text-gray-500 text-xs sm:text-sm">
+                        {mission.bid_count} {Number(mission.bid_count) === 1 ? "bid" : "bids"} received
                       </p>
                     </div>
                   )}
@@ -886,15 +899,19 @@ export default function HomeownerDashboard() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description <span className="text-red-500">*</span>
+              </label>
               <textarea
                 name="job_details"
                 defaultValue={editingMission?.job_details || ""}
                 placeholder="Describe your project in detail..."
                 rows={4}
+                required
+                minLength={1}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">0/1000 characters minimum</p>
+              <p className="text-xs text-gray-500 mt-1">Required - max 1000 characters</p>
             </div>
 
             <div>
@@ -1115,13 +1132,7 @@ export default function HomeownerDashboard() {
                   <div
                     key={bid.id}
                     className={`rounded-lg border-2 p-4 sm:p-6 ${
-                      bid.status === "accepted"
-                        ? "border-green-500"
-                        : bid.status === "considering"
-                        ? "border-yellow-500"
-                        : bid.status === "rejected"
-                        ? "border-red-500"
-                        : "border-gray-200"
+                      bid.status === "accepted" || bid.status === "hired" ? "border-[#328d87]" : "border-gray-200"
                     }`}
                   >
                     <div className="space-y-4">
@@ -1139,21 +1150,9 @@ export default function HomeownerDashboard() {
                             {bid.company_name || "Company Name"}
                           </h3>
 
-                          {bid.status === "accepted" && (
-                            <span className="inline-block mt-2 bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded">
-                              ACCEPTED
-                            </span>
-                          )}
-
-                          {bid.status === "considering" && (
-                            <span className="inline-block mt-2 bg-yellow-500 text-white text-xs font-semibold px-2.5 py-1 rounded">
-                              CONSIDERING
-                            </span>
-                          )}
-
-                          {bid.status === "rejected" && (
-                            <span className="inline-block mt-2 bg-red-500 text-white text-xs font-semibold px-2.5 py-1 rounded">
-                              REJECTED
+                          {(bid.status === "accepted" || bid.status === "hired") && (
+                            <span className="inline-block mt-2 bg-[#328d87] text-white text-xs font-semibold px-2.5 py-1 rounded">
+                              HIRED
                             </span>
                           )}
 
@@ -1235,7 +1234,7 @@ export default function HomeownerDashboard() {
                           </div>
 
                           <button
-                            onClick={() => router.push('/dashboard/homeowner/messages')}
+                            onClick={() => router.push("/dashboard/homeowner/messages")}
                             className="absolute top-0 right-0 p-2 hover:bg-gray-100 rounded-full transition-colors group"
                             title="Message contractor"
                           >
@@ -1252,25 +1251,11 @@ export default function HomeownerDashboard() {
 
                       <div className="flex flex-col sm:flex-row gap-2">
                         <button
-                          onClick={() => handleBidAction(bid.id, "considering")}
-                          disabled={bid.status === "accepted"}
-                          className="flex-1 py-2 border-2 border-yellow-500 bg-yellow-100 rounded-lg text-sm font-medium text-yellow-900 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          Mark as Considering
-                        </button>
-                        <button
                           onClick={() => handleBidAction(bid.id, "accepted")}
-                          disabled={bid.status === "accepted"}
-                          className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          disabled={bid.status === "accepted" || bid.status === "hired"}
+                          className="flex-1 py-2 bg-[#03353a] text-white rounded-lg text-sm font-medium hover:bg-[#04454c] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                          {bid.status === "accepted" ? "Accepted" : "Accept"}
-                        </button>
-                        <button
-                          onClick={() => handleBidAction(bid.id, "rejected")}
-                          disabled={bid.status === "accepted"}
-                          className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          Reject
+                          {bid.status === "accepted" || bid.status === "hired" ? "Hired" : "I hired this Contractor"}
                         </button>
                       </div>
                     </div>
@@ -1420,6 +1405,30 @@ export default function HomeownerDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Contractor Hired!</AlertDialogTitle>
+            <AlertDialogDescription>
+              Help other customers by leaving a review for {hiredContractorInfo?.companyName || "this contractor"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowReviewDialog(false)}>Maybe Later</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowReviewDialog(false)
+                router.push("/dashboard/homeowner/reviews")
+              }}
+              style={{ backgroundColor: "#03353a" }}
+              className="hover:opacity-90"
+            >
+              Go to Reviews
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }

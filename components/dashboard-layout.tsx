@@ -3,14 +3,15 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname, useRouter } from 'next/navigation'
-import { Home, MessageSquare, Settings, LogOut, FileText, Star, Menu, X, AlertTriangle } from 'lucide-react'
+import { usePathname, useRouter } from "next/navigation"
+import { Home, MessageSquare, Settings, LogOut, FileText, Star, Menu, X, AlertTriangle, Coins } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect, useRef } from "react"
 import { apiClient } from "@/lib/api-client"
 import { FeedbackModal } from "@/components/feedback-modal"
 import { useToast } from "@/hooks/use-toast"
 import { VerifiedBadge } from "@/components/verified-badge"
+import { initiateStripeCheckout } from "@/lib/checkout"
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -21,6 +22,8 @@ interface NotificationCounts {
   dashboard: number
   reviews: number
   messages: number
+  pendingReviews: number
+  myBids: number
 }
 
 export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
@@ -39,13 +42,20 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
     dashboard: 0,
     reviews: 0,
     messages: 0,
+    pendingReviews: 0,
+    myBids: 0,
   })
   const notificationFetchInitialized = useRef(false)
   const notificationFetchInProgress = useRef(false)
+  const initializedForUserId = useRef<number | null>(null)
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)
 
   useEffect(() => {
     if (!user?.id) return
+    if (initializedForUserId.current !== user.id) {
+      notificationFetchInitialized.current = false
+      initializedForUserId.current = user.id
+    }
     if (notificationFetchInitialized.current) return
 
     notificationFetchInitialized.current = true
@@ -59,35 +69,60 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
 
       try {
         if (userRole === "homeowner") {
-          const [notifications, conversations] = await Promise.all([
+          const [notifications, conversations, acceptedBids] = await Promise.all([
             apiClient.request<any[]>("/api/notifications", { requiresAuth: true }),
             apiClient.request<any[]>("/api/conversations", { requiresAuth: true }).catch(() => []),
+            apiClient.request<any[]>("/api/homeowner/accepted-bids", { requiresAuth: true }).catch(() => []),
           ])
 
           const newBidsCount = notifications.filter((n) => n.type === "new_bid" && !n.is_read).length
           const unreadMessagesCount = conversations.reduce((sum, conv) => sum + Number(conv.unread_count || 0), 0)
+          const pendingReviewsCount = acceptedBids.filter((bid: any) => !bid.has_reviewed).length
+
+          console.log(
+            "[v0] Homeowner unread messages count:",
+            unreadMessagesCount,
+            "from conversations:",
+            conversations,
+          )
 
           setNotificationCounts({
             dashboard: newBidsCount,
             reviews: 0,
             messages: unreadMessagesCount,
+            pendingReviews: pendingReviewsCount,
+            myBids: 0,
           })
         } else {
-          const [notifications, leadsResponse, conversations] = await Promise.all([
+          const [notifications, leadsResponse, conversations, recentBidsResponse] = await Promise.all([
             apiClient.request<any[]>("/api/notifications", { requiresAuth: true }),
             apiClient.request<any>("/api/leads?page=1&limit=100", { requiresAuth: true }),
             apiClient.request<any[]>("/api/conversations", { requiresAuth: true }).catch(() => []),
+            apiClient.request<any>("/api/contractor/recent-bids", { requiresAuth: true }).catch(() => []),
           ])
 
-          const missions = leadsResponse.missions || leadsResponse || []
-          const newJobsCount = missions.filter((m: any) => m.viewed_by_contractor === false).length
+          const missions = leadsResponse.leads || leadsResponse.missions || leadsResponse || []
+          const newJobsCount = Array.isArray(missions)
+            ? missions.filter((m: any) => m.viewed_by_contractor === false).length
+            : 0
           const newReviewsCount = notifications.filter((n) => n.type === "new_review" && !n.is_read).length
           const unreadMessagesCount = conversations.reduce((sum, conv) => sum + Number(conv.unread_count || 0), 0)
+          const recentBids = Array.isArray(recentBidsResponse) ? recentBidsResponse : recentBidsResponse?.bids || []
+          const unviewedBidsCount = recentBids.filter((b: any) => b.viewed_by_contractor === false).length
+
+          console.log(
+            "[v0] Contractor unread messages count:",
+            unreadMessagesCount,
+            "from conversations:",
+            conversations,
+          )
 
           setNotificationCounts({
             dashboard: newJobsCount,
             reviews: newReviewsCount,
             messages: unreadMessagesCount,
+            pendingReviews: 0,
+            myBids: unviewedBidsCount,
           })
         }
       } catch (error) {
@@ -114,15 +149,24 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
       }
     }
 
+    const handleBidViewed = () => {
+      setNotificationCounts((prev) => ({
+        ...prev,
+        myBids: Math.max(0, prev.myBids - 1),
+      }))
+    }
+
     window.addEventListener("notificationUpdated", handleNotificationUpdate)
     window.addEventListener("reviewsPageViewed", handleReviewsPageViewed as EventListener)
+    window.addEventListener("bidViewed", handleBidViewed)
 
     return () => {
       clearInterval(interval)
       window.removeEventListener("notificationUpdated", handleNotificationUpdate)
       window.removeEventListener("reviewsPageViewed", handleReviewsPageViewed as EventListener)
+      window.removeEventListener("bidViewed", handleBidViewed)
     }
-  }, [userRole])
+  }, [userRole, user?.id])
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -155,8 +199,6 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   useEffect(() => {
     if (pathname === "/dashboard/homeowner" || pathname === "/dashboard/contractor") {
       setNotificationCounts((prev) => ({ ...prev, dashboard: 0 }))
-    } else if (pathname.includes("/messages")) {
-      setNotificationCounts((prev) => ({ ...prev, messages: 0 }))
     }
   }, [pathname])
 
@@ -184,16 +226,17 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
 
   const homeownerNav = [
     { href: "/dashboard/homeowner", label: "Dashboard", icon: Home, badge: "dashboard" },
-    { href: "/dashboard/homeowner/reviews", label: "Reviews", icon: Star, badge: "reviews" },
+    { href: "/dashboard/homeowner/reviews", label: "Reviews", icon: Star, badge: "pendingReviews" },
     { href: "/dashboard/homeowner/messages", label: "Messages", icon: MessageSquare, badge: "messages" },
     { href: "/dashboard/settings", label: "Settings", icon: Settings, badge: null },
   ]
 
   const contractorNav = [
     { href: "/dashboard/contractor", label: "Dashboard", icon: Home, badge: "dashboard" },
-    { href: "/dashboard/contractor/bids", label: "My Bids", icon: FileText, badge: null },
+    { href: "/dashboard/contractor/bids", label: "My Bids", icon: FileText, badge: "myBids" },
     { href: "/dashboard/contractor/reviews", label: "Reviews", icon: Star, badge: "reviews" },
     { href: "/dashboard/contractor/messages", label: "Messages", icon: MessageSquare, badge: "messages" },
+    { label: "Buy Credits", icon: Coins, badge: null },
     { href: "/dashboard/settings", label: "Settings", icon: Settings, badge: null },
   ]
 
@@ -254,7 +297,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         })
         setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)))
         setUnreadCount((prev) => Math.max(0, prev - 1))
-        
+
         if (notification.type === "new_review") {
           setNotificationCounts((prev) => ({
             ...prev,
@@ -264,6 +307,11 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
           setNotificationCounts((prev) => ({
             ...prev,
             dashboard: Math.max(0, prev.dashboard - 1),
+          }))
+        } else if (notification.type === "pending_review") {
+          setNotificationCounts((prev) => ({
+            ...prev,
+            pendingReviews: Math.max(0, prev.pendingReviews - 1),
           }))
         }
       }
@@ -285,7 +333,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   const handleBellClick = async () => {
     const isOpening = !showNotificationDropdown
     setShowNotificationDropdown(isOpening)
-    
+
     // When opening the dropdown, mark all notifications as viewed
     if (isOpening && unreadCount > 0) {
       try {
@@ -293,15 +341,17 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
           method: "PUT",
           requiresAuth: true,
         })
-        
+
         // Clear badge count immediately
         setUnreadCount(0)
         setNotificationCounts({
           dashboard: 0,
           reviews: 0,
           messages: 0,
+          pendingReviews: 0,
+          myBids: 0,
         })
-        
+
         // Mark all notifications as read locally
         setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
       } catch (error) {
@@ -312,6 +362,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
           dashboard: 0,
           reviews: 0,
           messages: 0,
+          pendingReviews: 0,
+          myBids: 0,
         })
         setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
       }
@@ -324,7 +376,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         method: "DELETE",
         requiresAuth: true,
       })
-      
+
       // Clear all notifications permanently
       setNotifications([])
       setUnreadCount(0)
@@ -332,6 +384,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         dashboard: 0,
         reviews: 0,
         messages: 0,
+        pendingReviews: 0,
+        myBids: 0,
       })
     } catch (error) {
       console.error("Error clearing notifications:", error)
@@ -342,6 +396,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         dashboard: 0,
         reviews: 0,
         messages: 0,
+        pendingReviews: 0,
+        myBids: 0,
       })
     }
   }
@@ -359,6 +415,18 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
     return date.toLocaleDateString()
+  }
+
+  const handleBuyCredits = async () => {
+    try {
+      await initiateStripeCheckout()
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to initiate checkout. Please try again.",
+      })
+    }
   }
 
   return (
@@ -400,24 +468,37 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
 
             <nav className="flex-1 px-4 space-y-2">
               {navItems.map((item) => {
-                const Icon = item.icon
                 const isActive = pathname === item.href
                 const badgeCount = getBadgeCount(item.badge)
+                const Icon = item.icon
+
+                if (item.label === "Buy Credits") {
+                  return (
+                    <button
+                      key={item.href}
+                      onClick={handleBuyCredits}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors w-full text-left ${
+                        isActive ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{item.label}</span>
+                    </button>
+                  )
+                }
 
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                       isActive ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <Icon className="w-5 h-5" />
-                      <span>{item.label}</span>
-                    </div>
+                    <Icon className="w-5 h-5" />
+                    <span>{item.label}</span>
                     {badgeCount > 0 && (
-                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[1.5rem] text-center">
+                      <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                         {badgeCount}
                       </span>
                     )}
@@ -427,7 +508,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
             </nav>
 
             <div className="p-4 space-y-4 border-t border-white/10">
-              <div className="space-y-2 md:hidden">
+              <div className="flex flex-col gap-2 px-4 py-2">
                 <button
                   onClick={handleAppStoreClick}
                   className="w-full flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-left text-sm"
@@ -476,14 +557,29 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                 <Menu className="w-6 h-6" />
               </button>
 
-              <div className="flex items-center gap-4 ml-auto">
+              <div className="flex items-center gap-2 ml-auto">
+                {userRole === "contractor" && (
+                  <button
+                    onClick={handleBuyCredits}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
+                    title="Buy Credits"
+                  >
+                    <Coins className="w-5 h-5 text-gray-700" />
+                  </button>
+                )}
+
                 <div className="relative">
                   <button
                     onClick={handleBellClick}
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
                   >
                     <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                      />
                     </svg>
                     {unreadCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -497,10 +593,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold text-lg">Notifications</h3>
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={handleClearAll}
-                            className="text-sm text-[#0F766E] hover:text-[#0d5f57]"
-                          >
+                          <button onClick={handleClearAll} className="text-sm text-[#0F766E] hover:text-[#0d5f57]">
                             Clear All
                           </button>
                           <button
@@ -526,7 +619,9 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                             >
                               <p className="text-sm font-medium text-gray-900">{notification.title}</p>
                               <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
-                              <p className="text-xs text-gray-400 mt-1">{formatNotificationTime(notification.created_at)}</p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {formatNotificationTime(notification.created_at)}
+                              </p>
                             </div>
                           ))
                         )}
@@ -540,13 +635,13 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                 {user && (
                   <div className="flex items-center gap-2">
                     {user.phone_verified && (
-                      <div className="flex items-center gap-1 text-sm">
+                      <div className="flex items-center gap-1.5 text-sm">
                         <VerifiedBadge type="phone" size="sm" showLabel={false} />
                         <span className="text-gray-600 hidden sm:inline">Phone verified</span>
                       </div>
                     )}
                     {userRole === "contractor" && user?.google_business_url && (
-                      <div className="flex items-center gap-1 text-sm">
+                      <div className="flex items-center gap-1.5 text-sm">
                         <VerifiedBadge type="google" size="sm" showLabel={false} />
                         <span className="text-gray-600 hidden sm:inline">Google verified</span>
                       </div>

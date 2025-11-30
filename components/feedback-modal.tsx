@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState } from "react"
-import { MessageSquare, Send, CheckCircle2 } from "lucide-react"
+import { Lightbulb, Send, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -82,7 +82,7 @@ export function FeedbackModal() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-          <MessageSquare className="h-4 w-4" />
+          <Lightbulb className="h-4 w-4" />
           <span className="hidden sm:inline">Feedback</span>
         </Button>
       </DialogTrigger>

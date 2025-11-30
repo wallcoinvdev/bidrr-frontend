@@ -14,7 +14,7 @@ export async function checkBackendHealth(): Promise<{
     const response = await fetch(`${BASE_URL}/api/health`, {
       method: "GET",
       mode: "cors",
-      credentials: "omit",
+      credentials: "include",
     })
 
     if (response.ok) {
@@ -60,36 +60,6 @@ class ApiClient {
     this.baseUrl = baseUrl
   }
 
-  private getAuthToken(): string | null {
-    if (typeof window === "undefined") return null
-    return localStorage.getItem("token")
-  }
-
-  private async refreshToken(): Promise<string | null> {
-    const refreshToken = localStorage.getItem("refresh_token")
-    if (!refreshToken) return null
-
-    try {
-      const response = await fetch(`${this.baseUrl}/api/users/refresh-token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        localStorage.setItem("token", data.token)
-        return data.token
-      }
-    } catch (error) {
-      console.error("[v0] Token refresh failed:", error)
-    }
-
-    return null
-  }
-
   async get<T = any>(endpoint: string, options: Omit<RequestOptions, "method"> = {}): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: "GET", requiresAuth: options.requiresAuth ?? true })
   }
@@ -132,16 +102,15 @@ class ApiClient {
   async request<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const { requiresAuth = false, ...fetchOptions } = options
 
+    const token = this.getTokenFromStorage()
+
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...fetchOptions.headers,
     }
 
-    if (requiresAuth) {
-      const token = this.getAuthToken()
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
-      }
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
     }
 
     try {
@@ -149,40 +118,17 @@ class ApiClient {
         ...fetchOptions,
         headers,
         mode: "cors",
-        credentials: "omit",
+        credentials: "include",
       })
 
       if (response.status === 401 && requiresAuth) {
-        const newToken = await this.refreshToken()
-
-        if (newToken) {
-          headers["Authorization"] = `Bearer ${newToken}`
-          const retryResponse = await fetch(`${this.baseUrl}${endpoint}`, {
-            ...fetchOptions,
-            headers,
-            mode: "cors",
-            credentials: "omit",
-          })
-
-          if (!retryResponse.ok) {
-            throw new Error(`HTTP error! status: ${retryResponse.status}`)
-          }
-
-          return await retryResponse.json()
-        } else {
-          if (typeof window !== "undefined") {
-            localStorage.removeItem("token")
-            localStorage.removeItem("refresh_token")
-            localStorage.removeItem("user")
-            window.location.href = "/login?error=session_expired"
-          }
-          throw new Error("Authentication required")
-        }
+        throw new Error("Authentication required")
       }
 
       const contentType = response.headers.get("content-type")
       if (!contentType || !contentType.includes("application/json")) {
-        const isExpected404 = response.status === 404 && endpoint.includes('/notifications/') && endpoint.includes('/mark-read')
+        const isExpected404 =
+          response.status === 404 && endpoint.includes("/notifications/") && endpoint.includes("/mark-read")
         if (!isExpected404) {
           const text = await response.text()
           throw new Error(`Server returned non-JSON response. Status: ${response.status}`)
@@ -193,8 +139,9 @@ class ApiClient {
         const errorData = await response.json().catch(() => ({}))
         const errorMessage = errorData.error || errorData.message || `HTTP error! status: ${response.status}`
 
-        const isExpected404 = response.status === 404 && endpoint.includes('/notifications/') && endpoint.includes('/mark-read')
-        
+        const isExpected404 =
+          response.status === 404 && endpoint.includes("/notifications/") && endpoint.includes("/mark-read")
+
         if (!isExpected404) {
           errorLogger.log({
             error: errorMessage,
@@ -202,8 +149,8 @@ class ApiClient {
             endpoint,
             statusCode: response.status,
             stack: errorData.details,
-            userId: this.getUserIdFromToken(),
-            userEmail: this.getUserEmailFromToken(),
+            userId: this.getUserIdFromStorage(),
+            userEmail: this.getUserEmailFromStorage(),
           })
         }
 
@@ -213,12 +160,13 @@ class ApiClient {
       const result = await response.json()
       return result
     } catch (error: any) {
-      const isExpected404 = error instanceof ApiError && 
-                           error.statusCode === 404 && 
-                           endpoint.includes('/notifications/') && 
-                           endpoint.includes('/mark-read')
-      
-      if (!isExpected404) {
+      const isExpected404 =
+        error instanceof ApiError &&
+        error.statusCode === 404 &&
+        endpoint.includes("/notifications/") &&
+        endpoint.includes("/mark-read")
+
+      if (!isExpected404 && error.message !== "Authentication required") {
         if (!(error instanceof ApiError)) {
           console.error("[API Error]", endpoint, error.message)
           errorLogger.log({
@@ -226,8 +174,8 @@ class ApiClient {
             errorName: error.name || "NetworkError",
             endpoint,
             stack: error.stack,
-            userId: this.getUserIdFromToken(),
-            userEmail: this.getUserEmailFromToken(),
+            userId: this.getUserIdFromStorage(),
+            userEmail: this.getUserEmailFromStorage(),
           })
         } else {
           console.error("[API Error]", endpoint, error.message)
@@ -244,13 +192,11 @@ class ApiClient {
     method: "POST" | "PUT" = "POST",
     requiresAuth = true,
   ): Promise<T> {
+    const token = this.getTokenFromStorage()
     const headers: HeadersInit = {}
 
-    if (requiresAuth) {
-      const token = this.getAuthToken()
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
-      }
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
     }
 
     try {
@@ -258,6 +204,7 @@ class ApiClient {
         method,
         headers,
         body: formData,
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -274,7 +221,19 @@ class ApiClient {
     }
   }
 
-  private getUserIdFromToken(): number | undefined {
+  private getTokenFromStorage(): string | null {
+    if (typeof window === "undefined") return null
+    try {
+      const token = localStorage.getItem("auth_token")
+      console.log("[v0] Token retrieval - exists:", !!token, "value:", token ? `${token.substring(0, 20)}...` : "null")
+      return token
+    } catch (e) {
+      console.error("[v0] Error retrieving token from localStorage:", e)
+      return null
+    }
+  }
+
+  private getUserIdFromStorage(): number | undefined {
     if (typeof window === "undefined") return undefined
     try {
       const user = localStorage.getItem("user")
@@ -287,7 +246,7 @@ class ApiClient {
     }
   }
 
-  private getUserEmailFromToken(): string | undefined {
+  private getUserEmailFromStorage(): string | undefined {
     if (typeof window === "undefined") return undefined
     try {
       const user = localStorage.getItem("user")

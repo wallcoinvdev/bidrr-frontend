@@ -63,6 +63,10 @@ export default function ContractorProfilePage() {
   const [services, setServices] = useState<string[]>([])
   const [isSavingServices, setIsSavingServices] = useState(false)
 
+  // CHANGE: Removed purchase history state
+  // const [purchases, setPurchases] = useState<any[]>([])
+  // const [loadingPurchases, setLoadingPurchases] = useState(true)
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -108,7 +112,22 @@ export default function ContractorProfilePage() {
       }
     }
 
+    // CHANGE: Removed fetchPurchases call
+    // const fetchPurchases = async () => {
+    //   try {
+    //     const data = await apiClient.request<{ purchases: any[] }>("/api/bids/purchase-history", {
+    //       requiresAuth: true,
+    //     })
+    //     setPurchases(data.purchases)
+    //   } catch (error) {
+    //     console.error("Error fetching purchase history:", error)
+    //   } finally {
+    //     setLoadingPurchases(false)
+    //   }
+    // }
+
     fetchProfile()
+    // fetchPurchases()
   }, [])
 
   const handleConnectGoogle = async () => {
@@ -757,7 +776,13 @@ export default function ContractorProfilePage() {
                     <input
                       type="text"
                       value={businessPostalCode}
-                      onChange={(e) => setBusinessPostalCode(e.target.value)}
+                      onChange={(e) => {
+                        const raw = e.target.value.toUpperCase().replace(/\s/g, "")
+                        const formatted = raw.length > 3 ? `${raw.slice(0, 3)} ${raw.slice(3, 6)}` : raw
+                        setBusinessPostalCode(formatted.slice(0, 7))
+                      }}
+                      maxLength={7}
+                      placeholder="A1A 1A1"
                       className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
                     />
                   </div>
@@ -1002,6 +1027,8 @@ export default function ContractorProfilePage() {
               </div>
             </div>
           </form>
+
+          {/* CHANGE: Removed Purchase History section entirely */}
         </div>
       </div>
 

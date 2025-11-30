@@ -1,22 +1,34 @@
 "use client"
 
 import type React from "react"
-import { FileText, TrendingUp, TrendingDown, Loader2, AlertCircle, MapPin, Clock, Users, Filter, Info, CalendarIcon, ChevronDown, X, Bell } from 'lucide-react'
+import {
+  Loader2,
+  AlertCircle,
+  MapPin,
+  Clock,
+  Users,
+  Filter,
+  CalendarIcon,
+  ChevronDown,
+  X,
+  Coins,
+  Info,
+} from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
-import { containsContactInfo } from "@/lib/contact-validation"
 import { notificationService } from "@/lib/notification-service"
 import { VerifiedBadge } from "@/components/verified-badge"
+import { initiateStripeCheckout } from "@/lib/checkout"
+import { useToast } from "@/hooks/use-toast"
 
 interface Stats {
   total_bids: number
   pending_bids: number
   accepted_bids: number
-  considering_bids: number
   bids_remaining?: number
   available_bids?: number
   win_rate?: number
@@ -24,7 +36,6 @@ interface Stats {
   wins?: number
   losses?: number
   resolved_bids?: number
-  bids_reset_date?: string
 }
 
 interface RecentBid {
@@ -59,9 +70,8 @@ interface Mission {
   homeowner_phone_verified?: boolean
   details_requested_by_contractor?: boolean
   has_bid?: boolean
-  my_bid_status?: "pending" | "considering" | "accepted" | "rejected"
+  my_bid_status?: "pending" | "accepted"
   my_bid_amount?: number
-  considering_bid_amount?: number
 }
 
 export default function ContractorDashboard() {
@@ -74,9 +84,6 @@ export default function ContractorDashboard() {
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
-
-  // const [notifications, setNotifications] = useState<any[]>([])
-  // const [showNotifications, setShowNotifications] = useState(false)
 
   const [showWinRateInfo, setShowWinRateInfo] = useState(false)
   const [showLossRateInfo, setShowLossRateInfo] = useState(false)
@@ -111,11 +118,7 @@ export default function ContractorDashboard() {
 
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  // const [showBidDebug, setShowBidDebug] = useState(false)
-  // const [bidHistory, setBidHistory] = useState<any[]>([])
-
-  // const fetchBidHistory = async () => { ... } - REMOVED
-
+  const { toast } = useToast()
 
   useEffect(() => {
     if (!initialDataFetched) {
@@ -132,16 +135,11 @@ export default function ContractorDashboard() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log("[v0] Auto-refreshing contractor stats and missions...")
       fetchUserAndMissions()
     }, 60000) // Refresh every 60 seconds
 
     return () => clearInterval(interval)
   }, [])
-
-  // useEffect(() => {
-  //   fetchNotifications()
-  // }, [])
 
   const fetchUserAndMissions = async () => {
     if (fetchInProgress.current) {
@@ -169,22 +167,13 @@ export default function ContractorDashboard() {
 
       try {
         const statsData = await apiClient.request<Stats>("/api/contractor/stats", { requiresAuth: true })
-        console.log("[v0] Contractor stats fetched:", {
-          available_bids: statsData.available_bids,
-          bids_remaining: statsData.bids_remaining,
-          total_bids: statsData.total_bids,
-          wins: statsData.wins,
-          losses: statsData.losses,
-          bids_reset_date: statsData.bids_reset_date
-        })
         setStats(statsData)
       } catch (error: any) {
-        console.error("[v0] Error fetching stats:", error)
+        console.error("Error fetching stats:", error.message)
         setStats({
           total_bids: 0,
           pending_bids: 0,
           accepted_bids: 0,
-          considering_bids: 0,
         })
       }
 
@@ -204,31 +193,25 @@ export default function ContractorDashboard() {
       if (filters.bidCount) params.append("bidCount", filters.bidCount)
 
       try {
-        const missionsData = await apiClient.request<Mission[]>(`/api/leads?${params.toString()}`, {
-          requiresAuth: true,
-        })
-        console.log("[v0] Missions fetched:", missionsData.length, "missions")
-        missionsData.forEach(mission => {
-          if (mission.has_bid) {
-            console.log(`[v0] Mission ${mission.id} "${mission.title}":`, {
-              has_bid: mission.has_bid,
-              my_bid_status: mission.my_bid_status,
-              my_bid_amount: mission.my_bid_amount
-            })
-          }
-        })
+        const response = await apiClient.request<{ leads: Mission[]; total: number } | Mission[]>(
+          `/api/leads?${params.toString()}`,
+          {
+            requiresAuth: true,
+          },
+        )
+        const missionsData = Array.isArray(response) ? response : response.leads || []
         const sortedMissions = missionsData.sort((a, b) => {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         })
         setMissions(sortedMissions)
         setError("")
       } catch (error: any) {
-        console.error("[v0] Error fetching missions:", error)
+        console.error("Error fetching missions:", error.message)
         setError(`Failed to load available jobs: ${error.message}`)
         setMissions([])
       }
     } catch (error: any) {
-      console.error("[v0] Error fetching profile:", error)
+      console.error("Error fetching profile:", error.message)
       setError(error.message || "Failed to load profile")
     } finally {
       clearTimeout(timeoutId)
@@ -236,8 +219,6 @@ export default function ContractorDashboard() {
       fetchInProgress.current = false
     }
   }
-
-  // const fetchNotifications = async () => { ... }
 
   const getMissionLabel = (mission: Mission) => {
     if (mission.priority === "urgent") return { text: "Urgent", color: "bg-red-100 text-red-700" }
@@ -302,24 +283,9 @@ export default function ContractorDashboard() {
     if (!selectedMission) return
 
     const bidsRemaining = stats?.available_bids ?? stats?.bids_remaining ?? 0
-    console.log("[v0] === BID SUBMISSION DEBUG ===")
-    console.log("[v0] Current stats:", {
-      available_bids: stats?.available_bids,
-      bids_remaining: stats?.bids_remaining,
-      total_bids: stats?.total_bids,
-      accepted_bids: stats?.accepted_bids,
-      wins: stats?.wins,
-      losses: stats?.losses,
-    })
-    console.log("[v0] Attempting to submit bid for mission:", selectedMission.id, selectedMission.title)
-    console.log("[v0] Bids remaining before submission:", bidsRemaining)
 
     if (bidsRemaining <= 0) {
-      const resetDate = stats?.bids_reset_date ? new Date(stats.bids_reset_date) : null
-      const formattedResetDate = resetDate
-        ? resetDate.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
-        : "the beginning of next month"
-      setBidError(`You have no bids remaining. Your bids will reset on ${formattedResetDate}.`)
+      setBidError("You have no credits remaining. Purchase more credits to continue bidding.")
       return
     }
 
@@ -334,14 +300,6 @@ export default function ContractorDashboard() {
       return
     }
 
-    const contactCheck = containsContactInfo(bidForm.message)
-    if (contactCheck.hasContact) {
-      setBidError(
-        `Please do not include ${contactCheck.type === "email" ? "email addresses" : "phone numbers"} in your message. Contact information will be shared after your bid is accepted.`,
-      )
-      return
-    }
-
     setSubmittingBid(true)
     setBidError("")
 
@@ -352,20 +310,14 @@ export default function ContractorDashboard() {
       message: bidForm.message,
     }
 
-    console.log("[v0] Submitting bid with quote:", quoteAmount, "Original input:", quoteValue)
-
     try {
       const response = await apiClient.request(endpoint, {
         method: "POST",
-        body: JSON.JSON.stringify(payload),
+        body: JSON.stringify(payload),
         requiresAuth: true,
       })
 
-      console.log("[v0] Bid submitted successfully!")
-      console.log("[v0] Response:", response)
       setBidSuccess(true)
-
-      console.log("[v0] Refetching stats to see updated bid count...")
 
       setMissions((prevMissions) =>
         prevMissions.map((m) => (m.id === selectedMission.id ? { ...m, has_bid: true } : m)),
@@ -376,12 +328,12 @@ export default function ContractorDashboard() {
         fetchUserAndMissions()
       }, 2000)
     } catch (error: any) {
-      console.error("[v0] === BID SUBMISSION ERROR ===")
-      console.error("[v0] Error details:", {
+      console.error("=== BID SUBMISSION ERROR ===")
+      console.error("Error details:", {
         message: error.message,
         status: error.status,
         endpoint: endpoint,
-        missionId: selectedMission.id
+        missionId: selectedMission.id,
       })
 
       if (error.status === 404) {
@@ -395,14 +347,7 @@ export default function ContractorDashboard() {
         )
         fetchUserAndMissions()
       } else if (error.message && error.message.includes("No bids remaining")) {
-        const resetDate = stats?.bids_reset_date
-          ? new Date(stats.bids_reset_date).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })
-          : "the beginning of next month"
-        setBidError(`You have used all 5 of your monthly bids. Your bids will reset on ${resetDate}.`)
+        setBidError("You have used all of your credits. Purchase more credits to continue bidding.")
       } else {
         setBidError(error.message || "Failed to submit bid. Please try again.")
       }
@@ -440,6 +385,18 @@ export default function ContractorDashboard() {
     }
   }
 
+  const handleBuyCredits = async () => {
+    try {
+      await initiateStripeCheckout()
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to initiate checkout. Please try again.",
+      })
+    }
+  }
+
   if (loading) {
     return (
       <DashboardLayout userRole="contractor">
@@ -464,132 +421,28 @@ export default function ContractorDashboard() {
   }
 
   const bidsRemaining = stats?.available_bids ?? stats?.bids_remaining ?? 0
-  const winRate = stats?.win_rate ?? 0
-  const lossRate = stats?.loss_rate ?? 0
-
-  console.log("[v0] Rendering dashboard - bids remaining:", bidsRemaining)
 
   return (
     <DashboardLayout userRole="contractor">
       <div className="space-y-6">
-        {/* <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="fixed top-4 right-20 z-[9999] p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow border border-gray-200"
-          >
-            <Bell className="h-5 w-5 text-gray-700" />
-            {notifications.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                {notifications.length}
-              </span>
-            )}
-          </button>
-
-          {showNotifications && (
-            <div className="fixed left-0 right-0 top-[72px] bg-white border-b border-gray-200 shadow-lg p-4 z-[9998] max-h-[80vh] overflow-y-auto sm:absolute sm:top-12 sm:left-auto sm:right-0 sm:w-80 sm:rounded-lg sm:border">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg">Notifications</h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setNotifications([])}
-                    className="text-sm text-[#0F766E] hover:text-[#0d5f57]"
-                  >
-                    Clear All
-                  </button>
-                  <button
-                    onClick={() => setShowNotifications(false)}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors"
-                    aria-label="Close notifications"
-                  >
-                    <X className="h-5 w-5 text-gray-600" />
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {notifications.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">No new notifications</p>
-                ) : (
-                  notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                    >
-                      <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                      <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">{formatDate(notification.created_at)}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div> */}
-
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back!</h1>
-          <p className="text-gray-600">{"Let's get to work"}</p>
-        </div>
-
-
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-blue-50 p-3">
-                <FileText className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-600">Bids Remaining</p>
-                <p className="text-2xl font-bold text-gray-900">{bidsRemaining}/5</p>
-                {stats?.bids_reset_date && (
-                  <p className="text-xs text-gray-500">
-                    Resets on{" "}
-                    {new Date(stats.bids_reset_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  </p>
-                )}
-              </div>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Welcome back!</h1>
+            <p className="text-gray-600">{"Let's get to work"}</p>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-green-50 p-3">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+          <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="rounded-lg bg-blue-50 p-2">
+                <Coins className="h-5 w-5 text-blue-600" />
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-600">Win Rate</p>
-                  <button
-                    type="button"
-                    onClick={() => setShowWinRateInfo(!showWinRateInfo)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <Info className="h-4 w-4" />
-                  </button>
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{Math.round(winRate)}%</p>
+              <p className="text-xl font-bold text-gray-900 sm:hidden">{bidsRemaining}</p>
+              <div className="hidden sm:block">
+                <p className="text-xs text-gray-600">Credits Available</p>
+                <p className="text-xl font-bold text-gray-900">{bidsRemaining}</p>
               </div>
             </div>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-red-50 p-3">
-                <TrendingDown className="h-6 w-6 text-red-600" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-600">Loss Rate</p>
-                  <button
-                    type="button"
-                    onClick={() => setShowLossRateInfo(!showLossRateInfo)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <Info className="h-4 w-4" />
-                  </button>
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{Math.round(lossRate)}%</p>
-              </div>
-            </div>
+            <p className="text-xs text-gray-600 text-center mt-1 sm:hidden">Credits Available</p>
           </div>
         </div>
 
@@ -696,31 +549,19 @@ export default function ContractorDashboard() {
           {missions.length === 0 ? (
             <div className="py-12 text-center">
               <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-4 text-lg text-gray-600">No available jobs at the moment</p>
-              <p className="mt-2 text-sm text-gray-500">Check back soon for new opportunities!</p>
+              <p className="mt-4 text-lg text-gray-600">Populating Jobs...</p>
+              <p className="mt-2 text-sm text-gray-500">You will be notified when new jobs appear in your Dashboard!</p>
             </div>
           ) : (
             <div className="space-y-4">
               {missions.map((mission) => {
                 const label = getMissionLabel(mission)
-                console.log(`[v0] Rendering mission ${mission.id}:`, {
-                  has_bid: mission.has_bid,
-                  my_bid_status: mission.my_bid_status,
-                  my_bid_amount: mission.my_bid_amount,
-                  borderClass: mission.my_bid_status === "rejected" ? "red" : mission.my_bid_status === "considering" ? "yellow" : mission.has_bid ? "blue" : "gray"
-                })
                 return (
                   <div
                     key={mission.id}
-                    className={`cursor-pointer rounded-lg border p-4 transition-all hover:shadow-md ${
-                      mission.my_bid_status === "rejected"
-                        ? "border-red-500 hover:border-red-600"
-                        : mission.my_bid_status === "considering"
-                        ? "border-yellow-500 hover:border-yellow-600"
-                        : mission.has_bid
-                        ? "border-blue-500 hover:border-blue-600"
-                        : "border-gray-200 hover:border-[#0F766E]"
-                    }`}
+                    className={`cursor-pointer rounded-lg border border-gray-200 border-l-4 ${
+                      mission.has_bid ? "border-l-[#e2bb12]" : "border-l-gray-300"
+                    } p-4 transition-all hover:shadow-md`}
                     onClick={() => openMissionModal(mission)}
                   >
                     <div className="flex items-start justify-between">
@@ -730,25 +571,24 @@ export default function ContractorDashboard() {
                           <span className={`rounded-full px-2 py-1 text-xs font-medium ${label.color}`}>
                             {label.text}
                           </span>
-                          {/* CHANGE: Added "Priority" suffix to priority tags */}
                           {mission.priority && (mission.priority === "urgent" || mission.priority === "high") && (
-                            <span className="rounded-full px-2 py-1 text-xs font-medium bg-red-100 text-red-700">
+                            <span className="rounded-full px-2 py-1 text-[9px] font-medium bg-red-100 text-red-700">
                               {mission.priority.charAt(0).toUpperCase() + mission.priority.slice(1)} Priority
                             </span>
                           )}
                           {mission.priority && (mission.priority === "soon" || mission.priority === "medium") && (
-                            <span className="rounded-full px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800">
+                            <span className="rounded-full px-2 py-1 text-[9px] font-medium bg-orange-100 text-orange-800">
                               {mission.priority.charAt(0).toUpperCase() + mission.priority.slice(1)} Priority
                             </span>
                           )}
                           {mission.priority && mission.priority === "low" && (
-                            <span className="rounded-full px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800">
+                            <span className="rounded-full px-2 py-1 text-[9px] font-medium bg-blue-100 text-blue-800">
                               Low Priority
                             </span>
                           )}
                         </div>
                         <p className="mt-1 text-sm text-gray-600">{mission.service}</p>
-                        
+
                         <div className="mt-2 flex flex-col gap-2 text-sm text-gray-500 sm:flex-row sm:items-center sm:gap-4">
                           <span className="flex items-center gap-1">
                             <MapPin className="h-4 w-4" />
@@ -773,9 +613,7 @@ export default function ContractorDashboard() {
                           </div>
                         )}
                       </div>
-                      <div className="flex-shrink-0 flex items-center gap-2">
-                        {/* Removed "View Details" button as the entire card is clickable */}
-                      </div>
+                      <div className="flex-shrink-0 flex items-center gap-2">{/* Additional actions */}</div>
                     </div>
                   </div>
                 )
@@ -844,18 +682,10 @@ export default function ContractorDashboard() {
                   <h3 className="text-sm font-semibold text-blue-900 uppercase mb-3">Contact Information</h3>
                   <div className="space-y-3">
                     {selectedMission.homeowner_phone && (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-blue-800 font-medium">Phone:</span>
-                          <span className="text-sm text-blue-900 blur-sm select-none">
-                            {selectedMission.homeowner_phone}
-                          </span>
-                        </div>
-                        <span className="text-xs text-blue-700 italic md:hidden">
-                          visible after bid acceptance
-                        </span>
-                        <span className="text-xs text-blue-700 italic hidden md:inline">
-                          (visible after bid acceptance)
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-blue-800 font-medium">Phone:</span>
+                        <span className="text-sm text-blue-900 blur-sm select-none">
+                          {selectedMission.homeowner_phone}
                         </span>
                       </div>
                     )}
@@ -867,12 +697,22 @@ export default function ContractorDashboard() {
                             {selectedMission.homeowner_email}
                           </span>
                         </div>
-                        <span className="text-xs text-blue-700 italic md:hidden">
-                          visible after bid acceptance
-                        </span>
-                        <span className="text-xs text-blue-700 italic hidden md:inline">
-                          (visible after bid acceptance)
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-blue-700">Revealing contact info costs 1 Bidrr Credit</span>
+                          <div className="relative group">
+                            <button
+                              type="button"
+                              className="p-0.5 rounded-full hover:bg-blue-100 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Info className="h-3.5 w-3.5 text-blue-600" />
+                            </button>
+                            <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-white border border-gray-200 rounded-lg shadow-lg text-xs text-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-50">
+                              Contact information will be available in the My Bids page after you send your quote amount
+                              and message.
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -902,7 +742,9 @@ export default function ContractorDashboard() {
 
               <div>
                 <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Job Details</h3>
-                <p className="text-sm md:text-base text-gray-900 whitespace-pre-wrap break-words">{selectedMission.job_details}</p>
+                <p className="text-sm md:text-base text-gray-900 whitespace-pre-wrap break-words">
+                  {selectedMission.job_details}
+                </p>
               </div>
 
               {selectedMission.images && selectedMission.images.length > 0 && (
@@ -931,7 +773,9 @@ export default function ContractorDashboard() {
                   {selectedMission.property_type && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-500 uppercase mb-1">Property Type</h3>
-                      <p className="text-sm md:text-base text-gray-900 capitalize break-words">{selectedMission.property_type}</p>
+                      <p className="text-sm md:text-base text-gray-900 capitalize break-words">
+                        {selectedMission.property_type}
+                      </p>
                     </div>
                   )}
                   {selectedMission.house_size && (
@@ -957,7 +801,9 @@ export default function ContractorDashboard() {
                 {selectedMission.distance_km && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Distance</h3>
-                    <p className="text-xl md:text-2xl font-bold text-gray-900">{selectedMission.distance_km.toFixed(1)} km</p>
+                    <p className="text-xl md:text-2xl font-bold text-gray-900">
+                      {selectedMission.distance_km.toFixed(1)} km
+                    </p>
                   </div>
                 )}
               </div>
@@ -991,7 +837,9 @@ export default function ContractorDashboard() {
 
               {selectedMission.has_bid ? (
                 <div className="rounded-lg border border-[#0F766E]/30 bg-[#0F766E]/5 p-4">
-                  <p className="text-sm md:text-base text-[#0F766E] font-medium break-words">You have already submitted a bid for this job</p>
+                  <p className="text-sm md:text-base text-[#0F766E] font-medium break-words">
+                    You have already submitted a bid for this job
+                  </p>
                   {selectedMission.my_bid_amount && (
                     <div className="mt-2">
                       <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#0F766E]/10 border border-[#0F766E]/20 text-[#0F766E] font-semibold text-base">
@@ -1004,9 +852,7 @@ export default function ContractorDashboard() {
                 <>
                   {selectedMission.details_requested_by_contractor || detailsRequestSent ? (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <p className="text-sm text-green-900 font-medium">
-                        ✓ Details request sent
-                      </p>
+                      <p className="text-sm text-green-900 font-medium">✓ Details request sent</p>
                     </div>
                   ) : (
                     <div>
@@ -1025,7 +871,8 @@ export default function ContractorDashboard() {
                         )}
                       </button>
                       <p className="text-xs text-gray-500 mt-2 text-center px-2">
-                        This notifies the homeowner that more details are needed for contractors to provide bids. This does not use up your bid.
+                        This notifies the customer that more details are needed for contractors to provide bids. This
+                        does not use up your bid.
                       </p>
                     </div>
                   )}
@@ -1040,14 +887,15 @@ export default function ContractorDashboard() {
                       <h3 className="font-semibold text-base md:text-lg">Submit Your Bid</h3>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quote Amount ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Quote Amount ($) <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="number"
                           min="0"
                           step="0.01"
                           value={bidForm.quote}
                           onChange={(e) => {
-                            console.log("[v0] Quote input changed:", e.target.value)
                             setBidForm({ ...bidForm, quote: e.target.value })
                           }}
                           className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
@@ -1058,7 +906,7 @@ export default function ContractorDashboard() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Message to Homeowner
+                          Message to Customer <span className="text-red-500">*</span>
                         </label>
                         <textarea
                           value={bidForm.message}
@@ -1068,9 +916,6 @@ export default function ContractorDashboard() {
                           placeholder="Explain why you're the best choice for this job..."
                           required
                         />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Do not include contact information. It will be shared if your bid is accepted.
-                        </p>
                       </div>
 
                       {bidError && (
@@ -1081,7 +926,7 @@ export default function ContractorDashboard() {
 
                       <button
                         type="submit"
-                        disabled={submittingBid}
+                        disabled={submittingBid || !bidForm.quote || !bidForm.message.trim()}
                         className="w-full py-2.5 md:py-3 bg-[#0F766E] text-white rounded-lg text-sm md:text-base font-medium hover:bg-[#0d5f57] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {submittingBid ? (

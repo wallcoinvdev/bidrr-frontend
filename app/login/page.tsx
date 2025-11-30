@@ -3,11 +3,11 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
-import { AlertCircle, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { AlertCircle, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -38,28 +38,16 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-      const response = await fetch(`${apiUrl}/api/users/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, remember_me: rememberMe }),
-      })
+      const result = await login(email, password, rememberMe)
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed")
-      }
-
-      if (data.requires_2fa) {
+      if ("requires_2fa" in result && result.requires_2fa) {
         setRequires2FA(true)
-        setTempToken(data.temp_token)
-        setPhoneNumber(data.phone_number)
+        setTempToken(result.temp_token)
+        setPhoneNumber(result.phone_number)
         setLoading(false)
         return
       }
 
-      const result = await login(email, password, rememberMe)
       const userData = result as any
 
       const targetDashboard = userData.is_admin
@@ -70,6 +58,7 @@ export default function LoginPage() {
 
       router.push(targetDashboard)
     } catch (err: any) {
+      console.error("Login error caught:", err)
       setError(err.message || "Invalid email or password. Please try again.")
       setLoading(false)
     }
@@ -86,17 +75,13 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ temp_token: tempToken, code }),
+        credentials: "include",
       })
 
       const data = await response.json()
 
       if (!response.ok) {
         throw new Error(data.error || "2FA verification failed")
-      }
-
-      localStorage.setItem("token", data.token)
-      if (data.refresh_token) {
-        localStorage.setItem("refresh_token", data.refresh_token)
       }
 
       router.replace("/dashboard/admin")
@@ -114,6 +99,7 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ temp_token: tempToken }),
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -155,7 +141,13 @@ export default function LoginPage() {
 
         <div className="relative z-10 container mx-auto px-4 py-8">
           <div className="flex justify-between items-center mb-8">
-            <Image src="/images/bidrr-white-logo.png" alt="Bidrr" width={120} height={40} className="h-8 sm:h-10 w-auto" />
+            <Image
+              src="/images/bidrr-white-logo.png"
+              alt="Bidrr"
+              width={120}
+              height={40}
+              className="h-8 sm:h-10 w-auto"
+            />
             <button
               onClick={() => setRequires2FA(false)}
               className="inline-flex items-center text-sm text-white/90 hover:text-white transition-colors"
@@ -227,7 +219,13 @@ export default function LoginPage() {
 
       <div className="relative z-10 container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-          <Image src="/images/bidrr-white-logo.png" alt="Bidrr" width={120} height={40} className="h-8 sm:h-10 w-auto" />
+          <Image
+            src="/images/bidrr-white-logo.png"
+            alt="Bidrr"
+            width={120}
+            height={40}
+            className="h-8 sm:h-10 w-auto"
+          />
           <Link href="/" className="inline-flex items-center text-sm text-white/90 hover:text-white transition-colors">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Home

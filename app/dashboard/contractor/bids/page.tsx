@@ -1,9 +1,10 @@
 "use client"
 
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Calendar, MapPin, DollarSign, Loader2, AlertCircle, X } from "lucide-react"
+import { Calendar, MapPin, Loader2, AlertCircle, X } from "lucide-react"
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
+import { VerifiedBadge } from "@/components/verified-badge"
 
 interface Bid {
   id: number
@@ -12,11 +13,13 @@ interface Bid {
   service?: string
   priority?: string
   quote: number
-  status: "pending" | "considering" | "accepted" | "rejected"
+  status: "pending" | "hired"
   created_at: string
   message?: string
   job_details?: string
+  description?: string // Added description as backend may use this field name
   images?: string[]
+  image_urls?: string[] // Added image_urls as backend may use this field name
   homeowner_first_name?: string
   homeowner_phone?: string
   homeowner_postal_code?: string
@@ -26,6 +29,11 @@ interface Bid {
   stories?: number
   accepted_bid_amount?: number
   homeowner_email?: string
+  viewed_by_contractor?: boolean
+  homeowner_profile_image?: string
+  homeowner_phone_verified?: boolean
+  bid_count?: number
+  hiring_likelihood?: number
 }
 
 interface Mission {
@@ -65,8 +73,11 @@ export default function MyBidsPage() {
     try {
       setLoading(true)
       setError("")
-      const data = await apiClient.request<Bid[]>("/api/contractor/recent-bids", { requiresAuth: true })
-      setBids(data)
+      const response = await apiClient.request<Bid[] | { bids: Bid[] }>("/api/contractor/recent-bids", {
+        requiresAuth: true,
+      })
+      const bidsData = Array.isArray(response) ? response : response?.bids || []
+      setBids(bidsData)
     } catch (error: any) {
       console.error("Error fetching bids:", error)
       setError(error.message || "Failed to load your bids")
@@ -78,17 +89,18 @@ export default function MyBidsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "considering":
-        return "bg-yellow-100 text-yellow-800"
-      case "accepted":
-        return "bg-green-100 text-green-800"
-      case "rejected":
-        return "bg-red-100 text-red-800"
-      case "pending":
-        return "bg-blue-100 text-blue-800"
+      case "hired":
+        return "bg-[#328d87]/20 text-[#328d87]"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-[#e2bb12]/20 text-[#b89a0e]"
     }
+  }
+
+  const getBorderColor = (status: string) => {
+    if (status === "hired") {
+      return "border-l-4 border-l-[#328d87]"
+    }
+    return "border-l-4 border-l-[#e2bb12]"
   }
 
   const formatDate = (dateString: string) => {
@@ -120,6 +132,26 @@ export default function MyBidsPage() {
       }
     } finally {
       setLoadingMission(false)
+    }
+  }
+
+  const markBidAsViewed = async (bidId: number) => {
+    try {
+      await apiClient.request(`/api/bids/${bidId}/mark-viewed`, {
+        method: "POST",
+        requiresAuth: true,
+      })
+      setBids((prevBids) => prevBids.map((bid) => (bid.id === bidId ? { ...bid, viewed_by_contractor: true } : bid)))
+      window.dispatchEvent(new CustomEvent("bidViewed"))
+    } catch (error) {
+      console.error("Error marking bid as viewed:", error)
+    }
+  }
+
+  const handleBidClick = async (bid: Bid) => {
+    setSelectedBid(bid)
+    if (!bid.viewed_by_contractor) {
+      await markBidAsViewed(bid.id)
     }
   }
 
@@ -160,8 +192,8 @@ export default function MyBidsPage() {
                 bids.map((bid) => (
                   <div
                     key={bid.id}
-                    onClick={() => setSelectedBid(bid)}
-                    className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => handleBidClick(bid)}
+                    className={`bg-white rounded-xl border border-gray-200 p-4 md:p-6 hover:shadow-md transition-shadow cursor-pointer ${getBorderColor(bid.status)}`}
                   >
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
@@ -187,17 +219,16 @@ export default function MyBidsPage() {
                           <span>Submitted {formatDate(bid.created_at)}</span>
                         </div>
                         <div className="flex items-center gap-3 sm:gap-4">
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="h-5 w-5 text-green-600 flex-shrink-0" />
-                            <span className="text-lg md:text-xl font-bold text-gray-900">
-                              ${bid.quote?.toLocaleString() || "0"}
-                            </span>
-                          </div>
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${getStatusColor(bid.status)}`}
-                          >
-                            {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
+                          <span className="text-lg md:text-xl font-bold text-gray-900">
+                            ${bid.quote?.toLocaleString() || "0"}
                           </span>
+                          {bid.status === "hired" && (
+                            <span
+                              className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${getStatusColor(bid.status)}`}
+                            >
+                              Hired
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -231,222 +262,185 @@ export default function MyBidsPage() {
             </div>
 
             <div className="p-4 md:p-6 space-y-6">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Service Type</h3>
-                <p className="text-lg text-gray-900 break-words">{selectedBid.service || "N/A"}</p>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Your Message</h3>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-gray-900">
-                    {selectedBid.message || `I can do this job for $${selectedBid.quote}`}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Customer Information</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Customer Name</p>
-                    <p className="text-gray-900 font-medium break-words">
-                      {selectedBid.homeowner_first_name || "Not provided"}
-                    </p>
+              {/* Customer Info Section */}
+              {(selectedBid.homeowner_first_name || selectedBid.homeowner_profile_image) && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                  {selectedBid.homeowner_profile_image ? (
+                    <img
+                      src={selectedBid.homeowner_profile_image || "/placeholder.svg"}
+                      alt={selectedBid.homeowner_first_name || "Customer"}
+                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-semibold text-xl border-2 border-gray-200">
+                      {selectedBid.homeowner_first_name?.charAt(0).toUpperCase() || "?"}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-gray-900 break-words">
+                      {selectedBid.homeowner_first_name || "Customer"}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      {selectedBid.homeowner_phone_verified && (
+                        <>
+                          <VerifiedBadge type="phone" size="sm" showLabel={false} />
+                          <span className="text-sm text-gray-600">Phone verified</span>
+                        </>
+                      )}
+                    </div>
+                    {selectedBid.homeowner_postal_code && (
+                      <p className="text-sm text-gray-500 mt-1">{selectedBid.homeowner_postal_code}</p>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Postal Code</p>
-                    <p className="text-gray-900 font-medium break-words">
-                      {selectedBid.homeowner_postal_code || "Not provided"}
-                    </p>
-                  </div>
                 </div>
-              </div>
+              )}
 
-              {selectedBid.status === "accepted" && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Contact Information</h3>
-                  <div className="space-y-3">
+              {/* Contact Info Section */}
+              {(selectedBid.homeowner_phone || selectedBid.homeowner_email) && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h3 className="text-sm font-semibold text-green-900 uppercase mb-3">Contact Information</h3>
+                  <div className="space-y-2">
                     {selectedBid.homeowner_phone && (
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Phone:</p>
-                        <p className="text-gray-900 font-medium break-words">{selectedBid.homeowner_phone}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-green-800 font-medium">Phone:</span>
+                        <a
+                          href={`tel:${selectedBid.homeowner_phone}`}
+                          className="text-sm text-green-900 hover:underline"
+                        >
+                          {selectedBid.homeowner_phone}
+                        </a>
                       </div>
                     )}
                     {selectedBid.homeowner_email && (
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Email:</p>
-                        <p className="text-gray-900 font-medium overflow-wrap-anywhere">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-green-800 font-medium">Email:</span>
+                        <a
+                          href={`mailto:${selectedBid.homeowner_email}`}
+                          className="text-sm text-green-900 hover:underline break-all"
+                        >
                           {selectedBid.homeowner_email}
-                        </p>
+                        </a>
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Status</h3>
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedBid.status)}`}
-                >
-                  {selectedBid.status.charAt(0).toUpperCase() + selectedBid.status.slice(1)}
-                </span>
-                {selectedBid.status === "accepted" && (
-                  <p className="text-gray-600 mt-3">
-                    Congratulations! Your bid was accepted. Contact the customer to schedule the work.
-                  </p>
-                )}
-                {selectedBid.status === "rejected" && (
-                  <p className="text-gray-600 mt-3">
-                    Unfortunately, this bid was not accepted. Keep bidding on other jobs!
-                  </p>
-                )}
-                {selectedBid.status === "considering" && (
-                  <p className="text-gray-600 mt-3">
-                    The customer is considering your bid. You'll be notified if you're selected.
-                  </p>
-                )}
-              </div>
-
-              <div className="pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => handleViewFullPost(selectedBid.mission_id)}
-                  disabled={loadingMission}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {loadingMission && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {loadingMission ? "Loading..." : "See Full Post"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedMission && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-          style={{ zIndex: 10000 }}
-          onClick={() => {
-            setSelectedMission(null)
-            setMissionError("")
-          }}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 md:p-6 flex justify-between items-start z-10">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 pr-8">{selectedMission.title}</h2>
-              <button
-                onClick={() => {
-                  setSelectedMission(null)
-                  setMissionError("")
-                }}
-                className="flex-shrink-0 p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Close"
-              >
-                <X className="h-6 w-6 text-gray-600" />
-              </button>
-            </div>
-
-            <div className="p-4 md:p-6 space-y-6">
-              {missionError ? (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                  <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
-                  <p className="text-red-800 font-medium">{missionError}</p>
+              {/* Service Type and Priority Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Service Type</h3>
+                  <p className="text-base md:text-lg text-gray-900 break-words">{selectedBid.service || "N/A"}</p>
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Service Type</h3>
-                      <p className="text-lg text-gray-900 break-words">{selectedMission.service}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Priority</h3>
-                      <span
-                        className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                          selectedMission.priority === "urgent"
-                            ? "bg-red-100 text-red-800"
-                            : selectedMission.priority === "soon"
-                              ? "bg-orange-100 text-orange-800"
-                              : "bg-blue-100 text-blue-800"
-                        }`}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Priority</h3>
+                  <span
+                    className={`inline-block px-3 py-1 rounded-full text-[9px] font-medium ${
+                      selectedBid.priority === "urgent" || selectedBid.priority === "high"
+                        ? "bg-red-100 text-red-800"
+                        : selectedBid.priority === "soon" || selectedBid.priority === "medium"
+                          ? "bg-orange-100 text-orange-800"
+                          : "bg-blue-100 text-blue-800"
+                    }`}
+                  >
+                    {selectedBid.priority?.charAt(0).toUpperCase() + selectedBid.priority?.slice(1) || "Normal"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Job Details Section */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Job Details</h3>
+                <p className="text-sm md:text-base text-gray-900 whitespace-pre-wrap break-words">
+                  {selectedBid.job_details || selectedBid.description || "No details provided"}
+                </p>
+              </div>
+
+              {/* Images Section */}
+              {((selectedBid.images && selectedBid.images.length > 0) ||
+                (selectedBid.image_urls && selectedBid.image_urls.length > 0)) && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Photos</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {(selectedBid.images || selectedBid.image_urls || []).map((image, index) => (
+                      <div
+                        key={index}
+                        className="aspect-square rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setPreviewImage(image)}
                       >
-                        {selectedMission.priority?.charAt(0).toUpperCase() + selectedMission.priority?.slice(1) ||
-                          "Normal"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Job Details</h3>
-                    <p className="text-gray-900 whitespace-pre-wrap">{selectedMission.job_details}</p>
-                  </div>
-
-                  {selectedMission.images && selectedMission.images.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Photos</h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {selectedMission.images.map((image, index) => (
-                          <div
-                            key={index}
-                            className="aspect-square rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => setPreviewImage(image)}
-                          >
-                            <img
-                              src={image || "/placeholder.svg"}
-                              alt={`Job photo ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ))}
+                        <img
+                          src={image || "/placeholder.svg"}
+                          alt={`Job photo ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+              {/* Property Details Section */}
+              {(selectedBid.property_type || selectedBid.house_size || selectedBid.stories) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                  {selectedBid.property_type && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-500 uppercase mb-1">Property Type</h3>
-                      <p className="text-gray-900 capitalize">{selectedMission.property_type || "N/A"}</p>
+                      <p className="text-sm md:text-base text-gray-900 capitalize break-words">
+                        {selectedBid.property_type}
+                      </p>
                     </div>
+                  )}
+                  {selectedBid.house_size && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-500 uppercase mb-1">House Size</h3>
-                      <p className="text-gray-900">{selectedMission.house_size || "N/A"}</p>
+                      <p className="text-sm md:text-base text-gray-900 break-words">{selectedBid.house_size}</p>
                     </div>
+                  )}
+                  {selectedBid.stories && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-500 uppercase mb-1">Stories</h3>
-                      <p className="text-gray-900">{selectedMission.stories || "N/A"}</p>
+                      <p className="text-sm md:text-base text-gray-900">{selectedBid.stories}</p>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Total Bids</h3>
-                      <p className="text-2xl font-bold text-gray-900">{selectedMission.bid_count || 0}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Distance</h3>
-                      <p className="text-2xl font-bold text-gray-900">{selectedMission.distance_km?.toFixed(1)} km</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Posted</h3>
-                    <p className="text-gray-900">
-                      {new Date(selectedMission.created_at).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                </>
+                  )}
+                </div>
               )}
+
+              {/* Distance Section */}
+              {selectedBid.distance_km && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Distance</h3>
+                  <p className="text-xl md:text-2xl font-bold text-gray-900">{selectedBid.distance_km.toFixed(1)} km</p>
+                </div>
+              )}
+
+              {/* Your Bid Section */}
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="text-sm font-semibold text-blue-900 uppercase mb-3">Your Bid</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-blue-800 font-medium">Quote Amount:</span>
+                    <span className="text-xl font-bold text-blue-900">
+                      ${selectedBid.quote?.toLocaleString() || "0"}
+                    </span>
+                  </div>
+                  {selectedBid.message && (
+                    <div>
+                      <span className="text-sm text-blue-800 font-medium">Your Message:</span>
+                      <p className="mt-1 text-sm text-blue-900">{selectedBid.message}</p>
+                    </div>
+                  )}
+                  <div className="text-xs text-blue-700">
+                    Submitted{" "}
+                    {new Date(selectedBid.created_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

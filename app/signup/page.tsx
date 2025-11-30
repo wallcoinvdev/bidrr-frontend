@@ -1,9 +1,9 @@
 "use client"
 import { useEffect } from "react"
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Briefcase, Home } from 'lucide-react'
+import { ArrowLeft, Briefcase, Home } from "lucide-react"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -14,28 +14,17 @@ export default function SignupPage() {
     console.log("[v0] ========== SIGNUP PAGE LOADED ==========")
     console.log("[v0] Current URL:", window.location.href)
     console.log("[v0] Role from URL:", role)
-    console.log("[v0] localStorage.token:", localStorage.getItem("token"))
-    console.log("[v0] localStorage.user:", localStorage.getItem("user"))
     console.log("[v0] Timestamp:", new Date().toISOString())
     console.log("[v0] ===========================================")
   }, [])
 
   useEffect(() => {
     if (role === "homeowner" || role === "contractor") {
-      console.log("[v0] Auto-redirecting to onboarding with role:", role)
       router.push(`/onboarding/personal-info?role=${role}`)
     }
   }, [role, router])
 
   const handleRoleSelect = (selectedRole: "homeowner" | "contractor") => {
-    console.log("[v0] ========== ROLE SELECTED ==========")
-    console.log("[v0] User selected role:", selectedRole)
-    console.log("[v0] Redirecting to:", `/onboarding/personal-info?role=${selectedRole}`)
-    console.log("[v0] Current localStorage state:", {
-      token: !!localStorage.getItem("token"),
-      user: !!localStorage.getItem("user"),
-    })
-    console.log("[v0] =====================================")
     router.push(`/onboarding/personal-info?role=${selectedRole}`)
   }
 
@@ -51,7 +40,13 @@ export default function SignupPage() {
       {/* Content */}
       <div className="relative container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-          <Image src="/images/bidrr-white-logo.png" alt="Bidrr" width={120} height={40} className="h-8 sm:h-10 w-auto" />
+          <Image
+            src="/images/bidrr-white-logo.png"
+            alt="Bidrr"
+            width={120}
+            height={40}
+            className="h-8 sm:h-10 w-auto"
+          />
           <Link href="/" className="inline-flex items-center text-sm text-white/90 hover:text-white transition-colors">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Home

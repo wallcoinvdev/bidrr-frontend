@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Send, MoreVertical } from 'lucide-react'
+import { Send, MoreVertical } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -84,6 +84,7 @@ export default function MessagesPage() {
       })
 
       setMessages(data.messages || [])
+      await markConversationAsRead(conversationId)
     } catch (error) {
       console.error("Error fetching messages:", error)
       setMessages([])
@@ -142,6 +143,19 @@ export default function MessagesPage() {
     }
   }
 
+  const markConversationAsRead = async (conversationId: number) => {
+    try {
+      await apiClient.request(`/api/conversations/${conversationId}/mark-read`, {
+        method: "PUT",
+        requiresAuth: true,
+      })
+      setConversations((prev) => prev.map((conv) => (conv.id === conversationId ? { ...conv, unread_count: 0 } : conv)))
+      window.dispatchEvent(new CustomEvent("notificationUpdated"))
+    } catch (error) {
+      console.error("Error marking conversation as read:", error)
+    }
+  }
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
@@ -189,7 +203,14 @@ export default function MessagesPage() {
                   <div className="font-semibold text-sm mb-1 truncate">{conv.contractor_company}</div>
                   <div className="text-xs text-muted-foreground mb-2 truncate">{conv.mission_title}</div>
                   <div className="text-sm text-foreground mb-1 line-clamp-1 break-words">{conv.last_message}</div>
-                  <div className="text-xs text-muted-foreground">{formatRelativeTime(conv.last_message_at)}</div>
+                  {conv.last_message_at && (
+                    <div className="text-xs text-muted-foreground">{formatRelativeTime(conv.last_message_at)}</div>
+                  )}
+                  {conv.unread_count > 0 && (
+                    <span className="inline-block mt-2 bg-teal-600 text-white text-xs px-2 py-0.5 rounded-full">
+                      {conv.unread_count}
+                    </span>
+                  )}
                 </button>
               ))
             )}
@@ -197,8 +218,8 @@ export default function MessagesPage() {
 
           <div className="p-3 sm:p-4 border-t bg-muted/30 flex-shrink-0">
             <p className="text-xs text-muted-foreground">
-              <span className="font-semibold">Note:</span> You can message contractors at any time. Contractors can only
-              send an initial message with a bid or respond to your messages. Once a bid is accepted, messaging becomes unrestricted.
+              <span className="font-semibold">Note:</span> Conversations will appear here when contractors submit bids
+              on your job posts. You can message contractors directly to ask questions or discuss project details.
             </p>
           </div>
         </Card>

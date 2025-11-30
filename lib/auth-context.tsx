@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react"
 import { apiClient } from "./api-client"
 
 interface User {
@@ -37,6 +37,7 @@ interface User {
   province?: string
   postal_code?: string
   impersonating_admin_id?: number
+  token?: string
 }
 
 interface AuthContextType {
@@ -57,79 +58,44 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-function decodeToken(
-  token: string,
-): { id: number; role: "homeowner" | "contractor"; is_admin?: boolean; impersonating_admin_id?: number } | null {
-  try {
-    const base64Url = token.split(".")[1]
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join(""),
-    )
-    const payload = JSON.parse(jsonPayload)
-    return {
-      id: payload.id,
-      role: payload.role,
-      is_admin: payload.is_admin,
-      impersonating_admin_id: payload.impersonating_admin_id,
-    }
-  } catch (error) {
-    console.error("[v0] Failed to decode token:", error)
-    return null
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const initRef = useRef(false)
 
   const isImpersonating = !!user?.impersonating_admin_id
 
-  const fetchUserProfile = async (token: string): Promise<User | null> => {
+  const fetchUserProfile = async (): Promise<User | null> => {
     try {
-      const userData = await apiClient.request<User>("/api/users/profile", {
+      const userData = await apiClient.request<User & { token?: string }>("/api/users/profile", {
         method: "GET",
         requiresAuth: true,
       })
 
-      const tokenData = decodeToken(token)
-      if (tokenData?.impersonating_admin_id) {
-        userData.impersonating_admin_id = tokenData.impersonating_admin_id
+      if (userData.token) {
+        console.log("[v0] Storing token from profile response:", userData.token.substring(0, 20) + "...")
+        localStorage.setItem("auth_token", userData.token)
+      } else {
+        console.log("[v0] Profile response missing token")
       }
 
       return userData
     } catch (error: any) {
-      console.error("[v0] Failed to fetch user profile:", error)
-      const tokenData = decodeToken(token)
-      if (tokenData) {
-        return {
-          id: tokenData.id,
-          email: "",
-          full_name: "",
-          role: tokenData.role,
-          is_admin: tokenData.is_admin,
-          impersonating_admin_id: tokenData.impersonating_admin_id,
-        }
+      if (error.message !== "Authentication required" && error.message !== "Unauthorized") {
+        console.error("Failed to fetch user profile:", error)
       }
       return null
     }
   }
 
   const refreshUser = async () => {
-    const token = localStorage.getItem("token")
-    if (!token) return
-
-    const userData = await fetchUserProfile(token)
+    const userData = await fetchUserProfile()
     if (userData) {
       setUser(userData)
       localStorage.setItem("user", JSON.stringify(userData))
     } else {
-      localStorage.removeItem("token")
-      localStorage.removeItem("refresh_token")
       localStorage.removeItem("user")
+      localStorage.removeItem("auth_token")
       setUser(null)
     }
 
@@ -138,24 +104,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const impersonateUser = async (userId: number) => {
     try {
-      const originalToken = localStorage.getItem("token")
-      if (originalToken) {
-        localStorage.setItem("admin_token", originalToken)
-      }
+      localStorage.setItem("is_impersonating", "true")
 
-      const response = await apiClient.request<{ token: string; user: User }>(`/api/admin/impersonate/${userId}`, {
+      const response = await apiClient.request<{ user: User; token?: string }>(`/api/admin/impersonate/${userId}`, {
         method: "POST",
         requiresAuth: true,
       })
 
-      // Ensure full_name is set for banner display
+      if (response.token) {
+        localStorage.setItem("auth_token", response.token)
+      }
+
       const impersonatedUser = {
         ...response.user,
         full_name: response.user.full_name || response.user.email,
         impersonating_admin_id: response.user.impersonating_admin_id,
       }
 
-      localStorage.setItem("token", response.token)
       localStorage.setItem("user", JSON.stringify(impersonatedUser))
       setUser(impersonatedUser)
 
@@ -168,50 +133,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const exitImpersonation = () => {
-    const adminToken = localStorage.getItem("admin_token")
-    if (adminToken) {
-      localStorage.setItem("token", adminToken)
-      localStorage.removeItem("admin_token")
-      window.location.href = "/dashboard/admin/users"
-    } else {
-      console.error("[v0] No admin token found to restore")
-      logout()
-    }
+    localStorage.removeItem("is_impersonating")
+    localStorage.removeItem("auth_token")
+    window.location.href = "/dashboard/admin/users"
   }
 
   useEffect(() => {
+    if (initRef.current) return
+    initRef.current = true
+
     const initAuth = async () => {
-      const urlParams = new URLSearchParams(window.location.search)
-      const tokenFromUrl = urlParams.get("token")
+      try {
+        const userData = await fetchUserProfile()
 
-      if (tokenFromUrl) {
-        localStorage.setItem("token", tokenFromUrl)
-        window.history.replaceState({}, "", window.location.pathname)
-      }
-
-      const token = localStorage.getItem("token")
-
-      if (!token) {
+        if (userData) {
+          setUser(userData)
+          localStorage.setItem("user", JSON.stringify(userData))
+        } else {
+          localStorage.removeItem("user")
+          localStorage.removeItem("auth_token")
+          setUser(null)
+        }
+      } catch (error) {
         localStorage.removeItem("user")
-        localStorage.removeItem("refresh_token")
+        localStorage.removeItem("auth_token")
         setUser(null)
+      } finally {
         setLoading(false)
-        return
       }
-
-      const userData = await fetchUserProfile(token)
-
-      if (userData) {
-        setUser(userData)
-        localStorage.setItem("user", JSON.stringify(userData))
-      } else {
-        localStorage.removeItem("token")
-        localStorage.removeItem("refresh_token")
-        localStorage.removeItem("user")
-        setUser(null)
-      }
-
-      setLoading(false)
     }
 
     initAuth()
@@ -223,20 +172,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     rememberMe = false,
   ): Promise<User | { requires_2fa: boolean; temp_token: string; phone_number: string }> => {
     try {
-      console.log("[v0] ========== LOGIN ATTEMPT ==========")
-      console.log("[v0] Email:", email)
-      console.log("[v0] Timestamp:", new Date().toISOString())
-
       const response = await apiClient.request<{
-        token?: string
-        refresh_token?: string
         user?: User
+        token?: string
         requires_2fa?: boolean
         temp_token?: string
         phone_number?: string
       }>("/api/users/login", {
         method: "POST",
         body: JSON.stringify({ email, password, remember_me: rememberMe }),
+        requiresAuth: false,
       })
 
       if (response.requires_2fa && response.temp_token) {
@@ -247,40 +192,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (!response.token) {
-        throw new Error("Login response missing authentication token")
+      if (response.token) {
+        console.log("[v0] Storing token from login response:", response.token.substring(0, 20) + "...")
+        localStorage.setItem("auth_token", response.token)
+      } else {
+        console.log("[v0] Login response missing token")
       }
 
-      localStorage.setItem("token", response.token)
-      if (response.refresh_token) {
-        localStorage.setItem("refresh_token", response.refresh_token)
+      let userData: User | null = null
+      try {
+        userData = await fetchUserProfile()
+      } catch (error) {
+        console.warn("Failed to fetch full profile after login, using login response data:", error)
+        userData = response.user || null
       }
-
-      console.log("[v0] ✅ LOGIN SUCCESSFUL")
-      console.log("[v0] Token stored in localStorage")
-
-      const fullProfile = await fetchUserProfile(response.token)
-      const userData = fullProfile || response.user
 
       if (!userData) {
         throw new Error("Login response missing user data")
       }
-
-      console.log("[v0] User ID:", userData.id)
-      console.log("[v0] User role:", userData.role)
 
       localStorage.setItem("user", JSON.stringify(userData))
       setUser(userData)
 
       return userData
     } catch (error: any) {
-      console.error("[v0] Login error:", error)
+      console.error("Login error:", error)
       throw error
     }
   }
 
   const logout = () => {
-    localStorage.removeItem("admin_token")
+    localStorage.removeItem("is_impersonating")
+    localStorage.removeItem("auth_token")
     window.location.href = "/logout"
   }
 

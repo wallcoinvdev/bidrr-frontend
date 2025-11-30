@@ -7,14 +7,26 @@ export default function LogoutPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Clear all authentication data
-    localStorage.removeItem("token")
-    localStorage.removeItem("refresh_token")
-    localStorage.removeItem("user")
-    localStorage.removeItem("admin_token")
+    const logout = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 
-    // Redirect to homepage
-    router.push("/")
+        await fetch(`${apiUrl}/api/users/logout`, {
+          method: "POST",
+          credentials: "include",
+        })
+      } catch (error) {
+        console.error("Logout error:", error)
+      } finally {
+        localStorage.removeItem("user")
+        localStorage.removeItem("is_impersonating")
+
+        // Redirect to homepage
+        router.push("/")
+      }
+    }
+
+    logout()
   }, [router])
 
   return (

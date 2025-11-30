@@ -5,25 +5,24 @@ import { apiClient } from "@/lib/api-client"
 import { Loader2, Search, Eye, Flag, Trash2, X } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import dynamic from "next/dynamic"
-
-const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
-const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false })
-const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false })
 
 interface Job {
   id: number
   title: string
-  description: string
-  service_type: string
+  description?: string
+  job_details?: string
+  service: string // Changed from service_type to service (matches backend)
   status: string
-  location: string
   city: string
   region: string
+  country: string
+  address?: string
+  postal_code?: string
   latitude?: number
   longitude?: number
-  bids_count: number
-  homeowner_name: string
+  bids_count?: number // Made optional since backend may not include it
+  homeowner_name?: string
+  user_id: number
   created_at: string
   is_flagged: boolean
   flag_reason?: string
@@ -51,13 +50,13 @@ function JobDetailsModal({ job, onClose }: { job: Job | null; onClose: () => voi
               </Badge>
               {job.is_flagged && <Badge className="bg-red-100 text-red-700">Flagged</Badge>}
             </div>
-            <p className="text-gray-600 break-words">{job.description}</p>
+            <p className="text-gray-600 break-words">{job.description || job.job_details || "No description"}</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-500">Service Type</label>
-              <p className="text-gray-900 break-words">{job.service_type}</p>
+              <p className="text-gray-900 break-words">{job.service || "N/A"}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Status</label>
@@ -65,15 +64,17 @@ function JobDetailsModal({ job, onClose }: { job: Job | null; onClose: () => voi
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Location</label>
-              <p className="text-gray-900 break-words">{job.location}</p>
+              <p className="text-gray-900 break-words">
+                {job.city && job.region && job.country ? `${job.city}, ${job.region}, ${job.country}` : "N/A"}
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Posted By</label>
-              <p className="text-gray-900 break-words">{job.homeowner_name}</p>
+              <p className="text-gray-900 break-words">{job.homeowner_name || "Unknown"}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Number of Bids</label>
-              <p className="text-gray-900">{job.bids_count}</p>
+              <p className="text-gray-900">{job.bids_count || 0}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Posted Date</label>
@@ -107,21 +108,13 @@ function getStatusColor(status: string) {
   }
 }
 
-export default function JobsPage() {
+export default function AdminJobsPage() {
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<Job[]>([])
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
-
-  useEffect(() => {
-    fetchJobs()
-  }, [])
-
-  useEffect(() => {
-    filterJobs()
-  }, [jobs, searchTerm, statusFilter])
 
   const fetchJobs = async () => {
     try {
@@ -137,6 +130,14 @@ export default function JobsPage() {
     }
   }
 
+  useEffect(() => {
+    fetchJobs()
+  }, [])
+
+  useEffect(() => {
+    filterJobs()
+  }, [searchTerm, statusFilter, jobs])
+
   const filterJobs = () => {
     let filtered = jobs
 
@@ -145,6 +146,7 @@ export default function JobsPage() {
         (job) =>
           job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           job.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          job.job_details?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           job.homeowner_name?.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
@@ -207,10 +209,43 @@ export default function JobsPage() {
     }
   }
 
+  const groupJobsByLocation = () => {
+    const grouped: { [key: string]: Job[] } = {}
+
+    jobs.forEach((job) => {
+      if (job.latitude && job.longitude) {
+        const key = `${job.latitude},${job.longitude}`
+        if (!grouped[key]) {
+          grouped[key] = []
+        }
+        grouped[key].push(job)
+      }
+    })
+
+    Object.keys(grouped).forEach((key) => {
+      grouped[key].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    })
+
+    return grouped
+  }
+
+  const getMapCenter = (): [number, number] => {
+    const jobsWithCoords = jobs.filter((j) => j.latitude && j.longitude)
+    if (jobsWithCoords.length === 0) return [52.1491, -106.6505] // Default Saskatoon
+
+    const avgLat = jobsWithCoords.reduce((sum, j) => sum + (j.latitude || 0), 0) / jobsWithCoords.length
+    const avgLng = jobsWithCoords.reduce((sum, j) => sum + (j.longitude || 0), 0) / jobsWithCoords.length
+
+    return [avgLat, avgLng]
+  }
+
   const openCount = jobs.filter((j) => j.status === "open").length
   const inProgressCount = jobs.filter((j) => j.status === "in_progress").length
   const completedCount = jobs.filter((j) => j.status === "completed").length
   const flaggedCount = jobs.filter((j) => j.is_flagged).length
+
+  const jobsWithLocation = jobs.filter((j) => j.latitude && j.longitude).length
+  const groupedJobs = groupJobsByLocation()
 
   if (loading) {
     return (
@@ -227,39 +262,6 @@ export default function JobsPage() {
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Job Management</h1>
         <p className="text-gray-500 mt-2">Monitor and manage all job postings on the platform</p>
       </div>
-
-      {/* Job Heat Map */}
-      <Card className="p-4 sm:p-6 bg-white border border-gray-200 shadow-sm">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Job Heat Map</h2>
-        <p className="text-sm text-gray-600 mb-4">Geographic distribution of 1 job across the platform</p>
-
-        <div className="h-[300px] sm:h-[400px] bg-gray-100 rounded-lg overflow-hidden relative">
-          <iframe
-            width="100%"
-            height="100%"
-            frameBorder="0"
-            scrolling="no"
-            marginHeight={0}
-            marginWidth={0}
-            src="https://www.openstreetmap.org/export/embed.html?bbox=-106.7505%2C52.0891%2C-106.5505%2C52.2091&layer=mapnik&marker=52.1491,-106.6505"
-            style={{ border: 0 }}
-          />
-          <div className="absolute bottom-2 right-2 bg-white px-2 py-1 text-xs rounded shadow">
-            <a
-              href="https://www.openstreetmap.org/?mlat=52.1491&mlon=-106.6505#map=12/52.1491/-106.6505"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Leaflet
-            </a>{" "}
-            | ©{" "}
-            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
-              OpenStreetMap
-            </a>{" "}
-            contributors
-          </div>
-        </div>
-      </Card>
 
       {/* Job Overview */}
       <Card className="p-4 sm:p-6 bg-white border border-gray-200 shadow-sm">
@@ -352,19 +354,22 @@ export default function JobsPage() {
                     </Badge>
                     {job.is_flagged && <Badge className="bg-red-100 text-red-700">Flagged</Badge>}
                   </div>
-                  <p className="text-gray-600 text-sm mb-3 break-words">{job.description}</p>
+                  <p className="text-gray-600 text-sm mb-3 break-words">
+                    {job.description || job.job_details || "No description"}
+                  </p>
                   <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
                     <span className="break-words">
-                      <strong>Service:</strong> {job.service_type}
+                      <strong>Service:</strong> {job.service || "N/A"}
                     </span>
                     <span className="break-words">
-                      <strong>Location:</strong> {job.location}
+                      <strong>Location:</strong>{" "}
+                      {job.city && job.region && job.country ? `${job.city}, ${job.region}, ${job.country}` : "N/A"}
                     </span>
                     <span>
-                      <strong>{job.bids_count} bids</strong>
+                      <strong>{job.bids_count || 0} bids</strong>
                     </span>
                     <span className="break-words">
-                      <strong>Posted by:</strong> {job.homeowner_name}
+                      <strong>Posted by:</strong> {job.homeowner_name || "Unknown"}
                     </span>
                     <span>
                       <strong>Posted:</strong> {new Date(job.created_at).toLocaleDateString()}

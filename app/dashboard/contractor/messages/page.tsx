@@ -1,11 +1,10 @@
 "use client"
 
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Send, MoreVertical } from 'lucide-react'
+import { Send, MoreVertical } from "lucide-react"
 import { useState, useEffect } from "react"
 import { apiClient, ApiError } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
-import { containsContactInfo } from "@/lib/contact-validation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,7 +30,7 @@ interface Conversation {
   last_message_at?: string
   unread_count: number
   can_send: boolean
-  bid_status?: "pending" | "considering" | "accepted" | "rejected"
+  bid_status?: "pending" | "accepted"
 }
 
 interface Message {
@@ -133,13 +132,7 @@ export default function MessagesPage() {
       return
     }
 
-    const contactCheck = containsContactInfo(messageText)
-    if (contactCheck.hasContact) {
-      const message = `Please do not include ${contactCheck.type === "email" ? "email addresses" : "phone numbers"} in your messages.`
-      setErrorMessage(message)
-      toast({ title: "Cannot send message", description: message, variant: "destructive" })
-      return
-    }
+    // Removed contact validation check
 
     try {
       setSending(true)
@@ -251,7 +244,8 @@ export default function MessagesPage() {
 
           <div className="p-3 sm:p-4 border-t bg-muted/30 flex-shrink-0">
             <p className="text-xs text-muted-foreground">
-              <span className="font-semibold">Note:</span> You can send an initial message with a bid or respond to customer messages. Once a bid is accepted, messaging becomes unrestricted.
+              <span className="font-semibold">Note:</span> You can send an initial message with a bid or respond to
+              customer messages. Once a bid is accepted, messaging becomes unrestricted.
             </p>
           </div>
         </Card>

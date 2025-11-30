@@ -3,8 +3,22 @@
 import React from "react"
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from 'next/navigation'
-import { Search, Wrench, Zap, Home, Dog, Sparkles, Wind, Trees, Droplets, Hammer, X, Menu, ArrowRight } from 'lucide-react'
+import { useRouter } from "next/navigation"
+import {
+  Search,
+  Wrench,
+  Zap,
+  Home,
+  Dog,
+  Sparkles,
+  Wind,
+  Trees,
+  Droplets,
+  Hammer,
+  X,
+  Menu,
+  ArrowRight,
+} from "lucide-react"
 import { SERVICES } from "@/lib/services"
 import { SiteFooter } from "@/components/site-footer"
 
@@ -122,6 +136,11 @@ export default function HomePage() {
     { name: "Garage Door Repair", icon: Hammer, image: "/garage-door-panels-and-hardware.jpg" },
   ]
 
+  const refreshStripeVerification = () => {
+    console.log("Stripe verification status updated")
+    // Implement Stripe verification refresh logic here
+  }
+
   return (
     <div className="min-h-screen relative">
       {/* Background Image with Teal Overlay */}
@@ -228,7 +247,7 @@ export default function HomePage() {
                   <Link
                     href="/signup?role=contractor"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="bg-[#e2bb12] text-[#03353a] px-4 py-2 rounded-lg text-lg font-bold hover:bg-[#e2bb12]/90 transition-colors"
+                    className="bg-[#e2bb12] text-[#03353a] px-5 py-2.5 rounded-lg font-semibold hover:bg-[#e2bb12]/90 transition-colors text-center"
                   >
                     Join as Contractor
                   </Link>
@@ -497,7 +516,9 @@ export default function HomePage() {
         {/* Final CTA */}
         <section className="py-20 md:py-28 bg-[#328d87]/40 backdrop-blur-sm">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-6">Ready to get your project started?</h2>
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-6">
+              Ready to get your project started?
+            </h2>
             <p className="text-xl text-white/90 mb-10">
               Join thousands of homeowners who've found the perfect pro for their home projects
             </p>

@@ -6,6 +6,16 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { apiClient } from "@/lib/api-client"
 import { Loader2, ArrowLeft, MapPin, CheckCircle2, X, User } from "lucide-react"
 import { VerifiedBadge } from "@/components/verified-badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Bid {
   id: number
@@ -50,6 +60,8 @@ export default function ViewBidsPage() {
   const [mission, setMission] = useState<Mission | null>(null)
   const [bids, setBids] = useState<Bid[]>([])
   const [error, setError] = useState("")
+  const [showReviewDialog, setShowReviewDialog] = useState(false)
+  const [hiredContractorName, setHiredContractorName] = useState("")
 
   useEffect(() => {
     fetchMissionAndBids()
@@ -75,52 +87,26 @@ export default function ViewBidsPage() {
     }
   }
 
-  const handleAcceptBid = async (bidId: number) => {
-    if (!confirm("Are you sure you want to accept this bid? This will reject all other bids.")) return
+  const handleHireContractor = async (bidId: number) => {
+    if (!confirm("Are you sure you want to hire this contractor?")) return
 
     try {
+      const bid = bids.find((b) => b.id === bidId)
+      const contractorName = bid?.contractor?.company_name || "the contractor"
+
       await apiClient.request(`/api/bids/${bidId}/status`, {
-        method: "PATCH",
-        body: { status: "accepted" },
+        method: "PUT",
+        body: { status: "accepted", message: "Contractor hired by homeowner" },
         requiresAuth: true,
       })
 
-      await fetchMissionAndBids()
-    } catch (error: any) {
-      console.error("Error accepting bid:", error)
-      alert("Failed to accept bid: " + error.message)
-    }
-  }
-
-  const handleConsiderBid = async (bidId: number) => {
-    try {
-      await apiClient.request(`/api/bids/${bidId}/status`, {
-        method: "PATCH",
-        body: { status: "considering" },
-        requiresAuth: true,
-      })
+      setHiredContractorName(contractorName)
+      setShowReviewDialog(true)
 
       await fetchMissionAndBids()
     } catch (error: any) {
-      console.error("Error considering bid:", error)
-      alert("Failed to consider bid: " + error.message)
-    }
-  }
-
-  const handleRejectBid = async (bidId: number) => {
-    if (!confirm("Are you sure you want to reject this bid?")) return
-
-    try {
-      await apiClient.request(`/api/bids/${bidId}/status`, {
-        method: "PATCH",
-        body: { status: "rejected" },
-        requiresAuth: true,
-      })
-
-      await fetchMissionAndBids()
-    } catch (error: any) {
-      console.error("Error rejecting bid:", error)
-      alert("Failed to reject bid: " + error.message)
+      console.error("Error hiring contractor:", error)
+      alert("Failed to hire contractor: " + error.message)
     }
   }
 
@@ -195,7 +181,7 @@ export default function ViewBidsPage() {
                 <div
                   key={bid.id}
                   className={`rounded-lg border-2 p-4 sm:p-6 ${
-                    bid.status === "accepted" ? "border-green-500" : "border-gray-200"
+                    bid.status === "accepted" || bid.status === "hired" ? "border-[#328d87]" : "border-gray-200"
                   }`}
                 >
                   <div className="flex flex-col sm:flex-row items-start gap-4">
@@ -216,10 +202,10 @@ export default function ViewBidsPage() {
                         <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
                           {bid.contractor.company_name}
                         </h3>
-                        {bid.status === "accepted" && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-green-500 px-3 py-1 text-xs font-semibold text-white w-fit">
+                        {(bid.status === "accepted" || bid.status === "hired") && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#328d87] px-3 py-1 text-xs font-semibold text-white w-fit">
                             <CheckCircle2 className="w-3 h-3" />
-                            ACCEPTED
+                            HIRED
                           </span>
                         )}
                       </div>
@@ -286,33 +272,15 @@ export default function ViewBidsPage() {
 
                       <div className="mt-4 flex flex-col sm:flex-row gap-2">
                         <button
-                          onClick={() => handleConsiderBid(bid.id)}
-                          disabled={bid.status === "accepted"}
+                          onClick={() => handleHireContractor(bid.id)}
+                          disabled={bid.status === "accepted" || bid.status === "hired"}
                           className={`flex-1 rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors ${
-                            bid.status === "considering"
-                              ? "bg-yellow-100 text-yellow-800 border-2 border-yellow-500"
-                              : "bg-gray-100 text-gray-700 hover:bg-yellow-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            bid.status === "accepted" || bid.status === "hired"
+                              ? "bg-[#03353a] text-white opacity-50 cursor-not-allowed"
+                              : "bg-[#03353a] text-white hover:bg-[#04454c]"
                           }`}
                         >
-                          Mark as Considering
-                        </button>
-                        <button
-                          onClick={() => handleAcceptBid(bid.id)}
-                          disabled={bid.status === "accepted"}
-                          className={`flex-1 rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors ${
-                            bid.status === "accepted"
-                              ? "bg-green-500 text-white"
-                              : "bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                          }`}
-                        >
-                          Accepted
-                        </button>
-                        <button
-                          onClick={() => handleRejectBid(bid.id)}
-                          disabled={bid.status === "accepted"}
-                          className="flex-1 rounded-lg bg-red-50 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Reject
+                          {bid.status === "accepted" || bid.status === "hired" ? "Hired" : "I hired this Contractor"}
                         </button>
                       </div>
                     </div>
@@ -323,6 +291,31 @@ export default function ViewBidsPage() {
           </div>
         </div>
       </div>
+      {showReviewDialog && (
+        <AlertDialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Contractor Hired!</AlertDialogTitle>
+              <AlertDialogDescription>
+                Help other customers by leaving a review for {hiredContractorName || "this contractor"}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowReviewDialog(false)}>Maybe Later</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setShowReviewDialog(false)
+                  router.push("/dashboard/homeowner/reviews")
+                }}
+                style={{ backgroundColor: "#03353a" }}
+                className="hover:opacity-90"
+              >
+                Go to Reviews
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </DashboardLayout>
   )
 }
