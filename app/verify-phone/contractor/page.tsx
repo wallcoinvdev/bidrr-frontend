@@ -182,6 +182,9 @@ export default function ContractorPhoneVerification() {
 
       const result = await response.json()
 
+      console.log("[v0] Signup response status:", response.status)
+      console.log("[v0] Signup response body:", JSON.stringify(result))
+
       if (!response.ok) {
         throw new Error(result.error || result.message || "Failed to create account")
       }
@@ -201,8 +204,7 @@ export default function ContractorPhoneVerification() {
       sessionStorage.removeItem("terms_accepted")
       sessionStorage.removeItem("terms_accepted_at")
 
-      // Store auth data
-      localStorage.setItem("token", result.token)
+      localStorage.setItem("auth_token", result.token)
       if (result.user) {
         localStorage.setItem("user", JSON.stringify(result.user))
       }
@@ -277,6 +279,9 @@ export default function ContractorPhoneVerification() {
 
       const result = await response.json()
 
+      console.log("[v0] Signup response status:", response.status)
+      console.log("[v0] Signup response body:", JSON.stringify(result))
+
       if (!response.ok) {
         throw new Error(result.error || result.message || "Failed to create account")
       }
@@ -285,9 +290,18 @@ export default function ContractorPhoneVerification() {
         throw new Error("No authentication token received from signup")
       }
 
-      // Clear and store auth
+      // Clear session storage
       sessionStorage.removeItem("onboarding_form_data")
-      localStorage.setItem("token", result.token)
+      sessionStorage.removeItem("verification_token")
+      sessionStorage.removeItem("verified_phone_number")
+      sessionStorage.removeItem("phone_verified")
+      sessionStorage.removeItem("pending_phone_number")
+      sessionStorage.removeItem("pending_country")
+      sessionStorage.removeItem("pending_role")
+      sessionStorage.removeItem("terms_accepted")
+      sessionStorage.removeItem("terms_accepted_at")
+
+      localStorage.setItem("auth_token", result.token)
       if (result.user) {
         localStorage.setItem("user", JSON.stringify(result.user))
       }

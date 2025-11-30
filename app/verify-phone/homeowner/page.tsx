@@ -279,8 +279,7 @@ export default function HomeownerPhoneVerification() {
       sessionStorage.removeItem("terms_accepted")
       sessionStorage.removeItem("terms_accepted_at")
 
-      // Store auth data
-      localStorage.setItem("token", result.token)
+      localStorage.setItem("auth_token", result.token)
       if (result.user) {
         localStorage.setItem("user", JSON.stringify(result.user))
       }
@@ -362,8 +361,7 @@ export default function HomeownerPhoneVerification() {
         throw new Error("No authentication token received from signup")
       }
 
-      // Store auth data
-      localStorage.setItem("token", result.token)
+      localStorage.setItem("auth_token", result.token)
       if (result.user) {
         localStorage.setItem("user", JSON.stringify(result.user))
       }

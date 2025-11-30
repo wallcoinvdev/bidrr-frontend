@@ -70,13 +70,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
       <aside
-        className={`w-64 bg-[#0F3D3E] text-white flex flex-col fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`w-64 bg-[#0F3D3E] text-white flex flex-col fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out h-full ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0`}
       >
@@ -131,7 +131,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto w-full lg:w-auto">
+      <main className="flex-1 h-full overflow-y-auto w-full lg:w-auto">
         <div className="bg-white border-b border-gray-200 px-4 lg:px-8 py-4 flex justify-between items-center">
           <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden text-gray-700 hover:text-gray-900">
             <Menu className="w-6 h-6" />

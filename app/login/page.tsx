@@ -84,6 +84,13 @@ export default function LoginPage() {
         throw new Error(data.error || "2FA verification failed")
       }
 
+      if (data.token) {
+        localStorage.setItem("auth_token", data.token)
+      }
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user))
+      }
+
       router.replace("/dashboard/admin")
     } catch (err: any) {
       setError(err.message || "Invalid or expired code. Please try again.")
