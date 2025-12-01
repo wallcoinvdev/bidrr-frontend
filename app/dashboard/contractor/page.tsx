@@ -650,7 +650,7 @@ export default function ContractorDashboard() {
                   {selectedMission.homeowner_profile_image ? (
                     <img
                       src={selectedMission.homeowner_profile_image || "/placeholder.svg"}
-                      alt={selectedMission.homeowner_first_name || "Homeowner"}
+                      alt={selectedMission.homeowner_first_name || "Customer"}
                       className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
                     />
                   ) : (
@@ -660,7 +660,7 @@ export default function ContractorDashboard() {
                   )}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 break-words">
-                      {selectedMission.homeowner_first_name || "Homeowner"}
+                      {selectedMission.homeowner_first_name || "Customer"}
                     </h3>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                       {selectedMission.homeowner_phone_verified && (
@@ -880,7 +880,7 @@ export default function ContractorDashboard() {
                   {bidSuccess ? (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                       <p className="text-sm md:text-base text-green-900 font-semibold">Bid submitted successfully!</p>
-                      <p className="text-sm text-green-700 mt-1">The homeowner will review your bid soon.</p>
+                      <p className="text-sm text-green-700 mt-1">The customer will review your bid soon.</p>
                     </div>
                   ) : (
                     <form onSubmit={handleSubmitBid} className="space-y-4 border-t pt-4">

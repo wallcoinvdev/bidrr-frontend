@@ -443,7 +443,7 @@ export default function ContractorProfilePage() {
         method: "POST",
         body: JSON.stringify({
           phone_number: `${phoneCountryCode}${phoneNumber}`,
-          verification_code: verificationCode,
+          code: verificationCode,
         }),
         requiresAuth: true,
       })
@@ -846,7 +846,7 @@ export default function ContractorProfilePage() {
                     disabled={googleVerified}
                   />
                   <p className="text-xs text-gray-500 mt-1 break-words">
-                    Connect your Google Business profile to sync reviews and ratings with your HomeHero account
+                    Connect your Google Business profile to sync reviews and ratings with your Bidrr account
                   </p>
                 </div>
 
@@ -898,7 +898,7 @@ export default function ContractorProfilePage() {
                     </li>
                     <li className="flex items-start gap-2">
                       <BadgeCheck className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Increased trust and credibility with homeowners</span>
+                      <span>Increased trust and credibility with customers</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <BadgeCheck className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
@@ -988,7 +988,7 @@ export default function ContractorProfilePage() {
                     <p className="text-sm font-medium text-blue-900 mb-2">Benefits of Verification:</p>
                     <ul className="text-sm text-blue-800 space-y-1">
                       <li>✓ Verified badge displayed on your profile</li>
-                      <li>✓ Increased trust and credibility with homeowners</li>
+                      <li>✓ Increased trust and credibility with customers</li>
                       <li>✓ Higher response rate on job postings</li>
                       <li>✓ Priority support from our team</li>
                     </ul>

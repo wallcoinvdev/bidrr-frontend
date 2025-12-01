@@ -427,7 +427,7 @@ export default function HomePage() {
         <section className="py-20 md:py-28 bg-transparent">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 className="text-4xl md:text-5xl font-bold text-white text-center mb-4">Trusted by thousands</h2>
-            <p className="text-xl text-gray-200 text-center mb-16">See what homeowners and pros are saying</p>
+            <p className="text-xl text-gray-200 text-center mb-16">See what customers and pros are saying</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
               <div className="bg-[#0d3d42]/60 backdrop-blur-sm rounded-xl shadow-xl p-8 border border-[#328d87]/30">
@@ -443,7 +443,7 @@ export default function HomePage() {
                 </p>
                 <div>
                   <div className="font-bold text-white text-lg">Sarah M.</div>
-                  <div className="text-sm text-gray-300">Homeowner</div>
+                  <div className="text-sm text-gray-300">Customer</div>
                 </div>
               </div>
 
@@ -477,7 +477,7 @@ export default function HomePage() {
                 </p>
                 <div>
                   <div className="font-bold text-white text-lg">Jennifer L.</div>
-                  <div className="text-sm text-gray-300">Homeowner</div>
+                  <div className="text-sm text-gray-300">Customer</div>
                 </div>
               </div>
             </div>
@@ -491,7 +491,7 @@ export default function HomePage() {
               Ready to get your project started?
             </h2>
             <p className="text-xl text-white/90 mb-10">
-              Join thousands of homeowners who've found the perfect pro for their home projects
+              Join thousands of customers who've found the perfect pro for their home projects
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link

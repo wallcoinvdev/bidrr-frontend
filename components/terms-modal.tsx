@@ -1,6 +1,6 @@
 "use client"
 
-import { X } from 'lucide-react'
+import { X } from "lucide-react"
 
 interface TermsModalProps {
   onClose: () => void
@@ -12,11 +12,7 @@ export default function TermsModal({ onClose }: TermsModalProps) {
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-2xl font-bold text-[#03353a]">Terms of Service</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            aria-label="Close"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -32,8 +28,8 @@ export default function TermsModal({ onClose }: TermsModalProps) {
           <section>
             <h3 className="text-lg font-semibold text-[#03353a] mb-2">2. Use License</h3>
             <p className="text-gray-700 text-sm">
-              Permission is granted to temporarily use Bidrr for personal, non-commercial transitory viewing only.
-              This is the grant of a license, not a transfer of title.
+              Permission is granted to temporarily use Bidrr for personal, non-commercial transitory viewing only. This
+              is the grant of a license, not a transfer of title.
             </p>
           </section>
 
@@ -48,8 +44,8 @@ export default function TermsModal({ onClose }: TermsModalProps) {
           <section>
             <h3 className="text-lg font-semibold text-[#03353a] mb-2">4. Service Description</h3>
             <p className="text-gray-700 text-sm">
-              Bidrr connects homeowners with contractors for home improvement projects. We facilitate the bidding
-              process but are not responsible for the quality of work or contractual agreements between parties.
+              Bidrr connects customers with contractors for home improvement projects. We facilitate the bidding process
+              but are not responsible for the quality of work or contractual agreements between parties.
             </p>
           </section>
 
@@ -76,7 +72,7 @@ export default function TermsModal({ onClose }: TermsModalProps) {
             <h3 className="text-lg font-semibold text-[#03353a] mb-2">7. Payment and Fees</h3>
             <p className="text-gray-700 text-sm">
               Contractors may be subject to service fees for using the platform. All fees will be clearly disclosed
-              before you incur them. Homeowners can use basic features free of charge.
+              before you incur them. Customers can use basic features free of charge.
             </p>
           </section>
 

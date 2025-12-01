@@ -242,7 +242,7 @@ export default function SettingsPage() {
                 className="mt-2 max-w-xs"
               />
               <p className="text-sm text-muted-foreground mt-2">
-                Prevents homeowners from being overwhelmed with bids. Recommended: 10-20
+                Prevents customers from being overwhelmed with bids. Recommended: 10-20
               </p>
             </div>
           </div>

@@ -6,11 +6,11 @@ import { Mail, Send, Plus, Users, BarChart3 } from "lucide-react"
 const EMAIL_TEMPLATES = [
   {
     id: 1,
-    name: "Welcome Email - Homeowner",
+    name: "Welcome Email - Customer",
     category: "welcome",
     subject: "Welcome to Bidrr!",
     preview: "Welcome to Bidrr! We're excited to help you find the perfect contractor...",
-    description: "Sent when a new homeowner signs up",
+    description: "Sent when a new customer signs up",
   },
   {
     id: 2,
@@ -34,7 +34,7 @@ const EMAIL_TEMPLATES = [
     category: "notification",
     subject: "You've Received a New Bid!",
     preview: "Great news! A contractor has submitted a bid on your job...",
-    description: "Notify homeowner when their job receives a bid",
+    description: "Notify customer when their job receives a bid",
   },
   {
     id: 5,

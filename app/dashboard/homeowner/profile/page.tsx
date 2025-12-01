@@ -240,7 +240,7 @@ export default function HomeownerProfilePage() {
         method: "POST",
         body: JSON.stringify({
           phone_number: `${phoneCountryCode}${phoneNumber}`,
-          verification_code: verificationCode,
+          code: verificationCode,
         }),
         requiresAuth: true,
       })

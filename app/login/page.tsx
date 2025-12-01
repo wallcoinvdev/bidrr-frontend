@@ -242,7 +242,7 @@ export default function LoginPage() {
         <div className="max-w-md mx-auto">
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <h1 className="text-3xl font-bold text-center text-[#03353a] mb-2">Welcome back</h1>
-            <p className="text-center text-[#03353a]/70 mb-8">Sign in to your HomeHero account</p>
+            <p className="text-center text-[#03353a]/70 mb-8">Sign in to your Bidrr account</p>
 
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">

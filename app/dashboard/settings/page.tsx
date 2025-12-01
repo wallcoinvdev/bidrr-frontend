@@ -263,7 +263,7 @@ export default function UniversalSettings() {
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             {userRole === "homeowner" ? (
               <>
-                <p className="text-gray-600 font-medium">Job postings are always free for homeowners!</p>
+                <p className="text-gray-600 font-medium">Job postings are always free for customers!</p>
                 <p className="text-gray-500 text-sm mt-1">No subscription required</p>
               </>
             ) : (

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from "lucide-react"
 import Image from "next/image"
 
 export default function PrivacyPage() {
@@ -9,13 +9,7 @@ export default function PrivacyPage() {
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center">
-            <Image
-              src="/bidrr-dark-teal-logo.png"
-              alt="Bidrr"
-              width={120}
-              height={40}
-              className="h-8 sm:h-10 w-auto"
-            />
+            <Image src="/bidrr-dark-teal-logo.png" alt="Bidrr" width={120} height={40} className="h-8 sm:h-10 w-auto" />
           </Link>
           <Link
             href="/"
@@ -38,7 +32,7 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Introduction</h2>
             <p className="text-gray-900 mb-4">
               At Bidrr, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and
-              safeguard your information when you use our platform to connect homeowners with service professionals.
+              safeguard your information when you use our platform to connect customers with service professionals.
             </p>
             <p className="text-gray-900">
               By using Bidrr, you agree to the collection and use of information in accordance with this policy.
@@ -48,15 +42,13 @@ export default function PrivacyPage() {
           {/* Information We Collect */}
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Information We Collect</h2>
-            
+
             <h3 className="text-xl font-semibold text-gray-900 mb-3">Personal Information</h3>
-            <p className="text-gray-900 mb-3">
-              We collect information that you provide directly to us, including:
-            </p>
+            <p className="text-gray-900 mb-3">We collect information that you provide directly to us, including:</p>
             <ul className="list-disc pl-6 mb-6 text-gray-900 space-y-2">
               <li>Name, email address, phone number, and mailing address</li>
               <li>Profile information, including photos and service preferences</li>
-              <li>Communications between homeowners and contractors</li>
+              <li>Communications between customers and contractors</li>
               <li>Reviews, ratings, and feedback</li>
             </ul>
 
@@ -77,7 +69,7 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">How We Use Your Information</h2>
             <p className="text-gray-900 mb-3">We use the information we collect to:</p>
             <ul className="list-disc pl-6 mb-6 text-gray-900 space-y-2">
-              <li>Connect homeowners with qualified service professionals</li>
+              <li>Connect customers with qualified service professionals</li>
               <li>Communicate with you about your account and services</li>
               <li>Improve and personalize your experience on our platform</li>
               <li>Prevent fraud and ensure platform security</li>
@@ -92,11 +84,12 @@ export default function PrivacyPage() {
             <p className="text-gray-900 mb-3">We may share your information with:</p>
             <ul className="list-disc pl-6 mb-4 text-gray-900 space-y-2">
               <li>
-                <strong>Service Professionals:</strong> When you post a job, contractors can view your project details and contact
-                information
+                <strong>Service Professionals:</strong> When you post a job, contractors can view your project details
+                and contact information
               </li>
               <li>
-                <strong>Customers:</strong> When contractors bid on jobs, customers can view contractor profiles and reviews
+                <strong>Customers:</strong> When contractors bid on jobs, customers can view contractor profiles and
+                reviews
               </li>
               <li>
                 <strong>Service Providers:</strong> Third-party vendors who help us operate our platform
@@ -121,9 +114,7 @@ export default function PrivacyPage() {
               <li>Disable cookies through your browser settings</li>
               <li>Request a copy of your data</li>
             </ul>
-            <p className="text-gray-900">
-              To exercise these rights, please contact us at support@bidrr.ca
-            </p>
+            <p className="text-gray-900">To exercise these rights, please contact us at support@bidrr.ca</p>
           </section>
 
           {/* Data Security */}
@@ -131,8 +122,8 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Data Security</h2>
             <p className="text-gray-900">
               We implement appropriate technical and organizational measures to protect your personal information
-              against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over
-              the internet is 100% secure, and we cannot guarantee absolute security.
+              against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission
+              over the internet is 100% secure, and we cannot guarantee absolute security.
             </p>
           </section>
 
@@ -158,9 +149,7 @@ export default function PrivacyPage() {
           {/* Contact Us */}
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Contact Us</h2>
-            <p className="text-gray-900 mb-4">
-              If you have questions about this Privacy Policy, please contact us:
-            </p>
+            <p className="text-gray-900 mb-4">If you have questions about this Privacy Policy, please contact us:</p>
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <p className="text-gray-900">
                 <strong>Email:</strong> support@bidrr.ca
@@ -195,9 +184,7 @@ export default function PrivacyPage() {
               </Link>
             </div>
           </div>
-          <div className="text-center mt-4 text-sm text-gray-400">
-            © 2025 Bidrr. All rights reserved.
-          </div>
+          <div className="text-center mt-4 text-sm text-gray-400">© 2025 Bidrr. All rights reserved.</div>
         </div>
       </footer>
     </div>

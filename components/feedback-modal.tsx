@@ -61,7 +61,7 @@ export function FeedbackModal() {
         setOpen(false)
         toast({
           title: "Thank you for your feedback!",
-          description: "Your feedback has been sent to our team. We appreciate you helping us improve HomeHero.",
+          description: "Your feedback has been sent to our team. We appreciate you helping us improve Bidrr.",
           duration: 5000,
         })
       }, 2000)
@@ -100,7 +100,7 @@ export function FeedbackModal() {
             <DialogHeader>
               <DialogTitle>Send Feedback</DialogTitle>
               <DialogDescription>
-                Have a suggestion or found an issue? Let us know! Your feedback helps us improve HomeHero.
+                Have a suggestion or found an issue? Let us know! Your feedback helps us improve Bidrr.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">

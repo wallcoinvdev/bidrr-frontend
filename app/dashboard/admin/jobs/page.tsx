@@ -266,7 +266,7 @@ export default function AdminJobsPage() {
       {/* Job Overview */}
       <Card className="p-4 sm:p-6 bg-white border border-gray-200 shadow-sm">
         <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Job Overview</h2>
-        <p className="text-sm text-gray-600 mb-6">View and manage all jobs posted on HomeHero</p>
+        <p className="text-sm text-gray-600 mb-6">View and manage all jobs posted on Bidrr</p>
 
         {/* Search */}
         <div className="mb-6">

@@ -135,6 +135,8 @@ export default function HomeownerDashboard() {
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
   const [deleteJobId, setDeleteJobId] = useState<number | null>(null)
   const [deletingJob, setDeletingJob] = useState(false)
+  const [jobDescription, setJobDescription] = useState("")
+  const [descriptionTouched, setDescriptionTouched] = useState(false)
 
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null)
   const [showReviewDialog, setShowReviewDialog] = useState(false)
@@ -439,6 +441,7 @@ export default function HomeownerDashboard() {
 
       setEditingMission(fullMission)
       setSelectedService(fullMission.service || "")
+      setJobDescription(fullMission.job_details || "") // Initialize job description state
 
       if (fullMission.images && Array.isArray(fullMission.images)) {
         setImagePreviews(fullMission.images)
@@ -559,10 +562,18 @@ export default function HomeownerDashboard() {
     e.preventDefault()
     setPostingJob(true)
 
+    // Validation for job description
+    if (jobDescription.length < 10) {
+      setDescriptionTouched(true)
+      setPostingJob(false)
+      return
+    }
+
     try {
       const formData = new FormData(e.currentTarget)
 
       formData.set("service", selectedService)
+      formData.set("job_details", jobDescription) // Use state for job_details
 
       const completionTimeline = formData.get("completion_timeline") as string
       let priority = "medium" // default
@@ -582,6 +593,11 @@ export default function HomeownerDashboard() {
         imageFiles.forEach((file) => {
           formData.append("images", file)
         })
+
+        console.log("[v0] Update job formData contents:")
+        for (const [key, value] of formData.entries()) {
+          console.log(`[v0]   ${key}: ${value}`)
+        }
 
         await apiClient.uploadFormData(`/api/missions/${editingMission.id}`, formData, "PUT", true)
 
@@ -609,6 +625,8 @@ export default function HomeownerDashboard() {
       setSelectedService("")
       setServiceSearch("")
       setEditingMission(null)
+      setJobDescription("") // Reset job description state
+      setDescriptionTouched(false) // Reset touched state
       await fetchDashboardData()
     } catch (error: any) {
       console.error("Error posting job:", error)
@@ -807,6 +825,8 @@ export default function HomeownerDashboard() {
             setSelectedService("")
             setServiceSearch("")
             setEditingMission(null)
+            setJobDescription("") // Reset job description state
+            setDescriptionTouched(false) // Reset touched state
           }
         }}
       >
@@ -884,14 +904,24 @@ export default function HomeownerDashboard() {
               </label>
               <textarea
                 name="job_details"
-                defaultValue={editingMission?.job_details || ""}
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                onBlur={() => setDescriptionTouched(true)}
                 placeholder="Describe your project in detail..."
                 rows={4}
                 required
-                minLength={1}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+                minLength={10}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent ${
+                  descriptionTouched && jobDescription.length < 10 ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
               />
-              <p className="text-xs text-gray-500 mt-1">Required - max 1000 characters</p>
+              {descriptionTouched && jobDescription.length < 10 ? (
+                <p className="text-xs text-red-500 mt-1">
+                  Please enter at least 10 characters ({jobDescription.length}/10)
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">Required - minimum 10 characters, max 1000 characters</p>
+              )}
             </div>
 
             <div>
@@ -1002,14 +1032,27 @@ export default function HomeownerDashboard() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Region <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
+                    <select
                       name="region"
                       defaultValue={(editingMission as any)?.region || ""}
-                      placeholder="e.g., Saskatchewan"
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
-                    />
+                    >
+                      <option value="">Select Province/Territory</option>
+                      <option value="Alberta">Alberta</option>
+                      <option value="British Columbia">British Columbia</option>
+                      <option value="Manitoba">Manitoba</option>
+                      <option value="New Brunswick">New Brunswick</option>
+                      <option value="Newfoundland and Labrador">Newfoundland and Labrador</option>
+                      <option value="Northwest Territories">Northwest Territories</option>
+                      <option value="Nova Scotia">Nova Scotia</option>
+                      <option value="Nunavut">Nunavut</option>
+                      <option value="Ontario">Ontario</option>
+                      <option value="Prince Edward Island">Prince Edward Island</option>
+                      <option value="Quebec">Quebec</option>
+                      <option value="Saskatchewan">Saskatchewan</option>
+                      <option value="Yukon">Yukon</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1020,8 +1063,12 @@ export default function HomeownerDashboard() {
                   <input
                     type="text"
                     name="postal_code"
-                    defaultValue={editingMission?.postal_code || ""}
-                    placeholder="e.g., S7K 1J3"
+                    defaultValue={editingMission?.postal_code?.replace(/\s/g, "") || ""}
+                    placeholder="A1A1A1"
+                    maxLength={6}
+                    onChange={(e) => {
+                      e.target.value = e.target.value.toUpperCase().replace(/\s/g, "")
+                    }}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
                   />
@@ -1033,7 +1080,7 @@ export default function HomeownerDashboard() {
 
             <button
               type="submit"
-              disabled={postingJob || !selectedService}
+              disabled={postingJob || !selectedService || (descriptionTouched && jobDescription.length < 10)}
               className="w-full py-3 bg-[#0F766E] text-white rounded-lg font-medium hover:bg-[#0d5f57] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {postingJob ? (

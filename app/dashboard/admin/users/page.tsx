@@ -184,7 +184,7 @@ export default function UsersPage() {
         </Card>
 
         <Card className="p-6 bg-white border border-gray-200 shadow-sm">
-          <p className="text-sm text-gray-600 mb-2">Homeowners</p>
+          <p className="text-sm text-gray-600 mb-2">Customers</p>
           <p className="text-4xl font-bold text-green-600">{stats.homeowners}</p>
         </Card>
 
@@ -212,7 +212,7 @@ export default function UsersPage() {
           className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent bg-white min-w-[140px]"
         >
           <option value="all">All Roles</option>
-          <option value="homeowner">Homeowner</option>
+          <option value="homeowner">Customer</option>
           <option value="contractor">Contractor</option>
         </select>
       </div>
