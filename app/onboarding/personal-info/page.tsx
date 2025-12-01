@@ -45,6 +45,14 @@ export default function PersonalInfoPage() {
   const [error, setError] = useState<string | null>(null)
   const [servicesError, setServicesError] = useState<string | null>(null)
 
+  const [postalCodeTouched, setPostalCodeTouched] = useState(false)
+  const [businessPostalCodeTouched, setBusinessPostalCodeTouched] = useState(false)
+
+  // Helper to validate postal code format
+  const isValidPostalCode = (code: string) => {
+    return /^[A-Za-z][0-9][A-Za-z][0-9][A-Za-z][0-9]$/.test(code)
+  }
+
   useEffect(() => {
     if (roleFromUrl && (roleFromUrl === "homeowner" || roleFromUrl === "contractor")) {
       updateData({ role: roleFromUrl })
@@ -86,6 +94,14 @@ export default function PersonalInfoPage() {
         setServicesError("Please select at least one service you offer")
         setIsLoading(false)
         return
+      }
+
+      if (!postalCodeTouched || !isValidPostalCode(postalCode)) {
+        throw new Error("Please enter a valid postal code")
+      }
+
+      if (data.role === "contractor" && (!businessPostalCodeTouched || !isValidPostalCode(businessPostalCode))) {
+        throw new Error("Please enter a valid business postal code")
       }
 
       const actualCountryCode = countryCode.split("-")[0]
@@ -321,14 +337,22 @@ export default function PersonalInfoPage() {
                   type="text"
                   value={postalCode}
                   onChange={(e) => setPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))}
+                  onBlur={() => setPostalCodeTouched(true)}
                   placeholder="A1A1A1"
                   maxLength={6}
                   minLength={6}
                   pattern="[A-Za-z][0-9][A-Za-z][0-9][A-Za-z][0-9]"
                   title="Please enter a valid Canadian postal code (e.g., A1A1A1)"
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] ${
+                    postalCodeTouched && !isValidPostalCode(postalCode) ? "border-red-500 focus:ring-red-500" : ""
+                  }`}
                   required
                 />
+                {postalCodeTouched && !isValidPostalCode(postalCode) && (
+                  <p className="text-red-500 text-xs mt-1">
+                    Please enter a valid 6-character postal code (e.g., A1A1A1)
+                  </p>
+                )}
               </div>
             </div>
 
@@ -428,6 +452,7 @@ export default function PersonalInfoPage() {
                         setBusinessCity(city)
                         setBusinessRegion(region)
                         setBusinessPostalCode(postalCode)
+                        setBusinessPostalCodeTouched(true)
                       }
                     }}
                     className="h-4 w-4"
@@ -504,15 +529,27 @@ export default function PersonalInfoPage() {
                       onChange={(e) =>
                         setBusinessPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))
                       }
+                      onBlur={() => setBusinessPostalCodeTouched(true)}
                       placeholder="A1A1A1"
                       maxLength={6}
                       minLength={6}
                       pattern="[A-Za-z][0-9][A-Za-z][0-9][A-Za-z][0-9]"
                       title="Please enter a valid Canadian postal code (e.g., A1A1A1)"
-                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] ${
+                        businessPostalCodeTouched && !isValidPostalCode(businessPostalCode)
+                          ? "border-red-500 focus:ring-red-500"
+                          : ""
+                      }`}
                       required
                       disabled={sameAsPersonalAddress}
                     />
+                    {businessPostalCodeTouched && !isValidPostalCode(businessPostalCode) && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {sameAsPersonalAddress
+                          ? "Personal postal code is invalid. Please fix it above."
+                          : "Please enter a valid 6-character postal code (e.g., A1A1A1)"}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#03353a] mb-2">
