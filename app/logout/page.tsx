@@ -18,6 +18,7 @@ export default function LogoutPage() {
       } catch (error) {
         console.error("Logout error:", error)
       } finally {
+        localStorage.removeItem("auth_token")
         localStorage.removeItem("user")
         localStorage.removeItem("is_impersonating")
 

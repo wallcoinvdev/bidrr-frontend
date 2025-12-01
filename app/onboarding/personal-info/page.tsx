@@ -320,9 +320,9 @@ export default function PersonalInfoPage() {
                 <input
                   type="text"
                   value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value.toUpperCase())}
-                  placeholder="A1A 1A1"
-                  maxLength={7}
+                  onChange={(e) => setPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))}
+                  placeholder="A1A1A1"
+                  maxLength={6}
                   className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                   required
                 />
@@ -498,9 +498,11 @@ export default function PersonalInfoPage() {
                     <input
                       type="text"
                       value={businessPostalCode}
-                      onChange={(e) => setBusinessPostalCode(e.target.value.toUpperCase())}
-                      placeholder="A1A 1A1"
-                      maxLength={7}
+                      onChange={(e) =>
+                        setBusinessPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))
+                      }
+                      placeholder="A1A1A1"
+                      maxLength={6}
                       className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                       required
                       disabled={sameAsPersonalAddress}

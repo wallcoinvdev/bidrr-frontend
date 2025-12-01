@@ -55,31 +55,22 @@ export default function UsersPage() {
 
       const contractors = data.users.filter((u) => u.role === "contractor")
 
-      console.log("[v0] Total contractors found:", contractors.length)
-
       const usersWithServices = await Promise.all(
         data.users.map(async (user) => {
           if (user.role === "contractor") {
             try {
-              console.log(`[v0] Fetching profile for contractor ${user.id}`)
               const profile = await apiClient.request<any>(`/api/contractors/${user.id}/profile`, {
                 requiresAuth: true,
               })
 
-              console.log(`[v0] Contractor ${user.id} profile:`, profile)
-              console.log(`[v0] Contractor ${user.id} services:`, profile.services)
-
               return { ...user, services: profile.services || [] }
             } catch (error: any) {
-              console.error(`[v0] Error fetching profile for contractor ${user.id}:`, error)
               return { ...user, services: [] }
             }
           }
           return user
         }),
       )
-
-      console.log("[v0] Users with services:", usersWithServices)
 
       setUsers(usersWithServices)
 
@@ -150,12 +141,12 @@ export default function UsersPage() {
         requiresAuth: true,
       })
 
-      const currentToken = localStorage.getItem("token")
+      const currentToken = localStorage.getItem("auth_token")
       if (currentToken) {
         localStorage.setItem("admin_token", currentToken)
       }
 
-      localStorage.setItem("token", response.token)
+      localStorage.setItem("auth_token", response.token)
       localStorage.setItem("user", JSON.stringify(response.user))
 
       if (response.user.role === "contractor") {

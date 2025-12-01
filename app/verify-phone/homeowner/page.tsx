@@ -52,42 +52,14 @@ export default function HomeownerPhoneVerification() {
   const codeInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    console.log("[v0] ========== HOMEOWNER VERIFICATION PAGE LOADED ==========")
-    console.log("[v0] Timestamp:", new Date().toISOString())
-    console.log("[v0] User Role: HOMEOWNER")
-    console.log("[v0] Current URL:", typeof window !== "undefined" ? window.location.href : "N/A")
-
     if (typeof window !== "undefined") {
       setCurrentOrigin(window.location.origin)
-      const existingToken = localStorage.getItem("token")
-      const existingUser = localStorage.getItem("user")
-
-      console.log("[v0] localStorage state on page load:")
-      console.log("[v0] - Token exists:", existingToken ? "YES" : "NO")
-      console.log("[v0] - User exists:", existingUser ? "YES" : "NO")
-
-      if (existingToken) {
-        console.log("[v0] ⚠️ WARNING: User already has token, why are they on verification page?")
-        console.log("[v0] Token preview:", existingToken.substring(0, 20) + "...")
-      }
     }
 
     const formData = sessionStorage.getItem("onboarding_form_data")
-    console.log("[v0] Onboarding form data in sessionStorage:", formData ? "YES" : "NO")
-    if (formData) {
-      try {
-        const parsed = JSON.parse(formData)
-        console.log("[v0] Form data email:", parsed.email || "NOT PROVIDED")
-        console.log("[v0] Form data phone:", parsed.phone_number || "NOT PROVIDED")
-        console.log("[v0] Form data role:", parsed.role || "NOT PROVIDED")
-      } catch (e) {
-        console.error("[v0] Error parsing form data:", e)
-      }
-    } else {
-      console.log("[v0] ⚠️ WARNING: No onboarding form data found - user may have skipped onboarding")
+    if (!formData) {
+      // No form data - user may have navigated directly
     }
-
-    console.log("[v0] ============================================================")
   }, [])
 
   useEffect(() => {
@@ -124,24 +96,15 @@ export default function HomeownerPhoneVerification() {
       const savedFormData = sessionStorage.getItem("onboarding_form_data")
       const formData = savedFormData ? JSON.parse(savedFormData) : {}
 
-      console.log("[v0] ========== HOMEOWNER: REQUESTING VERIFICATION CODE ==========")
-      console.log("[v0] Phone number:", fullPhoneNumber)
-      console.log("[v0] Email:", formData.email || "N/A")
-      console.log("[v0] Role: homeowner")
-      console.log("[v0] Timestamp:", new Date().toISOString())
-
       const response = await apiClient.post(
         "/api/users/request-verification",
         {
           phone_number: fullPhoneNumber,
           role: "homeowner",
-          email: formData.email, // Include email as backend expects it
+          email: formData.email,
         },
         { requiresAuth: false },
       )
-
-      console.log("[v0] ✅ Verification code sent successfully")
-      console.log("[v0] Response:", response)
 
       sessionStorage.setItem("pending_phone_number", fullPhoneNumber)
       sessionStorage.setItem("pending_country", country)
@@ -160,13 +123,6 @@ export default function HomeownerPhoneVerification() {
 
       setStep("code")
     } catch (err: any) {
-      console.error("[v0] ❌ Error sending verification code:", err)
-      console.error("[v0] Error details:", {
-        message: err.message,
-        stack: err.stack,
-        timestamp: new Date().toISOString(),
-      })
-
       if (err.message?.toLowerCase().includes("already registered")) {
         setError("PHONE_REGISTERED")
       } else {
@@ -196,17 +152,11 @@ export default function HomeownerPhoneVerification() {
 
       const formData = JSON.parse(savedFormData)
 
-      console.log("[v0] ========== HOMEOWNER: ACCOUNT CREATION WITH VERIFICATION ==========")
-      console.log("[v0] Phone:", fullPhoneNumber)
-      console.log("[v0] Code length:", verificationCode.length)
-      console.log("[v0] Timestamp:", new Date().toISOString())
-
       const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
-      console.log("[v0] Hero heading variation for this conversion:", heroHeadingVariation)
 
       const signupPayload: any = {
         phone_number: fullPhoneNumber,
-        verification_code: verificationCode, // Include code in signup
+        verification_code: verificationCode,
         password: formData.password,
         role: "homeowner",
         full_name: formData.full_name,
@@ -221,10 +171,6 @@ export default function HomeownerPhoneVerification() {
         hero_heading_variation: heroHeadingVariation,
       }
 
-      console.log("[v0] Signup payload:", JSON.stringify(signupPayload, null, 2))
-      console.log("[v0] Calling /api/users/signup...")
-
-      const signupStartTime = Date.now()
       const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
         method: "POST",
         headers: {
@@ -234,33 +180,15 @@ export default function HomeownerPhoneVerification() {
         body: JSON.stringify(signupPayload),
       })
 
-      const signupEndTime = Date.now()
-      const apiCallDuration = signupEndTime - signupStartTime
-      console.log("[v0] Signup API call completed in:", apiCallDuration, "ms")
-      console.log("[v0] Response status:", response.status, response.statusText)
-
       const result = await response.json()
-      console.log("[v0] Signup response:", JSON.stringify(result, null, 2))
 
       if (!response.ok) {
-        console.error("[v0] ❌ HOMEOWNER SIGNUP FAILED")
-        console.error("[v0] Status:", response.status)
-        console.error("[v0] Error:", result)
         throw new Error(result.error || result.message || "Failed to create account")
       }
 
-      console.log("[v0] ✅ HOMEOWNER ACCOUNT CREATED SUCCESSFULLY")
-      console.log("[v0] User ID:", result.user?.id || result.id || "NOT PROVIDED")
-      console.log("[v0] Email:", formData.email)
-      console.log("[v0] Role: homeowner")
-      console.log("[v0] Created at:", new Date().toISOString())
-
       if (!result.token) {
-        console.error("[v0] ❌ CRITICAL: No token received from signup")
         throw new Error("No authentication token received from signup")
       }
-
-      console.log("[v0] ✅ Token received from signup")
 
       sessionStorage.setItem("account_created_at", new Date().toISOString())
       sessionStorage.setItem("account_user_id", result.user?.id || result.id || "unknown")
@@ -294,17 +222,8 @@ export default function HomeownerPhoneVerification() {
       })
 
       const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
-      console.log("[v0] Redirecting to:", targetDashboard)
-      console.log("[v0] ========== HOMEOWNER VERIFICATION COMPLETE ==========")
-
       window.location.href = targetDashboard
     } catch (err) {
-      console.error("[v0] ❌ Error during homeowner verification:", err)
-      console.error("[v0] Error details:", {
-        message: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-        timestamp: new Date().toISOString(),
-      })
       setError(err instanceof Error ? err.message : "Invalid verification code.")
     } finally {
       setIsLoading(false)
@@ -312,7 +231,6 @@ export default function HomeownerPhoneVerification() {
   }
 
   const handleSkip = async () => {
-    console.log("[v0] ========== HOMEOWNER: SKIP VERIFICATION ==========")
     setIsSkipping(true)
     setError(null)
 
@@ -377,7 +295,6 @@ export default function HomeownerPhoneVerification() {
       const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
       window.location.href = targetDashboard
     } catch (err) {
-      console.error("[v0] ❌ Error during homeowner skip:", err)
       setError(err instanceof Error ? err.message : "Failed to create account. Please try again.")
       setIsSkipping(false)
     }

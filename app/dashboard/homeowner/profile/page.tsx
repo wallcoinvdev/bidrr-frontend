@@ -3,7 +3,7 @@
 import type React from "react"
 import { useRef, useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { User, Upload, BadgeCheck } from 'lucide-react'
+import { User, Upload, BadgeCheck } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
@@ -406,7 +406,9 @@ export default function HomeownerProfilePage() {
                   <input
                     type="text"
                     value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
+                    onChange={(e) => setPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))}
+                    maxLength={6}
+                    placeholder="A1A1A1"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
                   />
                 </div>

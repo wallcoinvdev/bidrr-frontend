@@ -175,13 +175,6 @@ export default function HomePage() {
                 <button
                   onClick={(e) => {
                     e.preventDefault()
-                    console.log("[v0] ========== LOGIN BUTTON CLICKED ==========")
-                    console.log("[v0] Current URL:", window.location.href)
-                    console.log("[v0] Target URL: /login")
-                    console.log("[v0] Token exists:", !!localStorage.getItem("token"))
-                    console.log("[v0] User exists:", !!localStorage.getItem("user"))
-                    console.log("[v0] Navigating to /login...")
-                    console.log("[v0] ===========================================")
                     window.location.href = "/login"
                   }}
                   className="text-white hover:text-gray-200 transition-colors font-medium cursor-pointer"
@@ -231,13 +224,6 @@ export default function HomePage() {
                     onClick={(e) => {
                       e.preventDefault()
                       setIsMobileMenuOpen(false)
-                      console.log("[v0] ========== LOGIN BUTTON CLICKED (MOBILE) ==========")
-                      console.log("[v0] Current URL:", window.location.href)
-                      console.log("[v0] Target URL: /login")
-                      console.log("[v0] Token exists:", !!localStorage.getItem("token"))
-                      console.log("[v0] User exists:", !!localStorage.getItem("user"))
-                      console.log("[v0] Navigating to /login...")
-                      console.log("[v0] ======================================================")
                       window.location.href = "/login"
                     }}
                     className="text-white hover:text-gray-200 transition-colors font-medium text-left cursor-pointer"
@@ -247,7 +233,7 @@ export default function HomePage() {
                   <Link
                     href="/signup?role=contractor"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="bg-[#e2bb12] text-[#03353a] px-5 py-2.5 rounded-lg font-semibold hover:bg-[#e2bb12]/90 transition-colors text-center"
+                    className="bg-transparent text-white px-10 py-4 rounded-lg text-lg font-bold hover:bg-white/10 transition-colors border-2 border-white"
                   >
                     Join as Contractor
                   </Link>

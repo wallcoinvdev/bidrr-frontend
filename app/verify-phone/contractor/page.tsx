@@ -182,9 +182,6 @@ export default function ContractorPhoneVerification() {
 
       const result = await response.json()
 
-      console.log("[v0] Signup response status:", response.status)
-      console.log("[v0] Signup response body:", JSON.stringify(result))
-
       if (!response.ok) {
         throw new Error(result.error || result.message || "Failed to create account")
       }
@@ -278,9 +275,6 @@ export default function ContractorPhoneVerification() {
       })
 
       const result = await response.json()
-
-      console.log("[v0] Signup response status:", response.status)
-      console.log("[v0] Signup response body:", JSON.stringify(result))
 
       if (!response.ok) {
         throw new Error(result.error || result.message || "Failed to create account")

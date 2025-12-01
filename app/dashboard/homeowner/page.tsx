@@ -122,6 +122,7 @@ export default function HomeownerDashboard() {
   const [reviews, setReviews] = useState<any>(null)
   const [loadingReviews, setLoadingReviews] = useState(false)
   const [selectedContractorId, setSelectedContractorId] = useState<number | null>(null)
+  const [selectedContractorReviews, setSelectedContractorReviews] = useState<any[]>([]) // Added state for selected contractor reviews
   const [showGoogleReviews, setShowGoogleReviews] = useState(true)
   const [showBidrrReviews, setShowBidrrReviews] = useState(true)
   const [showPostJobModal, setShowPostJobModal] = useState(false)
@@ -400,25 +401,9 @@ export default function HomeownerDashboard() {
         requiresAuth: true,
       })
 
-      console.log("[v0] Opening reviews for contractor:", contractorId, companyName)
-      console.log("[v0] Full reviews response:", JSON.stringify(data, null, 2))
-
       const bidrrReviews = data.reviews.filter((r: any) => r.source === "homehero")
-      console.log("[v0] Bidrr reviews found:", bidrrReviews.length)
 
-      bidrrReviews.forEach((review: any, index: number) => {
-        console.log(`[v0] Bidrr Review ${index + 1}:`, {
-          id: review.id,
-          reviewer_name: review.reviewer_name,
-          reviewer_profile_photo_url: review.reviewer_profile_photo_url,
-          rating: review.rating,
-          comment: review.comment,
-          source: review.source,
-          created_at: review.created_at,
-          allFields: Object.keys(review),
-        })
-      })
-
+      setSelectedContractorReviews(data.reviews) // Set selectedContractorReviews state
       setReviews(data)
     } catch (error: any) {
       console.error("Error fetching reviews:", error.message)
@@ -591,11 +576,6 @@ export default function HomeownerDashboard() {
       }
 
       formData.set("priority", priority)
-
-      console.log("[v0] Form data being sent:")
-      for (const [key, value] of formData.entries()) {
-        console.log(`[v0]   ${key}:`, value)
-      }
 
       if (editingMission) {
         // For updates, only append new image files
@@ -1158,7 +1138,6 @@ export default function HomeownerDashboard() {
 
                           <button
                             onClick={() => {
-                              console.log("[v0] Opening reviews for contractor:", bid.contractor_id, bid.company_name)
                               fetchContractorReviews(bid.contractor_id, bid.company_name)
                             }}
                             className="flex items-center gap-2 hover:opacity-80 transition-opacity mt-2"

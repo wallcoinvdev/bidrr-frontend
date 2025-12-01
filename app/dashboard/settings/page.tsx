@@ -94,7 +94,7 @@ export default function UniversalSettings() {
         requiresAuth: true,
       })
 
-      localStorage.removeItem("token")
+      localStorage.removeItem("auth_token")
       localStorage.removeItem("user")
       localStorage.removeItem("refresh_token")
       window.location.href = "/goodbye"

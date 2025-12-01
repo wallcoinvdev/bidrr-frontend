@@ -384,8 +384,6 @@ export default function ContractorProfilePage() {
     setError(null)
     setSuccess(null)
 
-    console.log("[v0] Saving services:", services)
-
     try {
       await apiClient.request("/api/users/services", {
         method: "POST",
@@ -393,11 +391,9 @@ export default function ContractorProfilePage() {
         requiresAuth: true,
       })
 
-      console.log("[v0] Services saved successfully!")
       setSuccess("Services updated successfully!")
       await refreshUser()
     } catch (err) {
-      console.error("[v0] Error saving services:", err)
       setError(err instanceof Error ? err.message : "Failed to update services")
     } finally {
       setIsSavingServices(false)
@@ -685,7 +681,9 @@ export default function ContractorProfilePage() {
                     <input
                       type="text"
                       value={postalCode}
-                      onChange={(e) => setPostalCode(e.target.value)}
+                      onChange={(e) => setPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))}
+                      maxLength={6}
+                      placeholder="A1A1A1"
                       className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
                     />
                   </div>
@@ -776,13 +774,11 @@ export default function ContractorProfilePage() {
                     <input
                       type="text"
                       value={businessPostalCode}
-                      onChange={(e) => {
-                        const raw = e.target.value.toUpperCase().replace(/\s/g, "")
-                        const formatted = raw.length > 3 ? `${raw.slice(0, 3)} ${raw.slice(3, 6)}` : raw
-                        setBusinessPostalCode(formatted.slice(0, 7))
-                      }}
-                      maxLength={7}
-                      placeholder="A1A 1A1"
+                      onChange={(e) =>
+                        setBusinessPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))
+                      }
+                      maxLength={6}
+                      placeholder="A1A1A1"
                       className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
                     />
                   </div>

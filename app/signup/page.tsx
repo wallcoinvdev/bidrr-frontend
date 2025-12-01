@@ -11,14 +11,6 @@ export default function SignupPage() {
   const role = searchParams.get("role")
 
   useEffect(() => {
-    console.log("[v0] ========== SIGNUP PAGE LOADED ==========")
-    console.log("[v0] Current URL:", window.location.href)
-    console.log("[v0] Role from URL:", role)
-    console.log("[v0] Timestamp:", new Date().toISOString())
-    console.log("[v0] ===========================================")
-  }, [])
-
-  useEffect(() => {
     if (role === "homeowner" || role === "contractor") {
       router.push(`/onboarding/personal-info?role=${role}`)
     }

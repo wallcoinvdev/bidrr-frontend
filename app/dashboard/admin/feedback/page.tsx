@@ -52,8 +52,6 @@ export default function FeedbackPage() {
     setUpdatingId(id)
 
     try {
-      console.log("[v0] Toggling status for feedback:", id, "from", currentStatus, "to", newStatus)
-
       await apiClient.put(`/api/admin/feedback/${id}/status`, { status: newStatus })
 
       setFeedback((prev) => prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item)))
@@ -78,11 +76,7 @@ export default function FeedbackPage() {
     setUpdatingId(id)
 
     try {
-      console.log("[v0] Toggling flag for feedback:", id, "to", newFlag)
-
       await apiClient.put(`/api/admin/feedback/${id}/flag`, { is_flagged: newFlag })
-
-      console.log("[v0] Flag update response: success")
 
       setFeedback((prev) => prev.map((item) => (item.id === id ? { ...item, is_flagged: newFlag } : item)))
 
