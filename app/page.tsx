@@ -233,7 +233,7 @@ export default function HomePage() {
                   <Link
                     href="/signup?role=contractor"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="bg-transparent text-white px-10 py-4 rounded-lg text-lg font-bold hover:bg-white/10 transition-colors border-2 border-white"
+                    className="bg-[#e2bb12] text-[#03353a] px-5 py-2.5 rounded-lg font-semibold hover:bg-[#e2bb12]/90 transition-colors text-center"
                   >
                     Join as Contractor
                   </Link>
@@ -316,24 +316,54 @@ export default function HomePage() {
                 )}
               </form>
 
-              <p className="mt-6 text-base text-gray-300">
+              <p className="text-gray-200 text-lg flex items-center justify-center gap-2 flex-wrap mt-6">
                 <span className="font-medium">Popular:</span> House Cleaning · Plumbing · Electrical
               </p>
             </div>
+          </div>
+        </section>
 
-            <div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        {/* How it Works */}
+        <section id="how-it-works" className="py-20 md:py-28 bg-transparent">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-4xl md:text-5xl font-bold text-white text-center mb-4">How it works</h2>
+            <p className="text-xl text-gray-200 text-center mb-16">Get your project done in three simple steps</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-12 max-w-5xl mx-auto">
               <div className="text-center">
-                <div className="text-5xl font-bold text-white mb-2">14,000+</div>
-                <div className="text-gray-300 text-lg">Verified Professionals</div>
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#328d87] text-white text-3xl font-bold mb-6">
+                  1
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-3">Post your job</h3>
+                <p className="text-gray-200 text-lg">Describe what you need. It's free and takes less than a minute.</p>
               </div>
+
               <div className="text-center">
-                <div className="text-5xl font-bold text-white mb-2">96%</div>
-                <div className="text-gray-300 text-lg">Customer Satisfaction</div>
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#328d87] text-white text-3xl font-bold mb-6">
+                  2
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-3">Receive Bids</h3>
+                <p className="text-gray-200 text-lg">
+                  Receive competitive bids from verified professionals in your area.
+                </p>
               </div>
+
               <div className="text-center">
-                <div className="text-5xl font-bold text-white mb-2">4.8★</div>
-                <div className="text-gray-300 text-lg">Average Rating</div>
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#328d87] text-white text-3xl font-bold mb-6">
+                  3
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-3">Hire with confidence</h3>
+                <p className="text-gray-200 text-lg">Compare profiles, reviews, and prices to choose the best pro.</p>
               </div>
+            </div>
+
+            <div className="text-center mt-16">
+              <Link
+                href="/signup"
+                className="inline-flex items-center gap-2 bg-[#e2bb12] text-[#03353a] px-10 py-4 rounded-lg text-lg font-bold hover:bg-[#e2bb12]/90 transition-colors shadow-lg"
+              >
+                Get started—it's free
+              </Link>
             </div>
           </div>
         </section>
@@ -391,51 +421,6 @@ export default function HomePage() {
               animation-play-state: paused;
             }
           `}</style>
-        </section>
-
-        {/* How it Works */}
-        <section id="how-it-works" className="py-20 md:py-28 bg-transparent">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-4xl md:text-5xl font-bold text-white text-center mb-4">How it works</h2>
-            <p className="text-xl text-gray-200 text-center mb-16">Get your project done in three simple steps</p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-12 max-w-5xl mx-auto">
-              <div className="text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#328d87] text-white text-3xl font-bold mb-6">
-                  1
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">Post your job</h3>
-                <p className="text-gray-200 text-lg">Describe what you need. It's free and takes less than a minute.</p>
-              </div>
-
-              <div className="text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#328d87] text-white text-3xl font-bold mb-6">
-                  2
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">Receive Bids</h3>
-                <p className="text-gray-200 text-lg">
-                  Receive competitive bids from verified professionals in your area.
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#328d87] text-white text-3xl font-bold mb-6">
-                  3
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">Hire with confidence</h3>
-                <p className="text-gray-200 text-lg">Compare profiles, reviews, and prices to choose the best pro.</p>
-              </div>
-            </div>
-
-            <div className="text-center mt-16">
-              <Link
-                href="/signup"
-                className="inline-flex items-center gap-2 bg-[#e2bb12] text-[#03353a] px-10 py-4 rounded-lg text-lg font-bold hover:bg-[#e2bb12]/90 transition-colors shadow-lg"
-              >
-                Get started—it's free
-              </Link>
-            </div>
-          </div>
         </section>
 
         {/* Testimonials */}
