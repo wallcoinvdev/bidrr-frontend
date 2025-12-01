@@ -471,7 +471,6 @@ export default function PersonalInfoPage() {
                     onChange={(e) => setBusinessAddress(e.target.value)}
                     className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                     required
-                    disabled={sameAsPersonalAddress}
                   />
                 </div>
 
@@ -483,10 +482,12 @@ export default function PersonalInfoPage() {
                     <input
                       type="text"
                       value={businessCity}
-                      onChange={(e) => setBusinessCity(e.target.value)}
+                      onChange={(e) => {
+                        setBusinessCity(e.target.value)
+                        if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
+                      }}
                       className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                       required
-                      disabled={sameAsPersonalAddress}
                     />
                   </div>
                   <div>
@@ -495,10 +496,12 @@ export default function PersonalInfoPage() {
                     </label>
                     <select
                       value={businessRegion}
-                      onChange={(e) => setBusinessRegion(e.target.value)}
+                      onChange={(e) => {
+                        setBusinessRegion(e.target.value)
+                        if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
+                      }}
                       className="w-full px-4 py-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#03353a]"
                       required
-                      disabled={sameAsPersonalAddress}
                     >
                       <option value="">Select a province</option>
                       <option value="Alberta">Alberta</option>
@@ -526,9 +529,10 @@ export default function PersonalInfoPage() {
                     <input
                       type="text"
                       value={businessPostalCode}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setBusinessPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))
-                      }
+                        if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
+                      }}
                       onBlur={() => setBusinessPostalCodeTouched(true)}
                       placeholder="A1A1A1"
                       maxLength={6}
@@ -541,7 +545,6 @@ export default function PersonalInfoPage() {
                           : ""
                       }`}
                       required
-                      disabled={sameAsPersonalAddress}
                     />
                     {businessPostalCodeTouched && !isValidPostalCode(businessPostalCode) && (
                       <p className="text-red-500 text-xs mt-1">

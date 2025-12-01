@@ -24,6 +24,7 @@ import { notificationService } from "@/lib/notification-service"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { initiateStripeCheckout } from "@/lib/checkout"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 interface Stats {
   total_bids: number
@@ -117,6 +118,7 @@ export default function ContractorDashboard() {
   const fetchInProgress = useRef(false)
 
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const router = useRouter()
 
   const { toast } = useToast()
 
@@ -325,7 +327,7 @@ export default function ContractorDashboard() {
 
       setTimeout(() => {
         closeMissionModal()
-        fetchUserAndMissions()
+        router.push("/dashboard/contractor/bids")
       }, 2000)
     } catch (error: any) {
       console.error("=== BID SUBMISSION ERROR ===")
