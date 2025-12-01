@@ -798,11 +798,11 @@ export default function ContractorDashboard() {
                   <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Total Bids</h3>
                   <p className="text-xl md:text-2xl font-bold text-gray-900">{selectedMission.bid_count || 0}</p>
                 </div>
-                {selectedMission.distance_km && (
+                {selectedMission.distance_km != null && !isNaN(Number(selectedMission.distance_km)) && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Distance</h3>
                     <p className="text-xl md:text-2xl font-bold text-gray-900">
-                      {selectedMission.distance_km.toFixed(1)} km
+                      {Number(selectedMission.distance_km).toFixed(1)} km
                     </p>
                   </div>
                 )}
