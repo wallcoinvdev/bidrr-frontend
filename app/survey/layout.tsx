@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     siteName: "Bidrr",
     images: [
       {
-        url: "/images/bgr-bidrr-promo.png",
+        url: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/bgr-bidrr-promo-12Thl77OnnhLZOnWl0nbcWC6ZFdCUN.png",
         width: 1200,
         height: 630,
         alt: "Bright Green Roof + Bidrr Partnership",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Quick Survey | Bidrr",
     description: "Help us understand what matters most to you when hiring home service contractors.",
-    images: ["/images/bgr-bidrr-promo.png"],
+    images: ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/bgr-bidrr-promo-12Thl77OnnhLZOnWl0nbcWC6ZFdCUN.png"],
   },
 }
 
