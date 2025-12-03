@@ -22,6 +22,7 @@ import {
   Shield,
   Menu,
   X,
+  ClipboardList,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -30,6 +31,7 @@ const adminNavItems = [
   { href: "/dashboard/admin/billing", label: "Billing", icon: DollarSign },
   { href: "/dashboard/admin/users", label: "Users", icon: Users },
   { href: "/dashboard/admin/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/dashboard/admin/survey", label: "Survey", icon: ClipboardList },
   { href: "/dashboard/admin/feedback", label: "Feedback", icon: MessageSquare },
   { href: "/dashboard/admin/messages", label: "Messages", icon: Mail },
   { href: "/dashboard/admin/emails", label: "Email Campaigns", icon: Mail },
@@ -49,6 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     jobs: 1,
     logs: 72,
     audit: 0,
+    survey: 5, // Added badge for survey
   })
 
   useEffect(() => {

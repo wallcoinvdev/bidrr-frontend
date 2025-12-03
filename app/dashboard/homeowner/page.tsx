@@ -594,11 +594,6 @@ export default function HomeownerDashboard() {
           formData.append("images", file)
         })
 
-        console.log("[v0] Update job formData contents:")
-        for (const [key, value] of formData.entries()) {
-          console.log(`[v0]   ${key}: ${value}`)
-        }
-
         await apiClient.uploadFormData(`/api/missions/${editingMission.id}`, formData, "PUT", true)
 
         toast({
