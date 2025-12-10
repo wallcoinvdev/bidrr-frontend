@@ -3,7 +3,7 @@
 import type React from "react"
 import { useEffect, useState } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Lock, CreditCard, Trash2, Eye, EyeOff, Bell, AlertTriangle, User } from "lucide-react"
+import { Lock, Trash2, Eye, EyeOff, AlertTriangle, User } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-context"
@@ -131,8 +131,12 @@ export default function UniversalSettings() {
           {profileData ? (
             <div className="space-y-4">
               <div>
-                <span className="text-sm font-medium text-gray-700">Full Name</span>
-                <p className="text-gray-900">{profileData.full_name || profileData.name || "Not set"}</p>
+                <span className="text-sm font-medium text-gray-700">Name</span>
+                <p className="text-gray-900">
+                  {profileData.first_name && profileData.last_name
+                    ? `${profileData.first_name} ${profileData.last_name}`
+                    : profileData.first_name || profileData.last_name || "Not set"}
+                </p>
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-700">Email</span>
@@ -238,43 +242,6 @@ export default function UniversalSettings() {
               {isLoading ? "Updating..." : "Update Password"}
             </button>
           </form>
-        </div>
-
-        {/* Notification Settings */}
-        <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Bell className="w-6 h-6 text-gray-700" />
-            <h2 className="text-xl font-bold">Notification Settings</h2>
-          </div>
-
-          <div className="text-center py-8 bg-gray-50 rounded-lg">
-            <p className="text-gray-600 font-medium">Coming Soon</p>
-            <p className="text-gray-500 text-sm mt-1">Notification preferences will be available in a future update</p>
-          </div>
-        </div>
-
-        {/* Subscription Management */}
-        <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <CreditCard className="w-6 h-6 text-gray-700" />
-            <h2 className="text-xl font-bold">Subscription Management</h2>
-          </div>
-
-          <div className="text-center py-8 bg-gray-50 rounded-lg">
-            {userRole === "homeowner" ? (
-              <>
-                <p className="text-gray-600 font-medium">Job postings are always free for customers!</p>
-                <p className="text-gray-500 text-sm mt-1">No subscription required</p>
-              </>
-            ) : (
-              <>
-                <p className="text-gray-600 font-medium">Currently in Beta</p>
-                <p className="text-gray-500 text-sm mt-1">
-                  Subscription management will be available after the beta period ends
-                </p>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Delete Account */}

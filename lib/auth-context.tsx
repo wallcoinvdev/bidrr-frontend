@@ -6,7 +6,8 @@ import { apiClient } from "./api-client"
 interface User {
   id: number
   email: string
-  full_name: string
+  first_name: string
+  last_name: string
   role: "homeowner" | "contractor"
   phone_number?: string
   phone_verified?: boolean
@@ -117,7 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const impersonatedUser = {
         ...response.user,
-        full_name: response.user.full_name || response.user.email,
+        first_name: response.user.first_name || "",
+        last_name: response.user.last_name || response.user.email,
         impersonating_admin_id: response.user.impersonating_admin_id,
       }
 

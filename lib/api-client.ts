@@ -204,6 +204,7 @@ class ApiClient {
         method,
         headers,
         body: formData,
+        mode: "cors",
         credentials: "include",
       })
 
@@ -225,7 +226,6 @@ class ApiClient {
     if (typeof window === "undefined") return null
     try {
       const token = localStorage.getItem("auth_token")
-      console.log("[v0] Token retrieval - exists:", !!token, "value:", token ? `${token.substring(0, 20)}...` : "null")
       return token
     } catch (e) {
       console.error("[v0] Error retrieving token from localStorage:", e)

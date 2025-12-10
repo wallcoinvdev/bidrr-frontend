@@ -44,13 +44,39 @@ export default function PersonalInfoPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [servicesError, setServicesError] = useState<string | null>(null)
+  const [hasInvalidServiceInput, setHasInvalidServiceInput] = useState(false)
 
   const [postalCodeTouched, setPostalCodeTouched] = useState(false)
   const [businessPostalCodeTouched, setBusinessPostalCodeTouched] = useState(false)
 
   // Helper to validate postal code format
   const isValidPostalCode = (code: string) => {
-    return /^[A-Za-z][0-9][A-Za-z][0-9][A-Za-z][0-9]$/.test(code)
+    return /^[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]$/.test(code)
+  }
+
+  const formatPostalCode = (value: string) => {
+    const clean = value
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 6)
+    if (clean.length > 3) {
+      return clean.slice(0, 3) + " " + clean.slice(3)
+    }
+    return clean
+  }
+
+  const isFormValid = () => {
+    if (!region || region === "") return false
+    if (!acceptedTerms) return false
+    if (password !== confirmPassword) return false
+    if (password.length < 6) return false
+    if (!phoneNumber || phoneNumber.length < 10) return false
+    if (data.role === "contractor" && (!businessRegion || businessRegion === "")) return false
+    if (data.role === "contractor" && services.length === 0) return false
+    if (!isValidPostalCode(postalCode)) return false
+    if (data.role === "contractor" && !isValidPostalCode(businessPostalCode)) return false
+    if (hasInvalidServiceInput) return false
+    return true
   }
 
   useEffect(() => {
@@ -66,49 +92,16 @@ export default function PersonalInfoPage() {
     setServicesError(null)
 
     try {
-      if (!region || region === "") {
-        throw new Error("Please select a province")
-      }
-
-      if (!acceptedTerms) {
-        throw new Error("You must agree to the Terms of Service to continue")
-      }
-
-      if (password !== confirmPassword) {
-        throw new Error("Passwords do not match")
-      }
-
-      if (password.length < 6) {
-        throw new Error("Password must be at least 6 characters")
-      }
-
-      if (!phoneNumber || phoneNumber.length < 10) {
-        throw new Error("Please enter a valid phone number")
-      }
-
-      if (data.role === "contractor" && (!businessRegion || businessRegion === "")) {
-        throw new Error("Please select a province for your business")
-      }
-
-      if (data.role === "contractor" && services.length === 0) {
-        setServicesError("Please select at least one service you offer")
-        setIsLoading(false)
-        return
-      }
-
-      if (!postalCodeTouched || !isValidPostalCode(postalCode)) {
-        throw new Error("Please enter a valid postal code")
-      }
-
-      if (data.role === "contractor" && (!businessPostalCodeTouched || !isValidPostalCode(businessPostalCode))) {
-        throw new Error("Please enter a valid business postal code")
+      if (!isFormValid()) {
+        throw new Error("Please fill out all required fields correctly")
       }
 
       const actualCountryCode = countryCode.split("-")[0]
       const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
 
       const formData: any = {
-        full_name: `${firstName} ${lastName}`,
+        first_name: firstName,
+        last_name: lastName,
         email,
         password,
         phone_number: fullPhoneNumber,
@@ -336,22 +329,20 @@ export default function PersonalInfoPage() {
                 <input
                   type="text"
                   value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))}
+                  onChange={(e) => setPostalCode(formatPostalCode(e.target.value))}
                   onBlur={() => setPostalCodeTouched(true)}
-                  placeholder="A1A1A1"
-                  maxLength={6}
-                  minLength={6}
-                  pattern="[A-Za-z][0-9][A-Za-z][0-9][A-Za-z][0-9]"
-                  title="Please enter a valid Canadian postal code (e.g., A1A1A1)"
+                  placeholder="A1A 1A1"
+                  maxLength={7}
+                  minLength={7}
+                  pattern="[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]"
+                  title="Please enter a valid Canadian postal code (e.g., A1A 1A1)"
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] ${
                     postalCodeTouched && !isValidPostalCode(postalCode) ? "border-red-500 focus:ring-red-500" : ""
                   }`}
                   required
                 />
                 {postalCodeTouched && !isValidPostalCode(postalCode) && (
-                  <p className="text-red-500 text-xs mt-1">
-                    Please enter a valid 6-character postal code (e.g., A1A1A1)
-                  </p>
+                  <p className="text-red-500 text-xs mt-1">Please enter a valid postal code (e.g., A1A 1A1)</p>
                 )}
               </div>
             </div>
@@ -530,15 +521,15 @@ export default function PersonalInfoPage() {
                       type="text"
                       value={businessPostalCode}
                       onChange={(e) => {
-                        setBusinessPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))
+                        setBusinessPostalCode(formatPostalCode(e.target.value))
                         if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
                       }}
                       onBlur={() => setBusinessPostalCodeTouched(true)}
-                      placeholder="A1A1A1"
-                      maxLength={6}
-                      minLength={6}
-                      pattern="[A-Za-z][0-9][A-Za-z][0-9][A-Za-z][0-9]"
-                      title="Please enter a valid Canadian postal code (e.g., A1A1A1)"
+                      placeholder="A1A 1A1"
+                      maxLength={7}
+                      minLength={7}
+                      pattern="[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]"
+                      title="Please enter a valid Canadian postal code (e.g., A1A 1A1)"
                       className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] ${
                         businessPostalCodeTouched && !isValidPostalCode(businessPostalCode)
                           ? "border-red-500 focus:ring-red-500"
@@ -550,7 +541,7 @@ export default function PersonalInfoPage() {
                       <p className="text-red-500 text-xs mt-1">
                         {sameAsPersonalAddress
                           ? "Personal postal code is invalid. Please fix it above."
-                          : "Please enter a valid 6-character postal code (e.g., A1A1A1)"}
+                          : "Please enter a valid postal code (e.g., A1A 1A1)"}
                       </p>
                     )}
                   </div>
@@ -571,10 +562,12 @@ export default function PersonalInfoPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#03353a] mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Services Offered <span className="text-red-500">*</span>
                   </label>
-                  <p className="text-xs text-[#03353a]/60 mb-2">Select all services you offer</p>
+                  <p className="text-xs text-[#03353a]/60 mb-2">
+                    Select at least one service from the dropdown list. Only services from our list can be selected.
+                  </p>
                   <ServicesSelector
                     value={services}
                     onChange={(newServices) => {
@@ -584,6 +577,7 @@ export default function PersonalInfoPage() {
                       }
                     }}
                     error={servicesError || undefined}
+                    onInvalidInput={setHasInvalidServiceInput}
                   />
                 </div>
               </div>

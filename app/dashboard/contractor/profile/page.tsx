@@ -38,7 +38,8 @@ export default function ContractorProfilePage() {
   const [verificationError, setVerificationError] = useState<string | null>(null)
   const [verificationSuccess, setVerificationSuccess] = useState<string | null>(null)
 
-  const [fullName, setFullName] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [phoneVerified, setPhoneVerified] = useState(false)
@@ -75,8 +76,9 @@ export default function ContractorProfilePage() {
           requiresAuth: true,
         })
 
-        const nameToUse = profile.full_name || profile.name || ""
-        setFullName(nameToUse)
+        // CHANGE: Use first_name and last_name from profile response
+        setFirstName(profile.first_name || "")
+        setLastName(profile.last_name || "")
         setEmail(profile.email || "")
         setPhone(profile.phone_number || "")
 
@@ -236,8 +238,8 @@ export default function ContractorProfilePage() {
       await apiClient.request("/api/users/profile", {
         method: "PUT",
         body: JSON.stringify({
-          name: fullName,
-          full_name: fullName,
+          first_name: firstName,
+          last_name: lastName,
           email,
           address,
           city,
@@ -416,7 +418,7 @@ export default function ContractorProfilePage() {
     try {
       await apiClient.request("/api/users/request-verification", {
         method: "POST",
-        body: JSON.stringify({
+        body: JSON.JSON.stringify({
           phone_number: fullPhoneNumber,
           role: "contractor",
           user_id: user?.id,
@@ -602,15 +604,27 @@ export default function ContractorProfilePage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                     <input
                       type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
                       className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                     <input
@@ -620,17 +634,17 @@ export default function ContractorProfilePage() {
                       className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    disabled
-                    className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm md:text-base"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Phone number cannot be changed</p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      disabled
+                      className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm md:text-base"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Phone number cannot be changed</p>
+                  </div>
                 </div>
 
                 <div>
@@ -681,9 +695,19 @@ export default function ContractorProfilePage() {
                     <input
                       type="text"
                       value={postalCode}
-                      onChange={(e) => setPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))}
-                      maxLength={6}
-                      placeholder="A1A1A1"
+                      onChange={(e) => {
+                        const clean = e.target.value
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9]/g, "")
+                          .slice(0, 6)
+                        if (clean.length > 3) {
+                          setPostalCode(clean.slice(0, 3) + " " + clean.slice(3))
+                        } else {
+                          setPostalCode(clean)
+                        }
+                      }}
+                      maxLength={7}
+                      placeholder="A1A 1A1"
                       className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
                     />
                   </div>
@@ -774,11 +798,19 @@ export default function ContractorProfilePage() {
                     <input
                       type="text"
                       value={businessPostalCode}
-                      onChange={(e) =>
-                        setBusinessPostalCode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))
-                      }
-                      maxLength={6}
-                      placeholder="A1A1A1"
+                      onChange={(e) => {
+                        const clean = e.target.value
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9]/g, "")
+                          .slice(0, 6)
+                        if (clean.length > 3) {
+                          setBusinessPostalCode(clean.slice(0, 3) + " " + clean.slice(3))
+                        } else {
+                          setBusinessPostalCode(clean)
+                        }
+                      }}
+                      maxLength={7}
+                      placeholder="A1A 1A1"
                       className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
                     />
                   </div>

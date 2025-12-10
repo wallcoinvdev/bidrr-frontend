@@ -260,12 +260,11 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   }
 
   const getUserInitials = () => {
-    if (user?.name) {
-      const names = user.name.split(" ")
-      if (names.length >= 2) {
-        return `${names[0].charAt(0)}${names[1].charAt(0)}`.toUpperCase()
-      }
-      return user.name.charAt(0).toUpperCase()
+    if (user?.first_name && user?.last_name) {
+      return `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase()
+    }
+    if (user?.first_name) {
+      return user.first_name.charAt(0).toUpperCase()
     }
     return "U"
   }
@@ -436,7 +435,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-5 h-5" />
             <span className="font-medium">
-              Admin Mode: Viewing as {user?.full_name || user?.email || `User #${user?.id}`}
+              Admin Mode: Viewing as {user?.first_name || user?.email || `User #${user?.id}`}
             </span>
           </div>
           <button

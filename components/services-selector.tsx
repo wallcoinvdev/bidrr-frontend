@@ -9,11 +9,13 @@ interface ServicesSelectorProps {
   value: string[]
   onChange: (services: string[]) => void
   error?: string
+  onInvalidInput?: (hasInvalidInput: boolean) => void
 }
 
-export function ServicesSelector({ value, onChange, error }: ServicesSelectorProps) {
+export function ServicesSelector({ value, onChange, error, onInvalidInput }: ServicesSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [showDropdown, setShowDropdown] = useState(false)
+  const [hasInvalidText, setHasInvalidText] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -23,7 +25,6 @@ export function ServicesSelector({ value, onChange, error }: ServicesSelectorPro
 
   const suggestedServices = getSuggestedServices(value)
 
-  // Handle clicking outside to close suggestions
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -33,6 +34,13 @@ export function ServicesSelector({ value, onChange, error }: ServicesSelectorPro
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    const trimmedQuery = searchQuery.trim()
+    const isInvalid = trimmedQuery.length > 0 && filteredServices.length === 0
+    setHasInvalidText(isInvalid)
+    onInvalidInput?.(isInvalid)
+  }, [searchQuery, filteredServices.length, onInvalidInput])
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query)
@@ -45,6 +53,8 @@ export function ServicesSelector({ value, onChange, error }: ServicesSelectorPro
     }
     setSearchQuery("")
     setShowDropdown(false)
+    setHasInvalidText(false)
+    onInvalidInput?.(false)
     inputRef.current?.focus()
   }
 
@@ -58,6 +68,8 @@ export function ServicesSelector({ value, onChange, error }: ServicesSelectorPro
       addService(filteredServices[0])
     }
   }
+
+  const showErrorStyling = error || hasInvalidText
 
   return (
     <div className="space-y-4" ref={containerRef}>
@@ -74,7 +86,7 @@ export function ServicesSelector({ value, onChange, error }: ServicesSelectorPro
             onKeyDown={handleKeyDown}
             placeholder="Add services"
             className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent ${
-              error ? "border-red-500" : "border-gray-300"
+              showErrorStyling ? "border-red-500" : "border-gray-300"
             }`}
           />
         </div>
@@ -95,6 +107,12 @@ export function ServicesSelector({ value, onChange, error }: ServicesSelectorPro
           </div>
         )}
       </div>
+
+      {hasInvalidText && !error && (
+        <p className="text-sm text-red-600 flex items-center gap-1">
+          "{searchQuery}" is not a valid service. Please select from the dropdown list.
+        </p>
+      )}
 
       {/* Inline error message display */}
       {error && <p className="text-sm text-red-600 flex items-center gap-1">{error}</p>}

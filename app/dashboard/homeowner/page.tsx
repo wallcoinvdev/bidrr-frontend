@@ -36,7 +36,8 @@ import { VerifiedBadge } from "@/components/verified-badge"
 const user = {
   id: 1,
   name: "John Doe",
-  full_name: "John Doe",
+  first_name: "John",
+  last_name: "Doe",
   email: "john.doe@example.com",
   role: "homeowner",
 }
@@ -137,6 +138,7 @@ export default function HomeownerDashboard() {
   const [deletingJob, setDeletingJob] = useState(false)
   const [jobDescription, setJobDescription] = useState("")
   const [descriptionTouched, setDescriptionTouched] = useState(false)
+  const [serviceTouched, setServiceTouched] = useState(false)
 
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null)
   const [showReviewDialog, setShowReviewDialog] = useState(false)
@@ -569,6 +571,13 @@ export default function HomeownerDashboard() {
       return
     }
 
+    // Validation for service selection
+    if (!selectedService) {
+      setServiceTouched(true)
+      setPostingJob(false)
+      return
+    }
+
     try {
       const formData = new FormData(e.currentTarget)
 
@@ -606,7 +615,7 @@ export default function HomeownerDashboard() {
           formData.append("images", file)
         })
 
-        await apiClient.uploadFormData("/api/missions", formData, "POST", true)
+        const result = await apiClient.uploadFormData("/api/missions", formData, "POST", true)
 
         toast({
           title: "Success!",
@@ -622,6 +631,7 @@ export default function HomeownerDashboard() {
       setEditingMission(null)
       setJobDescription("") // Reset job description state
       setDescriptionTouched(false) // Reset touched state
+      setServiceTouched(false) // Reset touched state
       await fetchDashboardData()
     } catch (error: any) {
       console.error("Error posting job:", error)
@@ -822,6 +832,7 @@ export default function HomeownerDashboard() {
             setEditingMission(null)
             setJobDescription("") // Reset job description state
             setDescriptionTouched(false) // Reset touched state
+            setServiceTouched(false) // Reset touched state
           }
         }}
       >
@@ -854,6 +865,7 @@ export default function HomeownerDashboard() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Service Type <span className="text-red-500">*</span>
               </label>
+              <p className="text-xs text-gray-500 mb-2">Please select a service from the dropdown list</p>
               <input
                 type="text"
                 value={selectedService || serviceSearch}
@@ -863,10 +875,18 @@ export default function HomeownerDashboard() {
                   setShowServiceDropdown(true)
                 }}
                 onFocus={() => setShowServiceDropdown(true)}
+                onBlur={() => setServiceTouched(true)}
                 placeholder="Start typing..."
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent ${
+                  serviceTouched && serviceSearch && !selectedService ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
               />
+              {serviceTouched && serviceSearch && !selectedService && (
+                <p className="text-xs text-red-500 mt-1">
+                  Please select a service from the dropdown list. Custom entries are not allowed.
+                </p>
+              )}
 
               {showServiceDropdown && filteredServices.length > 0 && !selectedService && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -876,8 +896,9 @@ export default function HomeownerDashboard() {
                       type="button"
                       onClick={() => {
                         setSelectedService(service)
-                        setServiceSearch("")
+                        setServiceSearch("") // Clear search input when a service is selected
                         setShowServiceDropdown(false)
+                        setServiceTouched(true) // Mark as touched when selected
                       }}
                       className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
                     >
@@ -890,6 +911,9 @@ export default function HomeownerDashboard() {
                     </div>
                   )}
                 </div>
+              )}
+              {serviceTouched && !selectedService && (
+                <p className="text-xs text-red-500 mt-1">Please select a service type.</p>
               )}
             </div>
 
@@ -1058,11 +1082,19 @@ export default function HomeownerDashboard() {
                   <input
                     type="text"
                     name="postal_code"
-                    defaultValue={editingMission?.postal_code?.replace(/\s/g, "") || ""}
-                    placeholder="A1A1A1"
-                    maxLength={6}
+                    defaultValue={editingMission?.postal_code || ""}
+                    placeholder="A1A 1A1"
+                    maxLength={7}
                     onChange={(e) => {
-                      e.target.value = e.target.value.toUpperCase().replace(/\s/g, "")
+                      const clean = e.target.value
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]/g, "")
+                        .slice(0, 6)
+                      if (clean.length > 3) {
+                        e.target.value = clean.slice(0, 3) + " " + clean.slice(3)
+                      } else {
+                        e.target.value = clean
+                      }
                     }}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
@@ -1075,7 +1107,12 @@ export default function HomeownerDashboard() {
 
             <button
               type="submit"
-              disabled={postingJob || !selectedService || (descriptionTouched && jobDescription.length < 10)}
+              disabled={
+                postingJob ||
+                !selectedService ||
+                (descriptionTouched && jobDescription.length < 10) ||
+                (serviceTouched && !selectedService)
+              }
               className="w-full py-3 bg-[#0F766E] text-white rounded-lg font-medium hover:bg-[#0d5f57] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {postingJob ? (

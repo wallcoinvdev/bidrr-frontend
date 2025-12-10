@@ -233,7 +233,7 @@ export default function HomePage() {
                   <Link
                     href="/signup?role=contractor"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="bg-[#e2bb12] text-[#03353a] px-5 py-2.5 rounded-lg font-semibold hover:bg-[#e2bb12]/90 transition-colors text-center"
+                    className="bg-transparent text-white px-10 py-4 rounded-lg text-lg font-bold hover:bg-white/10 transition-colors border-2 border-white"
                   >
                     Join as Contractor
                   </Link>
@@ -319,6 +319,15 @@ export default function HomePage() {
               <p className="text-gray-200 text-lg flex items-center justify-center gap-2 flex-wrap mt-6">
                 <span className="font-medium">Popular:</span> House Cleaning · Plumbing · Electrical
               </p>
+
+              <div className="flex justify-center mt-8">
+                <Link
+                  href="/onboarding/personal-info?role=homeowner"
+                  className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-[#328d87] hover:bg-[#287571] rounded-lg transition-colors shadow-lg hover:shadow-xl"
+                >
+                  Post a Job
+                </Link>
+              </div>
             </div>
           </div>
         </section>
@@ -496,7 +505,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/signup"
-                className="bg-[#e2bb12] text-[#03353a] px-10 py-4 rounded-lg text-lg font-bold hover:bg-[#e2bb12]/90 transition-colors shadow-lg"
+                className="bg-[#e2bb12] text-[#03353a] px-10 py-4 rounded-lg text-lg font-bold hover:bg-[#e2bb12]/90 transition-colors"
               >
                 Post a job for free
               </Link>
