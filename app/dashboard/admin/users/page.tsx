@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 
 interface User {
   id: number
-  full_name: string // renamed 'name' to 'full_name' to match backend response
+  name: string // renamed from 'full_name' to 'name' to match backend response
   email: string
   phone_number: string
   role: string
@@ -91,9 +91,7 @@ export default function UsersPage() {
     if (searchTerm) {
       filtered = filtered.filter(
         (user) =>
-          user.full_name
-            ?.toLowerCase()
-            .includes(searchTerm.toLowerCase()) || // updated to use 'full_name'
+          user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.phone_number?.includes(searchTerm) ||
           user.id.toString().includes(searchTerm),
@@ -133,8 +131,7 @@ export default function UsersPage() {
     const targetUser = users.find((u) => u.id === userId)
     if (!targetUser) return
 
-    if (!confirm(`Are you sure you want to switch to ${targetUser.full_name}'s account?`)) {
-      // updated to use 'full_name'
+    if (!confirm(`Are you sure you want to switch to ${targetUser.name}'s account?`)) {
       return
     }
 
@@ -243,7 +240,7 @@ export default function UsersPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-900 font-medium">{user.full_name}</span> // updated to use 'full_name'
+                      <span className="text-gray-900 font-medium">{user.name}</span>
                       {user.phone_verified && (
                         <div className="w-2 h-2 bg-blue-500 rounded-full" title="Phone Verified"></div>
                       )}

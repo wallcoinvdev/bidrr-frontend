@@ -182,6 +182,12 @@ export default function HomePage() {
                   Log in
                 </button>
                 <Link
+                  href="/onboarding/personal-info?role=homeowner"
+                  className="bg-transparent text-white border-2 border-white px-5 py-2 rounded-lg font-semibold hover:bg-white/10 transition-colors"
+                >
+                  Post a Job
+                </Link>
+                <Link
                   href="/signup?role=contractor"
                   className="bg-[#e2bb12] text-[#03353a] px-5 py-2.5 rounded-lg font-semibold hover:bg-[#e2bb12]/90 transition-colors"
                 >
@@ -230,6 +236,13 @@ export default function HomePage() {
                   >
                     Log in
                   </button>
+                  <Link
+                    href="/onboarding/personal-info?role=homeowner"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="bg-transparent text-white border-2 border-white px-5 py-2.5 rounded-lg font-semibold hover:bg-white/10 transition-colors text-center"
+                  >
+                    Post a Job
+                  </Link>
                   <Link
                     href="/signup?role=contractor"
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -319,15 +332,6 @@ export default function HomePage() {
               <p className="text-gray-200 text-lg flex items-center justify-center gap-2 flex-wrap mt-6">
                 <span className="font-medium">Popular:</span> House Cleaning · Plumbing · Electrical
               </p>
-
-              <div className="flex justify-center mt-8">
-                <Link
-                  href="/onboarding/personal-info?role=homeowner"
-                  className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-transparent border-2 border-white hover:bg-white/10 rounded-lg transition-colors shadow-lg hover:shadow-xl"
-                >
-                  Post a Job
-                </Link>
-              </div>
             </div>
           </div>
         </section>
@@ -504,7 +508,7 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                href="/signup"
+                href="/onboarding/personal-info?role=homeowner"
                 className="bg-transparent text-white border-2 border-white px-10 py-4 rounded-lg text-lg font-bold hover:bg-white/10 transition-colors"
               >
                 Post a job for free

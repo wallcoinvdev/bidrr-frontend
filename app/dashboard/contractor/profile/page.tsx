@@ -418,7 +418,7 @@ export default function ContractorProfilePage() {
     try {
       await apiClient.request("/api/users/request-verification", {
         method: "POST",
-        body: JSON.JSON.stringify({
+        body: JSON.stringify({
           phone_number: fullPhoneNumber,
           role: "contractor",
           user_id: user?.id,
