@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { trackEvent } from "@/lib/analytics"
 
 interface Bid {
   id: number
@@ -100,6 +101,12 @@ export default function ViewBidsPage() {
         requiresAuth: true,
       })
 
+      trackEvent("contractor_hired", {
+        job_id: missionId,
+        bid_id: bidId,
+        bid_amount: bid?.quote,
+      })
+
       setHiredContractorName(contractorName)
       setShowReviewDialog(true)
 
@@ -107,6 +114,7 @@ export default function ViewBidsPage() {
     } catch (error: any) {
       console.error("Error hiring contractor:", error)
       alert("Failed to hire contractor: " + error.message)
+      trackEvent("contractor_hire_error", { job_id: missionId, bid_id: bidId, error: error.message })
     }
   }
 

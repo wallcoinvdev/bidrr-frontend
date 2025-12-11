@@ -8,6 +8,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
 import { AlertCircle, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { trackEvent } from "@/lib/analytics"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -23,6 +24,10 @@ export default function LoginPage() {
   const { login, user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  useEffect(() => {
+    trackEvent("login_started")
+  }, [])
 
   useEffect(() => {
     const errorParam = searchParams.get("error")
@@ -41,6 +46,7 @@ export default function LoginPage() {
       const result = await login(email, password, rememberMe)
 
       if ("requires_2fa" in result && result.requires_2fa) {
+        trackEvent("login_2fa_required")
         setRequires2FA(true)
         setTempToken(result.temp_token)
         setPhoneNumber(result.phone_number)
@@ -49,6 +55,8 @@ export default function LoginPage() {
       }
 
       const userData = result as any
+
+      trackEvent("login_success", { role: userData.role, is_admin: userData.is_admin })
 
       const targetDashboard = userData.is_admin
         ? "/dashboard/admin"
@@ -59,6 +67,7 @@ export default function LoginPage() {
       router.push(targetDashboard)
     } catch (err: any) {
       console.error("Login error caught:", err)
+      trackEvent("login_failed", { error_type: err.message || "unknown_error" })
       setError(err.message || "Invalid email or password. Please try again.")
       setLoading(false)
     }
@@ -84,6 +93,8 @@ export default function LoginPage() {
         throw new Error(data.error || "2FA verification failed")
       }
 
+      trackEvent("login_2fa_success")
+
       if (data.token) {
         localStorage.setItem("auth_token", data.token)
       }
@@ -93,6 +104,7 @@ export default function LoginPage() {
 
       router.replace("/dashboard/admin")
     } catch (err: any) {
+      trackEvent("login_2fa_failed", { error_type: err.message || "invalid_code" })
       setError(err.message || "Invalid or expired code. Please try again.")
       setLoading(false)
     }
@@ -100,6 +112,7 @@ export default function LoginPage() {
 
   const handleResend2FA = async () => {
     setError("")
+    trackEvent("login_2fa_resend_requested")
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
       const response = await fetch(`${apiUrl}/api/auth/resend-2fa`, {

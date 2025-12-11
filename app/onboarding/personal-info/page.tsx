@@ -2,18 +2,21 @@
 
 import type React from "react"
 import { useSearchParams } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Eye, EyeOff, User } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { ServicesSelector } from "@/components/services-selector"
 import TermsModal from "@/components/terms-modal"
+import { trackEvent, trackFormField, trackFormError } from "@/lib/analytics"
 
 export default function PersonalInfoPage() {
   const router = useRouter()
   const { data, updateData } = useOnboarding()
   const searchParams = useSearchParams()
   const roleFromUrl = searchParams.get("role")
+
+  const hasTrackedStart = useRef(false)
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -49,6 +52,8 @@ export default function PersonalInfoPage() {
   const [postalCodeTouched, setPostalCodeTouched] = useState(false)
   const [businessPostalCodeTouched, setBusinessPostalCodeTouched] = useState(false)
 
+  const trackedFields = useRef<Set<string>>(new Set())
+
   // Helper to validate postal code format
   const isValidPostalCode = (code: string) => {
     return /^[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]$/.test(code)
@@ -80,10 +85,25 @@ export default function PersonalInfoPage() {
   }
 
   useEffect(() => {
+    if (!hasTrackedStart.current) {
+      const role = roleFromUrl || data.role || "unknown"
+      trackEvent("onboarding_started", { role })
+      hasTrackedStart.current = true
+    }
+  }, [roleFromUrl, data.role])
+
+  useEffect(() => {
     if (roleFromUrl && (roleFromUrl === "homeowner" || roleFromUrl === "contractor")) {
       updateData({ role: roleFromUrl })
     }
   }, [roleFromUrl])
+
+  const handleFieldBlur = (fieldName: string, value: string) => {
+    if (value && value.trim() !== "" && !trackedFields.current.has(fieldName)) {
+      trackedFields.current.add(fieldName)
+      trackFormField(fieldName, data.role || "unknown")
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,8 +111,43 @@ export default function PersonalInfoPage() {
     setError(null)
     setServicesError(null)
 
+    trackEvent("form_submitted", { role: data.role || "unknown" })
+
     try {
       if (!isFormValid()) {
+        if (!region || region === "") {
+          trackFormError("region", "empty", data.role || "unknown")
+        }
+        if (!acceptedTerms) {
+          trackFormError("terms", "not_accepted", data.role || "unknown")
+        }
+        if (password !== confirmPassword) {
+          trackFormError("password", "mismatch", data.role || "unknown")
+        }
+        if (password.length < 6) {
+          trackFormError("password", "too_short", data.role || "unknown")
+        }
+        if (!phoneNumber || phoneNumber.length < 10) {
+          trackFormError("phone", "invalid_length", data.role || "unknown")
+        }
+        if (!isValidPostalCode(postalCode)) {
+          trackFormError("postal_code", "invalid_format", data.role || "unknown")
+        }
+        if (data.role === "contractor") {
+          if (!businessRegion || businessRegion === "") {
+            trackFormError("business_region", "empty", data.role)
+          }
+          if (services.length === 0) {
+            trackFormError("services", "empty", data.role)
+          }
+          if (!isValidPostalCode(businessPostalCode)) {
+            trackFormError("business_postal_code", "invalid_format", data.role)
+          }
+        }
+        if (hasInvalidServiceInput) {
+          trackFormError("services", "invalid_input", data.role || "unknown")
+        }
+
         throw new Error("Please fill out all required fields correctly")
       }
 
@@ -152,8 +207,15 @@ export default function PersonalInfoPage() {
         }),
       })
 
+      trackEvent("form_submission_success", { role: data.role || "unknown" })
+
       router.push(`/verify-phone/${data.role}`)
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error"
+      trackEvent("form_submission_error", {
+        role: data.role || "unknown",
+        error_message: errorMessage,
+      })
       setError(err instanceof Error ? err.message : "Failed to save information. Please try again.")
     } finally {
       setIsLoading(false)
@@ -197,6 +259,7 @@ export default function PersonalInfoPage() {
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
+                  onBlur={() => handleFieldBlur("first_name", firstName)}
                   className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                   required
                 />
@@ -209,6 +272,7 @@ export default function PersonalInfoPage() {
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
+                  onBlur={() => handleFieldBlur("last_name", lastName)}
                   className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                   required
                 />
@@ -223,6 +287,7 @@ export default function PersonalInfoPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => handleFieldBlur("email", email)}
                 className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                 required
               />
@@ -247,6 +312,7 @@ export default function PersonalInfoPage() {
                   pattern="[0-9]*"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                  onBlur={() => handleFieldBlur("phone", phoneNumber)}
                   placeholder="5551234567"
                   maxLength={10}
                   className="flex-1 min-w-0 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
@@ -265,6 +331,7 @@ export default function PersonalInfoPage() {
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
+                  onBlur={() => handleFieldBlur("address", address)}
                   className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                   required
                 />
@@ -277,6 +344,7 @@ export default function PersonalInfoPage() {
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
+                  onBlur={() => handleFieldBlur("city", city)}
                   className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                   required
                 />
@@ -290,7 +358,12 @@ export default function PersonalInfoPage() {
                 </label>
                 <select
                   value={region}
-                  onChange={(e) => setRegion(e.target.value)}
+                  onChange={(e) => {
+                    setRegion(e.target.value)
+                    if (e.target.value) {
+                      handleFieldBlur("region", e.target.value)
+                    }
+                  }}
                   className="w-full px-4 py-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#03353a]"
                   required
                 >
@@ -330,7 +403,13 @@ export default function PersonalInfoPage() {
                   type="text"
                   value={postalCode}
                   onChange={(e) => setPostalCode(formatPostalCode(e.target.value))}
-                  onBlur={() => setPostalCodeTouched(true)}
+                  onBlur={() => {
+                    setPostalCodeTouched(true)
+                    handleFieldBlur("postal_code", postalCode)
+                    if (postalCode && !isValidPostalCode(postalCode)) {
+                      trackFormError("postal_code", "invalid_format", data.role || "unknown")
+                    }
+                  }}
                   placeholder="A1A 1A1"
                   maxLength={7}
                   minLength={7}
@@ -358,6 +437,7 @@ export default function PersonalInfoPage() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => handleFieldBlur("password", password)}
                     className="w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                     required
                     minLength={6}
@@ -382,6 +462,12 @@ export default function PersonalInfoPage() {
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    onBlur={() => {
+                      handleFieldBlur("confirm_password", confirmPassword)
+                      if (confirmPassword && password && confirmPassword !== password) {
+                        trackFormError("password", "mismatch", data.role || "unknown")
+                      }
+                    }}
                     className="w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                     required
                     minLength={6}
@@ -410,6 +496,7 @@ export default function PersonalInfoPage() {
                     type="text"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
+                    onBlur={() => handleFieldBlur("company_name", companyName)}
                     className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                     required
                   />
@@ -420,7 +507,10 @@ export default function PersonalInfoPage() {
                   </label>
                   <select
                     value={companySize}
-                    onChange={(e) => setCompanySize(e.target.value)}
+                    onChange={(e) => {
+                      setCompanySize(e.target.value)
+                      handleFieldBlur("company_size", e.target.value)
+                    }}
                     className="w-full px-4 py-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#03353a]"
                     required
                   >
@@ -460,6 +550,7 @@ export default function PersonalInfoPage() {
                     type="text"
                     value={businessAddress}
                     onChange={(e) => setBusinessAddress(e.target.value)}
+                    onBlur={() => handleFieldBlur("business_address", businessAddress)}
                     className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                     required
                   />
@@ -477,6 +568,7 @@ export default function PersonalInfoPage() {
                         setBusinessCity(e.target.value)
                         if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
                       }}
+                      onBlur={() => handleFieldBlur("business_city", businessCity)}
                       className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
                       required
                     />
@@ -490,6 +582,9 @@ export default function PersonalInfoPage() {
                       onChange={(e) => {
                         setBusinessRegion(e.target.value)
                         if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
+                        if (e.target.value) {
+                          handleFieldBlur("business_region", e.target.value)
+                        }
                       }}
                       className="w-full px-4 py-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#03353a]"
                       required
@@ -524,7 +619,13 @@ export default function PersonalInfoPage() {
                         setBusinessPostalCode(formatPostalCode(e.target.value))
                         if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
                       }}
-                      onBlur={() => setBusinessPostalCodeTouched(true)}
+                      onBlur={() => {
+                        setBusinessPostalCodeTouched(true)
+                        handleFieldBlur("business_postal_code", businessPostalCode)
+                        if (businessPostalCode && !isValidPostalCode(businessPostalCode)) {
+                          trackFormError("business_postal_code", "invalid_format", data.role || "unknown")
+                        }
+                      }}
                       placeholder="A1A 1A1"
                       maxLength={7}
                       minLength={7}
@@ -553,6 +654,7 @@ export default function PersonalInfoPage() {
                       type="number"
                       value={radiusKm}
                       onChange={(e) => setRadiusKm(e.target.value)}
+                      onBlur={() => handleFieldBlur("radius_km", radiusKm)}
                       min="1"
                       max="500"
                       className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
@@ -574,6 +676,10 @@ export default function PersonalInfoPage() {
                       setServices(newServices)
                       if (newServices.length > 0) {
                         setServicesError(null)
+                        if (!trackedFields.current.has("services")) {
+                          trackedFields.current.add("services")
+                          trackFormField("services", data.role || "unknown")
+                        }
                       }
                     }}
                     error={servicesError || undefined}
@@ -588,7 +694,12 @@ export default function PersonalInfoPage() {
               <input
                 type="checkbox"
                 checked={acceptedTerms}
-                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                onChange={(e) => {
+                  setAcceptedTerms(e.target.checked)
+                  if (e.target.checked) {
+                    handleFieldBlur("terms_accepted", "true")
+                  }
+                }}
                 className="mt-1 h-4 w-4"
                 required
               />

@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { VerifiedBadge } from "@/components/verified-badge"
+import { trackEvent } from "@/lib/analytics"
 
 // Assume 'user' is available in this scope, e.g., from an auth context or hook.
 // For demonstration, we'll mock it. In a real app, you'd import/use it correctly.
@@ -483,6 +484,8 @@ export default function HomeownerDashboard() {
         title: "Success!",
         description: "Job deleted successfully",
       })
+      // Track job deletion
+      trackEvent("job_deleted", { userId: user.id, jobId: deleteJobId })
     } catch (error: any) {
       console.error("Error deleting job:", error)
       toast({
@@ -500,6 +503,8 @@ export default function HomeownerDashboard() {
     setSelectedMission(mission)
     setShowBidsModal(true)
     await fetchBidsWithReviews(mission.id)
+    // Track viewing bids
+    trackEvent("view_bids_clicked", { userId: user.id, jobId: mission.id })
   }
 
   const handleBidAction = async (bidId: number, status: string) => {
@@ -516,6 +521,8 @@ export default function HomeownerDashboard() {
       if (status === "accepted") {
         setHiredContractorInfo({ companyName: contractorName })
         setShowReviewDialog(true)
+        // Track contractor hired
+        trackEvent("contractor_hired", { userId: user.id, jobId: selectedMission?.id, contractorId: bidId })
       }
 
       toast({
@@ -568,6 +575,7 @@ export default function HomeownerDashboard() {
     if (jobDescription.length < 10) {
       setDescriptionTouched(true)
       setPostingJob(false)
+      trackEvent("job_post_validation_error", { field: "job_description", error: "too_short" })
       return
     }
 
@@ -575,6 +583,7 @@ export default function HomeownerDashboard() {
     if (!selectedService) {
       setServiceTouched(true)
       setPostingJob(false)
+      trackEvent("job_post_validation_error", { field: "service", error: "not_selected" })
       return
     }
 
@@ -609,6 +618,7 @@ export default function HomeownerDashboard() {
           title: "Success!",
           description: "Job updated successfully!",
         })
+        trackEvent("job_updated", { job_id: editingMission.id, service_type: selectedService })
       } else {
         // For new missions, append all images
         imageFiles.forEach((file) => {
@@ -621,6 +631,7 @@ export default function HomeownerDashboard() {
           title: "Success!",
           description: "Job posted successfully!",
         })
+        trackEvent("job_post_success", { service_type: selectedService, priority })
       }
 
       setShowPostJobModal(false)
@@ -640,6 +651,7 @@ export default function HomeownerDashboard() {
         description: `Failed to ${editingMission ? "update" : "post"} job: ${error.message}`,
         variant: "destructive",
       })
+      trackEvent("job_post_error", { error: error.message, is_edit: !!editingMission })
     } finally {
       setPostingJob(false)
     }
@@ -708,7 +720,10 @@ export default function HomeownerDashboard() {
           </div>
 
           <button
-            onClick={() => setShowPostJobModal(true)}
+            onClick={() => {
+              trackEvent("job_post_started", { service_type: "new" })
+              setShowPostJobModal(true)
+            }}
             className="flex items-center gap-2 rounded-lg bg-[#0F766E] px-3 sm:px-4 py-2 text-sm sm:text-base text-white hover:bg-[#0d5f57] transition-colors w-full sm:w-auto justify-center"
           >
             <span className="text-xl">+</span>

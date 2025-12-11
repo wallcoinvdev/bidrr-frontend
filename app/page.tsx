@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { SERVICES } from "@/lib/services"
 import { SiteFooter } from "@/components/site-footer"
+import { trackPageView, trackCTAClick, trackEvent } from "@/lib/analytics"
 
 export default function HomePage() {
   const router = useRouter()
@@ -57,6 +58,13 @@ export default function HomePage() {
 
   useEffect(() => {
     setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    trackPageView("homepage")
+    trackEvent("homepage_view", {
+      referrer: typeof document !== "undefined" ? document.referrer : "",
+    })
   }, [])
 
   useEffect(() => {
@@ -112,6 +120,7 @@ export default function HomePage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
+      trackEvent("service_search", { search_term: searchQuery.trim() })
       router.push(`/signup?service=${encodeURIComponent(searchQuery)}`)
     } else {
       router.push("/signup")
@@ -119,6 +128,7 @@ export default function HomePage() {
   }
 
   const handleServiceSelect = (service: string) => {
+    trackEvent("service_search", { search_term: service, source: "autocomplete" })
     setSearchQuery(service)
     setShowAutocomplete(false)
     router.push(`/signup?service=${encodeURIComponent(service)}`)
@@ -175,6 +185,7 @@ export default function HomePage() {
                 <button
                   onClick={(e) => {
                     e.preventDefault()
+                    trackCTAClick("Log in", "header")
                     window.location.href = "/login"
                   }}
                   className="text-white hover:text-gray-200 transition-colors font-medium cursor-pointer"
@@ -183,12 +194,14 @@ export default function HomePage() {
                 </button>
                 <Link
                   href="/onboarding/personal-info?role=homeowner"
+                  onClick={() => trackCTAClick("Post a Job", "header")}
                   className="bg-transparent text-white border-2 border-white px-5 py-2 rounded-lg font-semibold hover:bg-white/10 transition-colors"
                 >
                   Post a Job
                 </Link>
                 <Link
                   href="/signup?role=contractor"
+                  onClick={() => trackCTAClick("Join as Contractor", "header")}
                   className="bg-[#e2bb12] text-[#03353a] px-5 py-2.5 rounded-lg font-semibold hover:bg-[#e2bb12]/90 transition-colors"
                 >
                   Join as Contractor
@@ -230,6 +243,7 @@ export default function HomePage() {
                     onClick={(e) => {
                       e.preventDefault()
                       setIsMobileMenuOpen(false)
+                      trackCTAClick("Log in", "mobile_menu")
                       window.location.href = "/login"
                     }}
                     className="text-white hover:text-gray-200 transition-colors font-medium text-left cursor-pointer"
@@ -238,14 +252,20 @@ export default function HomePage() {
                   </button>
                   <Link
                     href="/onboarding/personal-info?role=homeowner"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      trackCTAClick("Post a Job", "mobile_menu")
+                    }}
                     className="bg-transparent text-white border-2 border-white px-5 py-2.5 rounded-lg font-semibold hover:bg-white/10 transition-colors text-center"
                   >
                     Post a Job
                   </Link>
                   <Link
                     href="/signup?role=contractor"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      trackCTAClick("Join as Contractor", "mobile_menu")
+                    }}
                     className="bg-[#e2bb12] text-[#03353a] px-5 py-2.5 rounded-lg font-semibold hover:bg-[#e2bb12]/90 transition-colors text-center"
                   >
                     Join as Contractor

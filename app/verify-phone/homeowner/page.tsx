@@ -8,6 +8,7 @@ import { ArrowLeft, BadgeCheck, AlertCircle, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { apiClient } from "@/lib/api-client"
+import { trackEvent } from "@/lib/analytics"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 
@@ -52,6 +53,8 @@ export default function HomeownerPhoneVerification() {
   const codeInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    trackEvent("phone_verification_started", { role: "homeowner" })
+
     if (typeof window !== "undefined") {
       setCurrentOrigin(window.location.origin)
     }
@@ -59,12 +62,6 @@ export default function HomeownerPhoneVerification() {
     const formData = sessionStorage.getItem("onboarding_form_data")
     if (!formData) {
       // No form data - user may have navigated directly
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setCurrentOrigin(window.location.origin)
     }
   }, [])
 
@@ -82,6 +79,8 @@ export default function HomeownerPhoneVerification() {
     setIsLoading(true)
     setError(null)
 
+    trackEvent("verification_code_requested", { role: "homeowner" })
+
     try {
       const actualCountryCode = getCountryCodeOnly(countryCode)
       const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
@@ -89,6 +88,7 @@ export default function HomeownerPhoneVerification() {
 
       if (phoneNumber.length < 10) {
         setError("Please enter a valid 10-digit phone number")
+        trackEvent("verification_code_failed", { role: "homeowner", error: "invalid_phone_length" })
         setIsLoading(false)
         return
       }
@@ -121,14 +121,17 @@ export default function HomeownerPhoneVerification() {
         postalCode: "",
       })
 
+      trackEvent("verification_code_sent", { role: "homeowner" })
       setStep("code")
     } catch (err: any) {
       if (err.message?.toLowerCase().includes("already registered")) {
         setError("PHONE_REGISTERED")
+        trackEvent("verification_code_failed", { role: "homeowner", error: "phone_already_registered" })
       } else {
         setError(
           "Unable to send verification code to this number. This could be due to an invalid phone number or SMS service restrictions. Please try a different number or click 'Skip for now' to continue without verification.",
         )
+        trackEvent("verification_code_failed", { role: "homeowner", error: "sms_send_failed" })
       }
     } finally {
       setIsLoading(false)
@@ -140,6 +143,8 @@ export default function HomeownerPhoneVerification() {
 
     setIsLoading(true)
     setError(null)
+
+    trackEvent("verification_code_entered", { role: "homeowner" })
 
     try {
       const actualCountryCode = getCountryCodeOnly(countryCode)
@@ -191,12 +196,15 @@ export default function HomeownerPhoneVerification() {
         throw new Error("No authentication token received from signup")
       }
 
+      trackEvent("verification_success", { role: "homeowner" })
+
+      trackEvent("signup_complete", { role: "homeowner", verification_status: "verified" })
+
       sessionStorage.setItem("account_created_at", new Date().toISOString())
       sessionStorage.setItem("account_user_id", result.user?.id || result.id || "unknown")
       sessionStorage.setItem("account_email", formData.email)
       sessionStorage.setItem("account_role", "homeowner")
 
-      // Clear session storage
       sessionStorage.removeItem("onboarding_form_data")
       sessionStorage.removeItem("verification_code")
       sessionStorage.removeItem("verification_token")
@@ -225,6 +233,7 @@ export default function HomeownerPhoneVerification() {
       const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
       window.location.href = targetDashboard
     } catch (err) {
+      trackEvent("verification_failed", { role: "homeowner", error: err instanceof Error ? err.message : "unknown" })
       setError(err instanceof Error ? err.message : "Invalid verification code.")
     } finally {
       setIsLoading(false)
@@ -234,6 +243,8 @@ export default function HomeownerPhoneVerification() {
   const handleSkip = async () => {
     setIsSkipping(true)
     setError(null)
+
+    trackEvent("verification_skipped", { role: "homeowner" })
 
     try {
       const savedFormData = sessionStorage.getItem("onboarding_form_data")
@@ -281,12 +292,13 @@ export default function HomeownerPhoneVerification() {
         throw new Error("No authentication token received from signup")
       }
 
+      trackEvent("signup_complete", { role: "homeowner", verification_status: "skipped" })
+
       localStorage.setItem("auth_token", result.token)
       if (result.user) {
         localStorage.setItem("user", JSON.stringify(result.user))
       }
 
-      // Clear session storage
       sessionStorage.removeItem("onboarding_form_data")
 
       updateData({
@@ -297,6 +309,7 @@ export default function HomeownerPhoneVerification() {
       const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
       window.location.href = targetDashboard
     } catch (err) {
+      trackEvent("form_submission_error", { role: "homeowner", error: err instanceof Error ? err.message : "unknown" })
       setError(err instanceof Error ? err.message : "Failed to create account. Please try again.")
       setIsSkipping(false)
     }

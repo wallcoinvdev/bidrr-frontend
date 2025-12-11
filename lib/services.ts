@@ -437,7 +437,7 @@ export const SERVICE_RELATIONSHIPS: Record<string, string[]> = {
   "Floor Installation": ["Floor Refinishing", "Tile Installation", "Carpentry Services"],
   "Tile Installation": ["Floor Installation", "Backsplash Installation", "Tile and Grout Cleaning"],
   "Countertop Installation": ["Countertop Repair", "Cabinet Installation", "Backsplash Installation"],
-  "Backsplash Installation": ["Tile Installation", "Countertop Installation", "Kitchen work"],
+  "Backsplash Installation": ["Tile Installation", "Countertop Installation", "Cabinet Installation"],
 
   // Cabinets & Storage
   "Cabinet Installation": ["Countertop Installation", "Light Carpentry", "Shelf Installation", "Cabinet Refacing"],

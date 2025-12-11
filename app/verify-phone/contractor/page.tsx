@@ -8,6 +8,7 @@ import { ArrowLeft, BadgeCheck, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { apiClient } from "@/lib/api-client"
+import { trackEvent } from "@/lib/analytics"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 
@@ -52,6 +53,8 @@ export default function ContractorPhoneVerification() {
   const codeInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    trackEvent("phone_verification_started", { role: "contractor" })
+
     if (typeof window !== "undefined") {
       setCurrentOrigin(window.location.origin)
     }
@@ -71,6 +74,8 @@ export default function ContractorPhoneVerification() {
     setIsLoading(true)
     setError(null)
 
+    trackEvent("verification_code_requested", { role: "contractor" })
+
     try {
       const actualCountryCode = getCountryCodeOnly(countryCode)
       const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
@@ -78,6 +83,7 @@ export default function ContractorPhoneVerification() {
 
       if (phoneNumber.length < 10) {
         setError("Please enter a valid 10-digit phone number")
+        trackEvent("verification_code_failed", { role: "contractor", error: "invalid_phone_length" })
         setIsLoading(false)
         return
       }
@@ -111,6 +117,7 @@ export default function ContractorPhoneVerification() {
         postalCode: "",
       })
 
+      trackEvent("verification_code_sent", { role: "contractor" })
       setStep("code")
     } catch (err: any) {
       console.error("Error sending code:", err)
@@ -119,8 +126,10 @@ export default function ContractorPhoneVerification() {
 
       if (errorMessage.toLowerCase().includes("already registered")) {
         setError("PHONE_REGISTERED")
+        trackEvent("verification_code_failed", { role: "contractor", error: "phone_already_registered" })
       } else {
         setError(errorMessage || "Failed to send verification code. Please try again or skip verification.")
+        trackEvent("verification_code_failed", { role: "contractor", error: "sms_send_failed" })
       }
     } finally {
       setIsLoading(false)
@@ -131,6 +140,8 @@ export default function ContractorPhoneVerification() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+
+    trackEvent("verification_code_entered", { role: "contractor" })
 
     try {
       const actualCountryCode = getCountryCodeOnly(countryCode)
@@ -191,7 +202,10 @@ export default function ContractorPhoneVerification() {
         throw new Error("No authentication token received from signup")
       }
 
-      // Clear session storage
+      trackEvent("verification_success", { role: "contractor" })
+
+      trackEvent("signup_complete", { role: "contractor", verification_status: "verified" })
+
       sessionStorage.removeItem("onboarding_form_data")
       sessionStorage.removeItem("verification_token")
       sessionStorage.removeItem("verified_phone_number")
@@ -220,6 +234,7 @@ export default function ContractorPhoneVerification() {
       window.location.href = targetDashboard
     } catch (err) {
       console.error("Error verifying code:", err)
+      trackEvent("verification_failed", { role: "contractor", error: err instanceof Error ? err.message : "unknown" })
       setError(err instanceof Error ? err.message : "Invalid verification code.")
     } finally {
       setIsLoading(false)
@@ -229,6 +244,8 @@ export default function ContractorPhoneVerification() {
   const handleSkip = async () => {
     setIsSkipping(true)
     setError(null)
+
+    trackEvent("verification_skipped", { role: "contractor" })
 
     try {
       const savedFormData = sessionStorage.getItem("onboarding_form_data")
@@ -286,7 +303,8 @@ export default function ContractorPhoneVerification() {
         throw new Error("No authentication token received from signup")
       }
 
-      // Clear session storage
+      trackEvent("signup_complete", { role: "contractor", verification_status: "skipped" })
+
       sessionStorage.removeItem("onboarding_form_data")
       sessionStorage.removeItem("verification_token")
       sessionStorage.removeItem("verified_phone_number")
@@ -311,6 +329,7 @@ export default function ContractorPhoneVerification() {
       window.location.href = targetDashboard
     } catch (err) {
       console.error("Error during skip:", err)
+      trackEvent("form_submission_error", { role: "contractor", error: err instanceof Error ? err.message : "unknown" })
       setError(err instanceof Error ? err.message : "Failed to create account. Please try again.")
       setIsSkipping(false)
     }

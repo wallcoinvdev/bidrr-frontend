@@ -25,6 +25,7 @@ import { VerifiedBadge } from "@/components/verified-badge"
 import { initiateStripeCheckout } from "@/lib/checkout"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { trackEvent } from "@/lib/analytics"
 
 interface Stats {
   total_bids: number
@@ -267,6 +268,7 @@ export default function ContractorDashboard() {
     setIsModalOpen(true)
     notificationService.emit("mark-mission-viewed", mission.id)
     markMissionAsViewed(mission.id)
+    trackEvent("mission_viewed", { missionId: mission.id })
   }
 
   const closeMissionModal = () => {
@@ -288,22 +290,27 @@ export default function ContractorDashboard() {
 
     if (bidsRemaining <= 0) {
       setBidError("You have no credits remaining. Purchase more credits to continue bidding.")
+      trackEvent("bid_error", { error_type: "no_credits", job_id: selectedMission.id })
       return
     }
 
     const quoteValue = bidForm.quote.trim()
     if (!quoteValue || Number.isNaN(Number(quoteValue)) || Number(quoteValue) <= 0) {
       setBidError("Please enter a valid quote amount")
+      trackEvent("bid_error", { error_type: "invalid_quote", job_id: selectedMission.id })
       return
     }
 
     if (!bidForm.message.trim()) {
       setBidError("Please include a message with your bid")
+      trackEvent("bid_error", { error_type: "missing_message", job_id: selectedMission.id })
       return
     }
 
     setSubmittingBid(true)
     setBidError("")
+
+    trackEvent("bid_started", { job_id: selectedMission.id, service_type: selectedMission.service })
 
     const endpoint = `/api/missions/${selectedMission.id}/bids`
     const quoteAmount = Math.round(Number(quoteValue) * 100) / 100
@@ -321,6 +328,12 @@ export default function ContractorDashboard() {
 
       setBidSuccess(true)
 
+      trackEvent("bid_submitted", {
+        job_id: selectedMission.id,
+        bid_amount: quoteAmount,
+        service_type: selectedMission.service,
+      })
+
       setMissions((prevMissions) =>
         prevMissions.map((m) => (m.id === selectedMission.id ? { ...m, has_bid: true } : m)),
       )
@@ -336,6 +349,12 @@ export default function ContractorDashboard() {
         status: error.status,
         endpoint: endpoint,
         missionId: selectedMission.id,
+      })
+
+      trackEvent("bid_submission_error", {
+        job_id: selectedMission.id,
+        error: error.message,
+        status: error.status,
       })
 
       if (error.status === 404) {
@@ -371,6 +390,7 @@ export default function ContractorDashboard() {
       setMissions((prevMissions) =>
         prevMissions.map((m) => (m.id === selectedMission.id ? { ...m, details_requested_by_contractor: true } : m)),
       )
+      trackEvent("details_requested", { missionId: selectedMission.id })
     } catch (error: any) {
       console.error("Error requesting more details:", error)
 
@@ -390,6 +410,7 @@ export default function ContractorDashboard() {
   const handleBuyCredits = async () => {
     try {
       await initiateStripeCheckout()
+      trackEvent("credits_purchased")
     } catch (error) {
       toast({
         variant: "destructive",

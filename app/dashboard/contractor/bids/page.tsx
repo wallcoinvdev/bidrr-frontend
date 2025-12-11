@@ -5,6 +5,7 @@ import { Calendar, MapPin, Loader2, AlertCircle, X } from "lucide-react"
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
 import { VerifiedBadge } from "@/components/verified-badge"
+import { trackEvent } from "@/lib/analytics"
 
 interface Bid {
   id: number
@@ -123,6 +124,7 @@ export default function MyBidsPage() {
       const mission = await apiClient.request<Mission>(`/api/missions/${missionId}`, { requiresAuth: true })
       setSelectedMission(mission)
       setSelectedBid(null)
+      trackEvent("job_viewed", { job_id: missionId, service_type: mission.service })
     } catch (error: any) {
       console.error("Error fetching mission:", error)
       if (error.status === 404) {
@@ -143,6 +145,8 @@ export default function MyBidsPage() {
       })
       setBids((prevBids) => prevBids.map((bid) => (bid.id === bidId ? { ...bid, viewed_by_contractor: true } : bid)))
       window.dispatchEvent(new CustomEvent("bidViewed"))
+      // Track event when bid is marked as viewed
+      trackEvent("bid_viewed", { bidId })
     } catch (error) {
       console.error("Error marking bid as viewed:", error)
     }
