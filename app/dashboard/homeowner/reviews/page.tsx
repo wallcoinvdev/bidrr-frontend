@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Star, Trash2, Loader2 } from 'lucide-react'
+import { Star, Trash2, Loader2 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { Card, CardContent } from "@/components/ui/card"
 import { DashboardLayout } from "@/components/dashboard-layout"
@@ -16,6 +16,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 
 interface AcceptedBid {
   id: number
@@ -48,6 +58,12 @@ export default function ReviewsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null)
   const { toast } = useToast()
+
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [selectedBid, setSelectedBid] = useState<AcceptedBid | null>(null)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState("")
+  const [submittingReview, setSubmittingReview] = useState(false)
 
   useEffect(() => {
     fetchAcceptedBids()
@@ -115,6 +131,78 @@ export default function ReviewsPage() {
     } finally {
       setDeleteDialogOpen(false)
       setSelectedReviewId(null)
+    }
+  }
+
+  const handleLeaveReviewClick = (bid: AcceptedBid) => {
+    setSelectedBid(bid)
+    setReviewRating(0)
+    setReviewComment("")
+    setReviewModalOpen(true)
+  }
+
+  const handleSubmitReview = async () => {
+    if (!selectedBid || reviewRating === 0) {
+      toast({
+        title: "Error",
+        description: "Please select a rating",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSubmittingReview(true)
+
+    const payload = {
+      contractor_id: selectedBid.contractor_id,
+      bid_id: selectedBid.id,
+      mission_id: selectedBid.mission_id, // Added mission_id to payload
+      rating: reviewRating,
+      comment: reviewComment,
+    }
+    console.log("[v0] Submitting review with payload:", payload)
+    console.log("[v0] Selected bid data:", selectedBid)
+
+    try {
+      const response = await apiClient.request<{ review_id: number }>("/api/reviews", {
+        method: "POST",
+        requiresAuth: true,
+        body: JSON.stringify(payload),
+      })
+
+      setAcceptedBids(
+        acceptedBids.map((bid) =>
+          bid.id === selectedBid.id
+            ? {
+                ...bid,
+                has_reviewed: true,
+                review_id: response.review_id,
+                review_rating: reviewRating,
+                review_comment: reviewComment,
+                review_created_at: new Date().toISOString(),
+              }
+            : bid,
+        ),
+      )
+
+      toast({
+        title: "Success",
+        description: "Review submitted successfully",
+      })
+
+      setReviewModalOpen(false)
+      setSelectedBid(null)
+      setReviewRating(0)
+      setReviewComment("")
+    } catch (error) {
+      console.error("Error submitting review:", error)
+      toast({
+        title: "Error",
+        description: "Failed to submit review",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmittingReview(false)
     }
   }
 
@@ -225,12 +313,12 @@ export default function ReviewsPage() {
                             <p className="text-sm sm:text-base text-gray-700 break-words">{bid.review_comment}</p>
                           </div>
                         ) : (
-                          <a
-                            href={`/dashboard/homeowner/reviews/${bid.contractor_id}`}
+                          <button
+                            onClick={() => handleLeaveReviewClick(bid)}
                             className="inline-block bg-[#0F766E] hover:bg-[#0F766E]/90 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                           >
                             Leave Review
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -258,6 +346,92 @@ export default function ReviewsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={reviewModalOpen} onOpenChange={setReviewModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Leave a Review</DialogTitle>
+            <DialogDescription>
+              {selectedBid && (
+                <>
+                  Share your experience with{" "}
+                  <span className="font-medium text-gray-900">
+                    {selectedBid.company_name || selectedBid.contractor_name}
+                  </span>{" "}
+                  for <span className="font-medium text-gray-900">{selectedBid.mission_title}</span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Rating</label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    className="p-1 hover:scale-110 transition-transform"
+                  >
+                    <Star
+                      className={`w-8 h-8 ${
+                        star <= reviewRating
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "fill-gray-200 text-gray-200 hover:fill-yellow-200 hover:text-yellow-200"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              {reviewRating > 0 && (
+                <p className="text-sm text-gray-600 mt-1">
+                  {reviewRating === 1 && "Poor"}
+                  {reviewRating === 2 && "Fair"}
+                  {reviewRating === 3 && "Good"}
+                  {reviewRating === 4 && "Very Good"}
+                  {reviewRating === 5 && "Excellent"}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="review-comment" className="text-sm font-medium text-gray-700 mb-2 block">
+                Comment (optional)
+              </label>
+              <Textarea
+                id="review-comment"
+                placeholder="Tell others about your experience..."
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setReviewModalOpen(false)} disabled={submittingReview}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitReview}
+              disabled={reviewRating === 0 || submittingReview}
+              className="bg-[#0F766E] hover:bg-[#0F766E]/90"
+            >
+              {submittingReview ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit Review"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }
