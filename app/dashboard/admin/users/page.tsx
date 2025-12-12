@@ -12,6 +12,7 @@ interface User {
   name: string // renamed from 'full_name' to 'name' to match backend response
   email: string
   phone_number: string
+  postal_code?: string
   role: string
   city: string
   region: string
@@ -53,30 +54,20 @@ export default function UsersPage() {
         requiresAuth: true,
       })
 
-      const contractors = data.users.filter((u) => u.role === "contractor")
+      console.log("[v0] Fetched users from API:", data.users.length)
+      const tempUsers = data.users.filter((u) => (u as any).is_temp_account)
+      if (tempUsers.length > 0) {
+        console.log(
+          "[v0] Temp users found:",
+          tempUsers.map((u) => ({ id: u.id, services: u.services })),
+        )
+      }
 
-      const usersWithServices = await Promise.all(
-        data.users.map(async (user) => {
-          if (user.role === "contractor") {
-            try {
-              const profile = await apiClient.request<any>(`/api/contractors/${user.id}/profile`, {
-                requiresAuth: true,
-              })
+      setUsers(data.users)
 
-              return { ...user, services: profile.services || [] }
-            } catch (error: any) {
-              return { ...user, services: [] }
-            }
-          }
-          return user
-        }),
-      )
-
-      setUsers(usersWithServices)
-
-      const totalUsers = usersWithServices.length
-      const homeowners = usersWithServices.filter((u) => u.role === "homeowner").length
-      const contractorsCount = usersWithServices.filter((u) => u.role === "contractor").length
+      const totalUsers = data.users.length
+      const homeowners = data.users.filter((u) => u.role === "homeowner").length
+      const contractorsCount = data.users.filter((u) => u.role === "contractor").length
       setStats({ totalUsers, homeowners, contractors: contractorsCount })
     } catch (error: any) {
       console.error("Error in fetchUsers:", error)
@@ -94,6 +85,7 @@ export default function UsersPage() {
           user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.phone_number?.includes(searchTerm) ||
+          user.postal_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.id.toString().includes(searchTerm),
       )
     }
@@ -199,7 +191,7 @@ export default function UsersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name, email, phone, or user ID..."
+            placeholder="Search by name, email, phone, postal code, or user ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent"
@@ -226,6 +218,7 @@ export default function UsersPage() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Phone</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Postal Code</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Location</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Services</th>
@@ -255,6 +248,9 @@ export default function UsersPage() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-gray-700">{user.phone_number}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-gray-700">{user.postal_code || "—"}</span>
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-gray-700">

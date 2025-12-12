@@ -15,6 +15,7 @@ export default function PersonalInfoPage() {
   const { data, updateData } = useOnboarding()
   const searchParams = useSearchParams()
   const roleFromUrl = searchParams.get("role")
+  const emailFromUrl = searchParams.get("email")
 
   const hasTrackedStart = useRef(false)
 
@@ -97,6 +98,12 @@ export default function PersonalInfoPage() {
       updateData({ role: roleFromUrl })
     }
   }, [roleFromUrl])
+
+  useEffect(() => {
+    if (emailFromUrl && emailFromUrl.trim() !== "") {
+      setEmail(emailFromUrl.trim())
+    }
+  }, [emailFromUrl])
 
   const handleFieldBlur = (fieldName: string, value: string) => {
     if (value && value.trim() !== "" && !trackedFields.current.has(fieldName)) {
@@ -647,7 +654,7 @@ export default function PersonalInfoPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#03353a] mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Service Radius (km) <span className="text-red-500">*</span>
                     </label>
                     <input
