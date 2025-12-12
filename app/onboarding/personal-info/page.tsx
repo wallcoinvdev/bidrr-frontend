@@ -100,8 +100,8 @@ export default function PersonalInfoPage() {
   }, [roleFromUrl])
 
   useEffect(() => {
-    if (emailFromUrl && emailFromUrl.trim() !== "") {
-      setEmail(emailFromUrl.trim())
+    if (emailFromUrl) {
+      setEmail(emailFromUrl)
     }
   }, [emailFromUrl])
 
