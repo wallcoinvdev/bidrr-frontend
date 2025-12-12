@@ -101,7 +101,11 @@ export default function PersonalInfoPage() {
 
   useEffect(() => {
     if (emailFromUrl) {
+      console.log("[v0] Email from URL:", emailFromUrl)
       setEmail(emailFromUrl)
+      console.log("[v0] Email state set to:", emailFromUrl)
+    } else {
+      console.log("[v0] No email parameter in URL")
     }
   }, [emailFromUrl])
 
