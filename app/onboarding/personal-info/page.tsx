@@ -200,9 +200,14 @@ export default function PersonalInfoPage() {
         formData.temp_email = tempEmail
       }
 
+      console.log("[v0] Saving to sessionStorage:", formData)
       sessionStorage.setItem("onboarding_form_data", JSON.stringify(formData))
       sessionStorage.setItem("terms_accepted", "true")
       sessionStorage.setItem("terms_accepted_at", new Date().toISOString())
+      console.log(
+        "[v0] SessionStorage saved, verifying:",
+        JSON.parse(sessionStorage.getItem("onboarding_form_data") || "{}"),
+      )
 
       updateData({
         firstName,

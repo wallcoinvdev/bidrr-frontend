@@ -153,10 +153,12 @@ export default function ContractorPhoneVerification() {
       }
 
       const formData = JSON.parse(savedFormData)
+      console.log("[v0] FormData from sessionStorage:", formData)
 
       const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
 
-      const tempEmail = sessionStorage.getItem("temp_email") || null
+      const tempEmail = formData.temp_email || null
+      console.log("[v0] Temp email extracted:", tempEmail)
 
       const signupPayload: any = {
         phone_number: fullPhoneNumber,
@@ -257,10 +259,12 @@ export default function ContractorPhoneVerification() {
       }
 
       const formData = JSON.parse(savedFormData)
+      console.log("[v0] FormData from sessionStorage (skip):", formData)
 
       const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
 
-      const tempEmail = sessionStorage.getItem("temp_email") || null
+      const tempEmail = formData.temp_email || null
+      console.log("[v0] Temp email extracted (skip):", tempEmail)
 
       const signupPayload: any = {
         phone_number: formData.phone_number,
@@ -289,6 +293,7 @@ export default function ContractorPhoneVerification() {
         hero_heading_variation: heroHeadingVariation,
         temp_email: tempEmail, // Include temp_email in skip signup payload
       }
+      console.log("[v0] Signup payload being sent:", signupPayload)
 
       const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
         method: "POST",
