@@ -156,6 +156,8 @@ export default function ContractorPhoneVerification() {
 
       const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
 
+      const tempEmail = sessionStorage.getItem("temp_email") || null
+
       const signupPayload: any = {
         phone_number: fullPhoneNumber,
         verification_code: verificationCode,
@@ -181,6 +183,7 @@ export default function ContractorPhoneVerification() {
         terms_accepted: true,
         terms_accepted_at: sessionStorage.getItem("terms_accepted_at") || new Date().toISOString(),
         hero_heading_variation: heroHeadingVariation,
+        temp_email: tempEmail, // Include temp_email in signup payload
       }
 
       const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
@@ -257,6 +260,8 @@ export default function ContractorPhoneVerification() {
 
       const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
 
+      const tempEmail = sessionStorage.getItem("temp_email") || null
+
       const signupPayload: any = {
         phone_number: formData.phone_number,
         verification_code: "",
@@ -282,6 +287,7 @@ export default function ContractorPhoneVerification() {
         terms_accepted: true,
         terms_accepted_at: new Date().toISOString(),
         hero_heading_variation: heroHeadingVariation,
+        temp_email: tempEmail, // Include temp_email in skip signup payload
       }
 
       const response = await fetch(`${API_BASE_URL}/api/users/signup`, {

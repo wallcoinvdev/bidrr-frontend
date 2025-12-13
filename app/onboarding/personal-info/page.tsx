@@ -16,12 +16,14 @@ export default function PersonalInfoPage() {
   const searchParams = useSearchParams()
   const roleFromUrl = searchParams.get("role")
   const emailFromUrl = searchParams.get("email")
+  const tempEmailFromUrl = searchParams.get("temp_email")
 
   const hasTrackedStart = useRef(false)
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
+  const [tempEmail, setTempEmail] = useState<string | null>(null)
   const [countryCode, setCountryCode] = useState("+1-CA")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [address, setAddress] = useState("")
@@ -107,7 +109,11 @@ export default function PersonalInfoPage() {
     } else {
       console.log("[v0] No email parameter in URL")
     }
-  }, [emailFromUrl])
+    if (tempEmailFromUrl) {
+      console.log("[v0] Temp email from URL:", tempEmailFromUrl)
+      setTempEmail(tempEmailFromUrl)
+    }
+  }, [emailFromUrl, tempEmailFromUrl])
 
   const handleFieldBlur = (fieldName: string, value: string) => {
     if (value && value.trim() !== "" && !trackedFields.current.has(fieldName)) {
@@ -190,6 +196,10 @@ export default function PersonalInfoPage() {
         formData.services = services
       }
 
+      if (tempEmail) {
+        formData.temp_email = tempEmail
+      }
+
       sessionStorage.setItem("onboarding_form_data", JSON.stringify(formData))
       sessionStorage.setItem("terms_accepted", "true")
       sessionStorage.setItem("terms_accepted_at", new Date().toISOString())
@@ -220,7 +230,11 @@ export default function PersonalInfoPage() {
 
       trackEvent("form_submission_success", { role: data.role || "unknown" })
 
-      router.push(`/verify-phone/${data.role}`)
+      const params = new URLSearchParams({ role: data.role || "unknown" })
+      if (tempEmail) {
+        params.set("temp_email", tempEmail)
+      }
+      router.push(`/verify-phone/${data.role}?${params.toString()}`)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error"
       trackEvent("form_submission_error", {
