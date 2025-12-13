@@ -9,15 +9,20 @@ export default function SignupPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const role = searchParams.get("role")
+  const email = searchParams.get("email")
 
   useEffect(() => {
     if (role === "homeowner" || role === "contractor") {
-      router.push(`/onboarding/personal-info?role=${role}`)
+      const params = new URLSearchParams({ role })
+      if (email) params.append("email", email)
+      router.push(`/onboarding/personal-info?${params.toString()}`)
     }
-  }, [role, router])
+  }, [role, email, router])
 
   const handleRoleSelect = (selectedRole: "homeowner" | "contractor") => {
-    router.push(`/onboarding/personal-info?role=${selectedRole}`)
+    const params = new URLSearchParams({ role: selectedRole })
+    if (email) params.append("email", email)
+    router.push(`/onboarding/personal-info?${params.toString()}`)
   }
 
   return (
