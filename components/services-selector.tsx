@@ -55,7 +55,6 @@ export function ServicesSelector({ value, onChange, error, onInvalidInput }: Ser
     setShowDropdown(false)
     setHasInvalidText(false)
     onInvalidInput?.(false)
-    inputRef.current?.focus()
   }
 
   const removeService = (service: string) => {
@@ -82,7 +81,11 @@ export function ServicesSelector({ value, onChange, error, onInvalidInput }: Ser
             type="text"
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
-            onFocus={() => searchQuery.trim() && setShowDropdown(true)}
+            onFocus={() => {
+              if (searchQuery.trim()) {
+                setShowDropdown(true)
+              }
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Add services"
             className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent ${

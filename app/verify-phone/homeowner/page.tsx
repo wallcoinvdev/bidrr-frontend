@@ -233,8 +233,14 @@ export default function HomeownerPhoneVerification() {
       const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
       window.location.href = targetDashboard
     } catch (err) {
-      trackEvent("verification_failed", { role: "homeowner", error: err instanceof Error ? err.message : "unknown" })
-      setError(err instanceof Error ? err.message : "Invalid verification code.")
+      const errorMessage = err instanceof Error ? err.message : "Invalid verification code."
+      if (errorMessage.toLowerCase().includes("email already registered")) {
+        setError("EMAIL_REGISTERED")
+        trackEvent("verification_failed", { role: "homeowner", error: "email_already_registered" })
+      } else {
+        trackEvent("verification_failed", { role: "homeowner", error: errorMessage })
+        setError(errorMessage)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -309,8 +315,14 @@ export default function HomeownerPhoneVerification() {
       const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
       window.location.href = targetDashboard
     } catch (err) {
-      trackEvent("form_submission_error", { role: "homeowner", error: err instanceof Error ? err.message : "unknown" })
-      setError(err instanceof Error ? err.message : "Failed to create account. Please try again.")
+      const errorMessage = err instanceof Error ? err.message : "Failed to create account. Please try again."
+      if (errorMessage.toLowerCase().includes("email already registered")) {
+        setError("EMAIL_REGISTERED")
+        trackEvent("form_submission_error", { role: "homeowner", error: "email_already_registered" })
+      } else {
+        trackEvent("form_submission_error", { role: "homeowner", error: errorMessage })
+        setError(errorMessage)
+      }
       setIsSkipping(false)
     }
   }
@@ -400,7 +412,36 @@ export default function HomeownerPhoneVerification() {
               </div>
             )}
 
-            {error && error !== "PHONE_REGISTERED" && (
+            {error === "EMAIL_REGISTERED" && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-red-900 mb-1">Email already registered</h3>
+                    <p className="text-sm text-red-800 mb-3">
+                      This email is already associated with an account. Please go back and use a different email or log
+                      in instead.
+                    </p>
+                    <div className="flex gap-2">
+                      <Link
+                        href="/onboarding/personal-info?role=homeowner"
+                        className="inline-block px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                      >
+                        Go Back & Change Email
+                      </Link>
+                      <Link
+                        href="/login"
+                        className="inline-block px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                      >
+                        Log In
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {error && error !== "PHONE_REGISTERED" && error !== "EMAIL_REGISTERED" && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
             )}
 

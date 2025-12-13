@@ -885,8 +885,11 @@ export default function HomeownerDashboard() {
                 type="text"
                 value={selectedService || serviceSearch}
                 onChange={(e) => {
-                  setServiceSearch(e.target.value)
-                  setSelectedService("")
+                  const inputValue = e.target.value
+                  setServiceSearch(inputValue)
+                  if (inputValue !== selectedService) {
+                    setSelectedService("")
+                  }
                   setShowServiceDropdown(true)
                 }}
                 onFocus={() => setShowServiceDropdown(true)}
@@ -909,7 +912,8 @@ export default function HomeownerDashboard() {
                     <button
                       key={service}
                       type="button"
-                      onClick={() => {
+                      onMouseDown={(e) => {
+                        e.preventDefault() // Prevent input from losing focus
                         setSelectedService(service)
                         setServiceSearch("") // Clear search input when a service is selected
                         setShowServiceDropdown(false)
