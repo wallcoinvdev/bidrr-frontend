@@ -25,6 +25,14 @@ interface OnboardingData {
   services?: string[]
   token?: string
   userId?: number
+  jobTitle?: string
+  jobService?: string
+  jobDescription?: string
+  jobImages?: File[]
+  jobTimeline?: string
+  jobCity?: string
+  jobRegion?: string
+  jobPostalCode?: string
 }
 
 interface OnboardingContextType {

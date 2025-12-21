@@ -193,7 +193,7 @@ export default function HomePage() {
                   Log in
                 </button>
                 <Link
-                  href="/onboarding/personal-info?role=homeowner"
+                  href="/signup?role=homeowner"
                   onClick={() => trackCTAClick("Post a Job", "header")}
                   className="bg-transparent text-white border-2 border-white px-5 py-2 rounded-lg font-semibold hover:bg-white/10 transition-colors"
                 >
@@ -251,7 +251,7 @@ export default function HomePage() {
                     Log in
                   </button>
                   <Link
-                    href="/onboarding/personal-info?role=homeowner"
+                    href="/signup?role=homeowner"
                     onClick={() => {
                       setIsMobileMenuOpen(false)
                       trackCTAClick("Post a Job", "mobile_menu")
@@ -528,7 +528,7 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                href="/onboarding/personal-info?role=homeowner"
+                href="/signup?role=homeowner"
                 className="bg-transparent text-white border-2 border-white px-10 py-4 rounded-lg text-lg font-bold hover:bg-white/10 transition-colors"
               >
                 Post a job for free

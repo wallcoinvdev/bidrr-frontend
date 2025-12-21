@@ -16,6 +16,8 @@ import { initiateStripeCheckout } from "@/lib/checkout"
 interface DashboardLayoutProps {
   children: ReactNode
   userRole: "homeowner" | "contractor"
+  user: any
+  authLoading: boolean
 }
 
 interface NotificationCounts {
@@ -26,10 +28,10 @@ interface NotificationCounts {
   myBids: number
 }
 
-export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
+export function DashboardLayout({ children, userRole, user, authLoading }: DashboardLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { logout, user, isImpersonating, exitImpersonation } = useAuth()
+  const { logout, isImpersonating, exitImpersonation } = useAuth()
   const { toast } = useToast()
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
   const [imageLoadError, setImageLoadError] = useState(false)
@@ -49,6 +51,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   const notificationFetchInProgress = useRef(false)
   const initializedForUserId = useRef<number | null>(null)
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)
+
+  console.log("[v0] DashboardLayout render - userRole:", userRole, "user.id:", user?.id, "pathname:", pathname)
 
   useEffect(() => {
     if (!user?.id) return
@@ -202,21 +206,31 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
     }
   }, [pathname])
 
-  useEffect(() => {
-    const fetchProfilePhoto = async () => {
-      try {
-        const data = await apiClient.request<any>("/api/users/profile", { requiresAuth: true })
-        if (userRole === "contractor") {
-          setProfilePhoto(data.logo_url || data.agent_photo_url || null)
-        } else {
-          setProfilePhoto(data.profile_photo_url || null)
-        }
-        setImageLoadError(false)
-      } catch (error) {
-        console.error("Error fetching profile photo:", error)
+  const fetchProfilePhoto = async () => {
+    try {
+      const data = await apiClient.request<any>("/api/users/profile", { requiresAuth: true })
+      if (userRole === "contractor") {
+        setProfilePhoto(data.logo_url || data.agent_photo_url || null)
+      } else {
+        setProfilePhoto(data.profile_photo_url || null)
       }
+      setImageLoadError(false)
+    } catch (error) {
+      console.error("Error fetching profile photo:", error)
+    }
+  }
+
+  useEffect(() => {
+    const handlePhotoUpdate = () => {
+      fetchProfilePhoto()
     }
 
+    window.addEventListener("profilePhotoUpdated", handlePhotoUpdate)
+    return () => window.removeEventListener("profilePhotoUpdated", handlePhotoUpdate)
+  }, [userRole])
+
+  useEffect(() => {
+    console.log("[v0] Profile photo fetch effect triggered - userRole:", userRole)
     fetchProfilePhoto()
   }, [userRole])
 
@@ -285,48 +299,6 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
     })
     console.log("[v0] Toast result:", result)
     console.log("[v0] Toast called successfully")
-  }
-
-  const handleNotificationClick = async (notification: any) => {
-    try {
-      if (!notification.is_read) {
-        await apiClient.request(`/api/notifications/${notification.id}/mark-read`, {
-          method: "POST",
-          requiresAuth: true,
-        })
-        setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)))
-        setUnreadCount((prev) => Math.max(0, prev - 1))
-
-        if (notification.type === "new_review") {
-          setNotificationCounts((prev) => ({
-            ...prev,
-            reviews: Math.max(0, prev.reviews - 1),
-          }))
-        } else if (notification.type === "new_bid") {
-          setNotificationCounts((prev) => ({
-            ...prev,
-            dashboard: Math.max(0, prev.dashboard - 1),
-          }))
-        } else if (notification.type === "pending_review") {
-          setNotificationCounts((prev) => ({
-            ...prev,
-            pendingReviews: Math.max(0, prev.pendingReviews - 1),
-          }))
-        }
-      }
-
-      if (notification.mission_id) {
-        if (userRole === "homeowner" && notification.type === "new_bid") {
-          router.push(`/dashboard/homeowner/jobs/${notification.mission_id}/bids`)
-        } else if (userRole === "contractor") {
-          router.push(`/dashboard/contractor`)
-        }
-      }
-
-      setShowNotifications(false)
-    } catch (error) {
-      console.error("Error handling notification:", error)
-    }
   }
 
   const handleBellClick = async () => {
@@ -513,7 +485,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                   className="w-full flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-left text-sm"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                   </svg>
                   <div className="flex flex-col">
                     <span className="text-xs text-white/70">Download on the</span>
@@ -611,10 +583,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                           notifications.map((notification) => (
                             <div
                               key={notification.id}
-                              onClick={() => handleNotificationClick(notification)}
-                              className={`p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer ${
-                                notification.is_read ? "bg-white" : "bg-gray-50"
-                              }`}
+                              className={`p-3 rounded-lg ${notification.is_read ? "bg-white" : "bg-gray-50"}`}
                             >
                               <p className="text-sm font-medium text-gray-900">{notification.title}</p>
                               <p className="text-xs text-gray-600 mt-1">{notification.message}</p>

@@ -1,9 +1,10 @@
 "use client"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Briefcase, Home } from "lucide-react"
+import { ArrowLeft, Briefcase, Home, X } from "lucide-react"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -12,8 +13,13 @@ export default function SignupPage() {
   const email = searchParams.get("email")
   const tempEmail = searchParams.get("temp_email")
 
+  const [showReturningModal, setShowReturningModal] = useState(false)
+
   useEffect(() => {
-    if (role === "homeowner" || role === "contractor") {
+    if (role === "homeowner") {
+      setShowReturningModal(true)
+    } else if (role === "contractor") {
+      // Contractors go directly to personal info
       const params = new URLSearchParams({ role })
       if (email) params.append("email", email)
       if (tempEmail) params.append("temp_email", tempEmail)
@@ -21,11 +27,23 @@ export default function SignupPage() {
     }
   }, [role, email, tempEmail, router])
 
+  const handleHomeownerSelect = () => {
+    setShowReturningModal(true)
+  }
+
   const handleRoleSelect = (selectedRole: "homeowner" | "contractor") => {
     const params = new URLSearchParams({ role: selectedRole })
     if (email) params.append("email", email)
     if (tempEmail) params.append("temp_email", tempEmail)
     router.push(`/onboarding/personal-info?${params.toString()}`)
+  }
+
+  const handleReturningUser = () => {
+    router.push("/login")
+  }
+
+  const handleNewUser = () => {
+    router.push("/onboarding/job-details?role=homeowner")
   }
 
   return (
@@ -61,7 +79,7 @@ export default function SignupPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <button
-              onClick={() => handleRoleSelect("homeowner")}
+              onClick={handleHomeownerSelect}
               className="bg-white border-2 border-[#d8e2fb]/30 hover:border-[#328d87] rounded-lg p-8 text-left transition-all group shadow-lg"
             >
               <div className="w-16 h-16 bg-[#328d87]/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-[#328d87] transition-colors">
@@ -91,6 +109,45 @@ export default function SignupPage() {
           </p>
         </div>
       </div>
+
+      <Dialog open={showReturningModal} onOpenChange={setShowReturningModal}>
+        <DialogContent className="sm:max-w-md">
+          <button
+            onClick={() => setShowReturningModal(false)}
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
+
+          <div className="flex flex-col items-center text-center space-y-6 pt-4 pb-2">
+            <div className="w-16 h-16 bg-[#328d87]/10 rounded-full flex items-center justify-center">
+              <Home className="w-8 h-8 text-[#328d87]" />
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-[#03353a]">Have you posted a job with Bidrr before?</h2>
+              <p className="text-[#03353a]/70">Let us know so we can streamline your experience</p>
+            </div>
+
+            <div className="flex flex-col gap-3 w-full">
+              <button
+                onClick={handleReturningUser}
+                className="w-full bg-[#03353a] text-white px-6 py-3 rounded-lg hover:bg-[#03353a]/90 transition-colors font-medium"
+              >
+                Yes, I have an account
+              </button>
+
+              <button
+                onClick={handleNewUser}
+                className="w-full bg-[#328d87] text-white px-6 py-3 rounded-lg hover:bg-[#328d87]/90 transition-colors font-medium"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

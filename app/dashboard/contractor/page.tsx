@@ -26,6 +26,7 @@ import { initiateStripeCheckout } from "@/lib/checkout"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { trackEvent } from "@/lib/analytics"
+import { BidMeter } from "@/components/bid-meter"
 
 interface Stats {
   total_bids: number
@@ -579,6 +580,10 @@ export default function ContractorDashboard() {
             <div className="space-y-4">
               {missions.map((mission) => {
                 const label = getMissionLabel(mission)
+                const spotsRemaining = 5 - (mission.bid_count || 0)
+                const isFull = spotsRemaining <= 0
+                const isAlmostFull = spotsRemaining <= 2 && spotsRemaining > 0
+
                 return (
                   <div
                     key={mission.id}
@@ -609,6 +614,16 @@ export default function ContractorDashboard() {
                               Low Priority
                             </span>
                           )}
+                          {isFull && !mission.has_bid && (
+                            <span className="rounded-full px-2 py-1 text-[9px] font-medium bg-red-100 text-red-700">
+                              Full (5/5)
+                            </span>
+                          )}
+                          {isAlmostFull && !mission.has_bid && (
+                            <span className="rounded-full px-2 py-1 text-[9px] font-medium bg-amber-100 text-amber-700">
+                              Only {spotsRemaining} spot{spotsRemaining === 1 ? "" : "s"} left!
+                            </span>
+                          )}
                         </div>
                         <p className="mt-1 text-sm text-gray-600">{mission.service}</p>
 
@@ -623,7 +638,7 @@ export default function ContractorDashboard() {
                           </span>
                           <span className="flex items-center gap-1">
                             <Users className="h-4 w-4" />
-                            {mission.bid_count} {mission.bid_count === 1 ? "bid" : "bids"}
+                            {mission.bid_count || 0}/5 bids
                           </span>
                         </div>
                         {mission.has_bid && mission.my_bid_status && (
@@ -665,6 +680,10 @@ export default function ContractorDashboard() {
               >
                 <X className="h-6 w-6 text-gray-600" />
               </button>
+            </div>
+
+            <div className="p-4 md:p-6 pt-0">
+              <BidMeter currentBids={selectedMission.bid_count || 0} maxBids={5} />
             </div>
 
             <div className="p-4 md:p-6 space-y-6">
@@ -818,8 +837,14 @@ export default function ContractorDashboard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Total Bids</h3>
-                  <p className="text-xl md:text-2xl font-bold text-gray-900">{selectedMission.bid_count || 0}</p>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Bid Status</h3>
+                  <p className="text-xl md:text-2xl font-bold text-gray-900">{selectedMission.bid_count || 0}/5 bids</p>
+                  {selectedMission.bid_count >= 5 && !selectedMission.has_bid && (
+                    <p className="text-sm text-red-600 mt-1 font-medium">This job is full</p>
+                  )}
+                  {selectedMission.bid_count === 4 && !selectedMission.has_bid && (
+                    <p className="text-sm text-amber-600 mt-1 font-medium">Only 1 spot left!</p>
+                  )}
                 </div>
                 {selectedMission.distance_km != null && !isNaN(Number(selectedMission.distance_km)) && (
                   <div>
@@ -909,6 +934,14 @@ export default function ContractorDashboard() {
                     <form onSubmit={handleSubmitBid} className="space-y-4 border-t pt-4">
                       <h3 className="font-semibold text-base md:text-lg">Submit Your Bid</h3>
 
+                      {selectedMission.bid_count >= 5 && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <p className="text-red-800 text-sm font-medium">
+                            This job has reached the maximum of 5 bids and is no longer accepting new bids.
+                          </p>
+                        </div>
+                      )}
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Quote Amount ($) <span className="text-red-500">*</span>
@@ -924,6 +957,7 @@ export default function ContractorDashboard() {
                           className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
                           placeholder="Enter your quote"
                           required
+                          disabled={selectedMission.bid_count >= 5}
                         />
                       </div>
 
@@ -938,6 +972,7 @@ export default function ContractorDashboard() {
                           rows={4}
                           placeholder="Explain why you're the best choice for this job..."
                           required
+                          disabled={selectedMission.bid_count >= 5}
                         />
                       </div>
 
@@ -949,7 +984,9 @@ export default function ContractorDashboard() {
 
                       <button
                         type="submit"
-                        disabled={submittingBid || !bidForm.quote || !bidForm.message.trim()}
+                        disabled={
+                          submittingBid || !bidForm.quote || !bidForm.message.trim() || selectedMission.bid_count >= 5
+                        }
                         className="w-full py-2.5 md:py-3 bg-[#0F766E] text-white rounded-lg text-sm md:text-base font-medium hover:bg-[#0d5f57] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {submittingBid ? (
@@ -957,6 +994,8 @@ export default function ContractorDashboard() {
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Submitting Bid...
                           </span>
+                        ) : selectedMission.bid_count >= 5 ? (
+                          "Job Full (5/5 Bids)"
                         ) : (
                           "Submit Bid"
                         )}

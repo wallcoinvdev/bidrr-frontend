@@ -12,6 +12,22 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
+const CANADIAN_PROVINCES = [
+  "Alberta",
+  "British Columbia",
+  "Manitoba",
+  "New Brunswick",
+  "Newfoundland and Labrador",
+  "Northwest Territories",
+  "Nova Scotia",
+  "Nunavut",
+  "Ontario",
+  "Prince Edward Island",
+  "Quebec",
+  "Saskatchewan",
+  "Yukon",
+]
+
 export default function ContractorProfilePage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -294,6 +310,7 @@ export default function ContractorProfilePage() {
       setLogoUrl(data.logo_url)
       setSuccess("Company logo updated successfully!")
       await refreshUser()
+      window.dispatchEvent(new Event("profilePhotoUpdated"))
     } catch (error) {
       console.error("Error uploading logo:", error)
       setError("Failed to upload logo")
@@ -327,6 +344,7 @@ export default function ContractorProfilePage() {
       setAgentPhotoUrl(data.agent_photo_url)
       setSuccess("Agent photo updated successfully!")
       await refreshUser()
+      window.dispatchEvent(new Event("profilePhotoUpdated"))
     } catch (error) {
       console.error("Error uploading agent photo:", error)
       setError(error instanceof Error ? error.message : "Failed to upload photo")
@@ -669,13 +687,19 @@ export default function ContractorProfilePage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Province/State</label>
-                    <input
-                      type="text"
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                    <select
                       value={region}
                       onChange={(e) => setRegion(e.target.value)}
                       className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
-                    />
+                    >
+                      <option value="">Select region</option>
+                      {CANADIAN_PROVINCES.map((province) => (
+                        <option key={province} value={province}>
+                          {province}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -772,13 +796,19 @@ export default function ContractorProfilePage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Business Province/State</label>
-                    <input
-                      type="text"
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Business Region</label>
+                    <select
                       value={businessRegion}
                       onChange={(e) => setBusinessRegion(e.target.value)}
                       className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent text-sm md:text-base"
-                    />
+                    >
+                      <option value="">Select region</option>
+                      {CANADIAN_PROVINCES.map((province) => (
+                        <option key={province} value={province}>
+                          {province}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 

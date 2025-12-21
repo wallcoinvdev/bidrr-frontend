@@ -6,6 +6,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { apiClient } from "@/lib/api-client"
 import { Loader2, ArrowLeft, MapPin, CheckCircle2, X, User } from "lucide-react"
 import { VerifiedBadge } from "@/components/verified-badge"
+import { BidMeter } from "@/components/bid-meter"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +51,7 @@ interface Mission {
   postal_code: string
   created_at: string
   status: string
+  bid_count?: number
 }
 
 export default function ViewBidsPage() {
@@ -169,7 +171,9 @@ export default function ViewBidsPage() {
           <div className="border-b border-gray-200 px-4 sm:px-6 py-4 flex items-start sm:items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
               <h1 className="text-base sm:text-xl font-bold text-gray-900 break-words">Bids for "{mission.title}"</h1>
-              <p className="text-xs sm:text-sm text-gray-600 mt-1">{bids.length} bid(s) received</p>
+              <div className="mt-2">
+                <BidMeter currentBids={mission.bid_count || bids.length} maxBids={5} />
+              </div>
             </div>
             <button
               onClick={() => router.push("/dashboard/homeowner")}

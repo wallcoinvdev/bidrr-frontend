@@ -1,14 +1,38 @@
 "use client"
 
 import type React from "react"
-import { useSearchParams } from "next/navigation"
 import { useState, useEffect, useRef } from "react"
-import { Eye, EyeOff, User } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
+import { Eye, EyeOff } from "lucide-react"
+import { trackFormError, trackFormField } from "@/lib/analytics-client"
 import { ServicesSelector } from "@/components/services-selector"
-import TermsModal from "@/components/terms-modal"
-import { trackEvent, trackFormField, trackFormError } from "@/lib/analytics"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { ArrowLeft, User } from "lucide-react" // Added imports
+import { TermsModal } from "@/components/terms-modal" // Added imports
+
+const trackEvent = (eventName: string, eventData: any) => {
+  console.log(`Event tracked: ${eventName}`, eventData)
+}
+
+const CANADIAN_PROVINCES = [
+  { value: "Alberta", label: "Alberta" },
+  { value: "British Columbia", label: "British Columbia" },
+  { value: "Manitoba", label: "Manitoba" },
+  { value: "New Brunswick", label: "New Brunswick" },
+  { value: "Newfoundland and Labrador", label: "Newfoundland and Labrador" },
+  { value: "Nova Scotia", label: "Nova Scotia" },
+  { value: "Ontario", label: "Ontario" },
+  { value: "Prince Edward Island", label: "Prince Edward Island" },
+  { value: "Quebec", label: "Quebec" },
+  { value: "Saskatchewan", label: "Saskatchewan" },
+  { value: "Northwest Territories", label: "Northwest Territories" },
+  { value: "Nunavut", label: "Nunavut" },
+  { value: "Yukon", label: "Yukon" },
+]
+
+const IS_CANADA_ONLY_FORM = true
 
 export default function PersonalInfoPage() {
   const router = useRouter()
@@ -29,7 +53,6 @@ export default function PersonalInfoPage() {
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
   const [region, setRegion] = useState("")
-  const [postalCode, setPostalCode] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -41,6 +64,7 @@ export default function PersonalInfoPage() {
   const [businessCity, setBusinessCity] = useState("")
   const [businessRegion, setBusinessRegion] = useState("")
   const [businessPostalCode, setBusinessPostalCode] = useState("")
+  const [businessCountry, setBusinessCountry] = useState("Canada") // Added state for business country
   const [sameAsPersonalAddress, setSameAsPersonalAddress] = useState(false)
   const [radiusKm, setRadiusKm] = useState("50")
   const [services, setServices] = useState<string[]>([])
@@ -52,8 +76,10 @@ export default function PersonalInfoPage() {
   const [servicesError, setServicesError] = useState<string | null>(null)
   const [hasInvalidServiceInput, setHasInvalidServiceInput] = useState(false)
 
-  const [postalCodeTouched, setPostalCodeTouched] = useState(false)
   const [businessPostalCodeTouched, setBusinessPostalCodeTouched] = useState(false)
+
+  const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({})
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
 
   const trackedFields = useRef<Set<string>>(new Set())
 
@@ -73,19 +99,78 @@ export default function PersonalInfoPage() {
     return clean
   }
 
+  // Helper to format phone number for input mask
+  const formatPhoneNumber = (value: string) => {
+    const cleaned = value.replace(/\D/g, "")
+    let formatted = ""
+    if (cleaned.length > 0) {
+      formatted += `(${cleaned.substring(0, 3)})`
+    }
+    if (cleaned.length > 3) {
+      formatted += ` ${cleaned.substring(3, 6)}`
+    }
+    if (cleaned.length > 6) {
+      formatted += `-${cleaned.substring(6, 10)}`
+    }
+    return formatted
+  }
+
+  const validateField = (fieldName: string, value: any): boolean => {
+    switch (fieldName) {
+      case "firstName":
+        return value.trim().length > 0
+      case "lastName":
+        return data.role === "homeowner" || value.trim().length > 0
+      case "email":
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+      case "password":
+        return value.length >= 6
+      case "confirmPassword":
+        return value === password
+      case "acceptedTerms":
+        return value === true
+      case "phoneNumber":
+        return data.role === "homeowner" || (value && value.replace(/\D/g, "").length >= 10)
+      case "businessPostalCode":
+        return data.role === "homeowner" || isValidPostalCode(value)
+      case "services":
+        return data.role === "homeowner" || (Array.isArray(value) && value.length > 0)
+      case "region":
+        return data.role === "homeowner" || (value && value !== "")
+      case "businessRegion":
+        return data.role === "homeowner" || (value && value !== "")
+      case "companyName":
+        return data.role === "homeowner" || value.trim().length > 0
+      case "businessAddress":
+        return data.role === "homeowner" || value.trim().length > 0
+      case "businessCity":
+        return data.role === "homeowner" || value.trim().length > 0
+      case "businessCountry":
+        return data.role === "homeowner" || (value && value !== "")
+      default:
+        return true
+    }
+  }
+
   const isFormValid = () => {
-    if (!region || region === "") return false
+    if (data.role === "contractor" && (!region || region === "")) return false
+    if (data.role === "contractor" && (!companyName || companyName === "")) return false
+    if (data.role === "contractor" && (!businessAddress || businessAddress.trim() === "")) return false
+    if (data.role === "contractor" && (!businessCity || businessCity.trim() === "")) return false
     if (!acceptedTerms) return false
     if (password !== confirmPassword) return false
     if (password.length < 6) return false
-    if (!phoneNumber || phoneNumber.length < 10) return false
+    if (data.role === "contractor" && (!phoneNumber || phoneNumber.length < 10)) return false
     if (data.role === "contractor" && (!businessRegion || businessRegion === "")) return false
     if (data.role === "contractor" && services.length === 0) return false
-    if (!isValidPostalCode(postalCode)) return false
-    if (data.role === "contractor" && !isValidPostalCode(businessPostalCode)) return false
+    if (!isValidPostalCode(businessPostalCode)) return false
     if (hasInvalidServiceInput) return false
     return true
   }
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
 
   useEffect(() => {
     if (!hasTrackedStart.current) {
@@ -115,7 +200,45 @@ export default function PersonalInfoPage() {
     }
   }, [emailFromUrl, tempEmailFromUrl])
 
+  useEffect(() => {
+    const savedFormData = sessionStorage.getItem("onboarding_form_data")
+    if (savedFormData) {
+      try {
+        const parsedData = JSON.parse(savedFormData)
+        console.log("[v0] Loading saved form data:", parsedData)
+
+        if (parsedData.first_name) setFirstName(parsedData.first_name)
+        if (parsedData.last_name) setLastName(parsedData.last_name)
+        if (parsedData.email) setEmail(parsedData.email)
+        if (parsedData.phone_number) setPhoneNumber(parsedData.phone_number)
+        if (parsedData.postal_code) setBusinessPostalCode(parsedData.postal_code) // Updated line
+        if (parsedData.password) setPassword(parsedData.password)
+        if (parsedData.password) setConfirmPassword(parsedData.password)
+        if (parsedData.city) setCity(parsedData.city)
+        if (parsedData.region) setRegion(parsedData.region)
+        if (parsedData.address) setAddress(parsedData.address)
+        if (parsedData.country_code) setCountryCode(parsedData.country_code)
+
+        // Contractor fields
+        if (parsedData.company_name) setCompanyName(parsedData.company_name)
+        if (parsedData.company_size) setCompanySize(parsedData.company_size)
+        if (parsedData.business_address) setBusinessAddress(parsedData.business_address)
+        if (parsedData.business_city) setBusinessCity(parsedData.business_city)
+        if (parsedData.business_region) setBusinessRegion(parsedData.business_region)
+        if (parsedData.business_postal_code) setBusinessPostalCode(parsedData.business_postal_code)
+        if (parsedData.radius_km) setRadiusKm(parsedData.radius_km)
+        if (parsedData.services) setServices(parsedData.services)
+
+        console.log("[v0] Form data loaded from sessionStorage")
+      } catch (error) {
+        console.error("[v0] Error loading saved form data:", error)
+      }
+    }
+  }, [])
+
   const handleFieldBlur = (fieldName: string, value: string) => {
+    setTouched((prev) => ({ ...prev, [fieldName]: true }))
+
     if (value && value.trim() !== "" && !trackedFields.current.has(fieldName)) {
       trackedFields.current.add(fieldName)
       trackFormField(fieldName, data.role || "unknown")
@@ -130,61 +253,163 @@ export default function PersonalInfoPage() {
 
     trackEvent("form_submitted", { role: data.role || "unknown" })
 
-    try {
-      if (!isFormValid()) {
-        if (!region || region === "") {
-          trackFormError("region", "empty", data.role || "unknown")
-        }
-        if (!acceptedTerms) {
-          trackFormError("terms", "not_accepted", data.role || "unknown")
-        }
-        if (password !== confirmPassword) {
-          trackFormError("password", "mismatch", data.role || "unknown")
-        }
-        if (password.length < 6) {
-          trackFormError("password", "too_short", data.role || "unknown")
-        }
-        if (!phoneNumber || phoneNumber.length < 10) {
-          trackFormError("phone", "invalid_length", data.role || "unknown")
-        }
-        if (!isValidPostalCode(postalCode)) {
-          trackFormError("postal_code", "invalid_format", data.role || "unknown")
-        }
-        if (data.role === "contractor") {
-          if (!businessRegion || businessRegion === "") {
-            trackFormError("business_region", "empty", data.role)
-          }
-          if (services.length === 0) {
-            trackFormError("services", "empty", data.role)
-          }
-          if (!isValidPostalCode(businessPostalCode)) {
-            trackFormError("business_postal_code", "invalid_format", data.role)
-          }
-        }
-        if (hasInvalidServiceInput) {
-          trackFormError("services", "invalid_input", data.role || "unknown")
-        }
+    const allTouched: Record<string, boolean> = {
+      firstName: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+      acceptedTerms: true,
+    }
 
-        throw new Error("Please fill out all required fields correctly")
+    if (data.role === "contractor") {
+      allTouched.phoneNumber = true
+      allTouched.businessPostalCode = true
+      allTouched.services = true
+      allTouched.companyName = true
+      allTouched.businessAddress = true
+      allTouched.businessCity = true
+      allTouched.businessRegion = true
+      allTouched.businessCountry = true
+      allTouched.lastName = true
+    }
+
+    setTouched(allTouched)
+
+    const errors: Record<string, boolean> = {}
+    let hasErrors = false
+
+    if (!firstName.trim()) {
+      errors.firstName = true
+      hasErrors = true
+      trackFormError("first_name", "empty", data.role || "unknown")
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = true
+      hasErrors = true
+      trackFormError("email", "invalid", data.role || "unknown")
+    }
+    if (password.length < 6) {
+      errors.password = true
+      hasErrors = true
+      trackFormError("password", "too_short", data.role || "unknown")
+    }
+    if (password !== confirmPassword) {
+      errors.confirmPassword = true
+      hasErrors = true
+      trackFormError("password", "mismatch", data.role || "unknown")
+    }
+    if (!acceptedTerms) {
+      errors.acceptedTerms = true
+      hasErrors = true
+      trackFormError("terms", "not_accepted", data.role || "unknown")
+    }
+
+    if (data.role === "contractor") {
+      if (!lastName || lastName.trim() === "") {
+        errors.lastName = true
+        hasErrors = true
+        trackFormError("last_name", "empty", data.role)
       }
+      if (!phoneNumber || phoneNumber.replace(/\D/g, "").length < 10) {
+        errors.phoneNumber = true
+        hasErrors = true
+        trackFormError("phone", "invalid_length", data.role)
+      }
+      if (!isValidPostalCode(businessPostalCode)) {
+        errors.businessPostalCode = true
+        hasErrors = true
+        trackFormError("business_postal_code", "invalid_format", data.role)
+      }
+      if (!businessRegion || businessRegion === "") {
+        errors.businessRegion = true
+        hasErrors = true
+        trackFormError("business_region", "empty", data.role)
+      }
+      if (!businessCountry || businessCountry === "") {
+        errors.businessCountry = true
+        hasErrors = true
+        trackFormError("business_country", "empty", data.role)
+      }
+      if (!companyName || companyName === "") {
+        errors.companyName = true
+        hasErrors = true
+        trackFormError("company_name", "empty", data.role)
+      }
+      if (!businessAddress || businessAddress.trim() === "") {
+        errors.businessAddress = true
+        hasErrors = true
+        trackFormError("business_address", "empty", data.role)
+      }
+      if (!businessCity || businessCity.trim() === "") {
+        errors.businessCity = true
+        hasErrors = true
+        trackFormError("business_city", "empty", data.role)
+      }
+      if (services.length === 0) {
+        setServicesError("Please select at least one service")
+        hasErrors = true
+        trackFormError("services", "empty", data.role)
+      }
+      if (hasInvalidServiceInput) {
+        errors.services = true
+        hasErrors = true
+        trackFormError("services", "invalid_input", data.role)
+      }
+    }
 
+    if (hasErrors) {
+      console.log("[v0] Form validation failed. Errors:", errors)
+      setFieldErrors(errors)
+      setError("Please fill out all required fields correctly")
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const emailCheckResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/check-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify({ email }),
+      })
+
+      const emailCheckResult = await emailCheckResponse.json()
+
+      if (!emailCheckResponse.ok && emailCheckResult.exists) {
+        setError("EMAIL_REGISTERED")
+        setFieldErrors({ ...fieldErrors, email: true })
+        setIsLoading(false)
+        trackFormError("email", "already_registered", data.role || "unknown")
+        return
+      }
+    } catch (emailCheckError) {
+      console.error("[v0] Email check failed:", emailCheckError)
+      // Continue with signup if check fails - let backend handle it
+    }
+
+    try {
       const actualCountryCode = countryCode.split("-")[0]
-      const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
+      const phoneDigits = phoneNumber.replace(/\D/g, "")
+      const fullPhoneNumber = phoneDigits ? `${actualCountryCode}${phoneDigits}` : null
 
       const formData: any = {
         first_name: firstName,
-        last_name: lastName,
         email,
         password,
-        phone_number: fullPhoneNumber,
-        address,
-        city,
-        region,
-        country: "CA",
-        postal_code: postalCode,
+      }
+
+      if (fullPhoneNumber) {
+        formData.phone_number = fullPhoneNumber
       }
 
       if (data.role === "contractor") {
+        formData.last_name = lastName
+        formData.address = address || null
+        formData.city = city || null
+        formData.region = region || null
+        formData.country = "CA"
         formData.company_name = companyName
         formData.company_size = companySize
         formData.business_address = businessAddress
@@ -204,28 +429,42 @@ export default function PersonalInfoPage() {
       sessionStorage.setItem("onboarding_form_data", JSON.stringify(formData))
       sessionStorage.setItem("terms_accepted", "true")
       sessionStorage.setItem("terms_accepted_at", new Date().toISOString())
-      console.log(
-        "[v0] SessionStorage saved, verifying:",
-        JSON.parse(sessionStorage.getItem("onboarding_form_data") || "{}"),
-      )
+
+      if (data.role === "homeowner" && data.jobTitle) {
+        const existingJobDataString = sessionStorage.getItem("onboarding_job_data")
+        const existingJobData = existingJobDataString ? JSON.parse(existingJobDataString) : {}
+
+        const jobData = {
+          jobTitle: data.jobTitle,
+          jobService: data.jobService,
+          jobDescription: data.jobDescription,
+          jobTimeline: data.jobTimeline,
+          jobCity: data.jobCity,
+          jobRegion: data.jobRegion,
+          jobPostalCode: data.jobPostalCode,
+          // Preserve images if they exist
+          jobImageDataUrls: existingJobData.jobImageDataUrls || [],
+        }
+        sessionStorage.setItem("onboarding_job_data", JSON.stringify(jobData))
+        console.log("[v0] Job data saved to sessionStorage:", jobData)
+      }
 
       updateData({
         firstName,
-        lastName,
         email,
         phone: fullPhoneNumber,
         countryCode,
-        address,
-        city,
-        region,
-        country: "CA",
-        postalCode,
         ...(data.role === "contractor" && {
+          lastName,
+          address,
+          city,
+          region,
+          country: "CA",
           companyName,
           companySize,
           businessAddress,
           businessCity,
-          businessRegion,
+          businessRegion: region,
           businessCountry: "CA",
           businessPostalCode,
           radiusKm: Number.parseInt(radiusKm),
@@ -253,9 +492,19 @@ export default function PersonalInfoPage() {
   }
 
   return (
-    <div className="py-8">
+    <div className="py-7">
       <div className="container mx-auto px-4">
         <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl p-8">
+          {data.role === "homeowner" && data.jobTitle && (
+            <button
+              onClick={() => router.push("/onboarding/job-details")}
+              className="mb-4 flex items-center gap-2 text-[#03353a] hover:text-[#03353a]/80 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back to Job Details</span>
+            </button>
+          )}
+
           <div className="flex justify-center mb-6">
             <div
               className={`w-16 h-16 ${data.role === "contractor" ? "bg-[#e2bb12]" : "bg-[#03353a]"} rounded-full flex items-center justify-center`}
@@ -276,493 +525,597 @@ export default function PersonalInfoPage() {
               : "Tell us about yourself to get started"}
           </p>
 
-          {error && <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Personal Information */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#03353a] mb-2">
-                  First Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  onBlur={() => handleFieldBlur("first_name", firstName)}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#03353a] mb-2">
-                  Last Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  onBlur={() => handleFieldBlur("last_name", lastName)}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                  required
-                />
-              </div>
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm break-words">
+              {error}
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-medium text-[#03353a] mb-2">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onBlur={() => handleFieldBlur("email", email)}
-                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                required
-              />
-            </div>
-
-            {/* Phone Number */}
-            <div>
-              <label className="block text-sm font-medium text-[#03353a] mb-2">
-                Phone Number <span className="text-red-500">*</span>
-              </label>
-              <div className="flex gap-2">
-                <select
-                  value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
-                  className="w-24 sm:w-28 px-2 py-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#03353a] text-sm"
-                >
-                  <option value="+1-CA">🇨🇦 +1</option>
-                </select>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                  onBlur={() => handleFieldBlur("phone", phoneNumber)}
-                  placeholder="5551234567"
-                  maxLength={10}
-                  className="flex-1 min-w-0 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Address fields */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#03353a] mb-2">
-                  Street Address <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  onBlur={() => handleFieldBlur("address", address)}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#03353a] mb-2">
-                  City <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  onBlur={() => handleFieldBlur("city", city)}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#03353a] mb-2">
-                  Province <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={region}
-                  onChange={(e) => {
-                    setRegion(e.target.value)
-                    if (e.target.value) {
-                      handleFieldBlur("region", e.target.value)
-                    }
-                  }}
-                  className="w-full px-4 py-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#03353a]"
-                  required
-                >
-                  <option value="">Select a province</option>
-                  <option value="Alberta">Alberta</option>
-                  <option value="British Columbia">British Columbia</option>
-                  <option value="Manitoba">Manitoba</option>
-                  <option value="New Brunswick">New Brunswick</option>
-                  <option value="Newfoundland and Labrador">Newfoundland and Labrador</option>
-                  <option value="Northwest Territories">Northwest Territories</option>
-                  <option value="Nova Scotia">Nova Scotia</option>
-                  <option value="Nunavut">Nunavut</option>
-                  <option value="Ontario">Ontario</option>
-                  <option value="Prince Edward Island">Prince Edward Island</option>
-                  <option value="Quebec">Quebec</option>
-                  <option value="Saskatchewan">Saskatchewan</option>
-                  <option value="Yukon">Yukon</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#03353a] mb-2">
-                  Country <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value="Canada"
-                  className="w-full px-4 py-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#03353a]"
-                  disabled
-                >
-                  <option>Canada</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#03353a] mb-2">
-                  Postal Code <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={postalCode}
-                  onChange={(e) => setPostalCode(formatPostalCode(e.target.value))}
-                  onBlur={() => {
-                    setPostalCodeTouched(true)
-                    handleFieldBlur("postal_code", postalCode)
-                    if (postalCode && !isValidPostalCode(postalCode)) {
-                      trackFormError("postal_code", "invalid_format", data.role || "unknown")
-                    }
-                  }}
-                  placeholder="A1A 1A1"
-                  maxLength={7}
-                  minLength={7}
-                  pattern="[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]"
-                  title="Please enter a valid Canadian postal code (e.g., A1A 1A1)"
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] ${
-                    postalCodeTouched && !isValidPostalCode(postalCode) ? "border-red-500 focus:ring-red-500" : ""
-                  }`}
-                  required
-                />
-                {postalCodeTouched && !isValidPostalCode(postalCode) && (
-                  <p className="text-red-500 text-xs mt-1">Please enter a valid postal code (e.g., A1A 1A1)</p>
-                )}
-              </div>
-            </div>
-
-            {/* Password fields */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#03353a] mb-2">
-                  Create Password <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onBlur={() => handleFieldBlur("password", password)}
-                    className="w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-gray-100 rounded-md transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-                <p className="text-xs text-[#03353a]/60 mt-1">Must be at least 6 characters</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#03353a] mb-2">
-                  Confirm Password <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    onBlur={() => {
-                      handleFieldBlur("confirm_password", confirmPassword)
-                      if (confirmPassword && password && confirmPassword !== password) {
-                        trackFormError("password", "mismatch", data.role || "unknown")
-                      }
-                    }}
-                    className="w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-gray-100 rounded-md transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Contractor-specific fields */}
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
+            {/* Personal Information - Contractor View */}
             {data.role === "contractor" && (
-              <div className="space-y-4 pt-6 border-t">
-                <h2 className="text-xl font-semibold text-[#03353a]">Business Information</h2>
-                <div>
-                  <label className="block text-sm font-medium text-[#03353a] mb-2">
-                    Company Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    onBlur={() => handleFieldBlur("company_name", companyName)}
-                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#03353a] mb-2">
-                    Company Size <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={companySize}
-                    onChange={(e) => {
-                      setCompanySize(e.target.value)
-                      handleFieldBlur("company_size", e.target.value)
-                    }}
-                    className="w-full px-4 py-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#03353a]"
-                    required
-                  >
-                    <option value="1">1</option>
-                    <option value="2-10">2-10</option>
-                    <option value="11-50">11-50</option>
-                    <option value="51-200">51-200</option>
-                    <option value="200+">200+</option>
-                  </select>
+              <div className="mb-8">
+                <div className="border-b border-gray-200 pb-3 mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">Account Information</h2>
+                  <p className="text-sm text-gray-600 mt-1">Your personal contact details</p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={sameAsPersonalAddress}
-                    onChange={(e) => {
-                      setSameAsPersonalAddress(e.target.checked)
-                      if (e.target.checked) {
-                        setBusinessAddress(address)
-                        setBusinessCity(city)
-                        setBusinessRegion(region)
-                        setBusinessPostalCode(postalCode)
-                        setBusinessPostalCodeTouched(true)
-                      }
-                    }}
-                    className="h-4 w-4"
-                  />
-                  <label className="text-sm text-[#03353a]">Same as personal address</label>
-                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* First Name */}
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName" className="mb-2">
+                        First Name <span className="text-red-500">*</span>
+                      </Label>
+                      <input
+                        id="firstName"
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => {
+                          setFirstName(e.target.value)
+                          if (touched.firstName) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              firstName: !validateField("firstName", e.target.value),
+                            }))
+                          }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, firstName: true }))
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            firstName: !validateField("firstName", firstName),
+                          }))
+                        }}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                          fieldErrors.firstName ? "border-red-500 bg-red-50" : "border-gray-300"
+                        }`}
+                        placeholder="Enter first name"
+                        required
+                      />
+                      {fieldErrors.firstName && touched.firstName && (
+                        <p className="text-red-500 text-xs mt-1">First name is required</p>
+                      )}
+                    </div>
 
-                {/* Business Street Address field */}
-                <div>
-                  <label className="block text-sm font-medium text-[#03353a] mb-2">
-                    Business Street Address <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={businessAddress}
-                    onChange={(e) => setBusinessAddress(e.target.value)}
-                    onBlur={() => handleFieldBlur("business_address", businessAddress)}
-                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[#03353a] mb-2">
-                      City <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={businessCity}
-                      onChange={(e) => {
-                        setBusinessCity(e.target.value)
-                        if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
-                      }}
-                      onBlur={() => handleFieldBlur("business_city", businessCity)}
-                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                      required
-                    />
+                    {/* Last Name */}
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName" className="mb-2">
+                        Last Name {data.role === "contractor" && <span className="text-red-500">*</span>}
+                      </Label>
+                      <input
+                        id="lastName"
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => {
+                          setLastName(e.target.value)
+                          if (touched.lastName) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              lastName: !validateField("lastName", e.target.value),
+                            }))
+                          }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, lastName: true }))
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            lastName: !validateField("lastName", lastName),
+                          }))
+                        }}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                          fieldErrors.lastName ? "border-red-500 bg-red-50" : "border-gray-300"
+                        }`}
+                        placeholder={data.role === "contractor" ? "Enter last name" : "Enter last name (optional)"}
+                        required={data.role === "contractor"}
+                      />
+                      {fieldErrors.lastName && touched.lastName && (
+                        <p className="text-red-500 text-xs mt-1">Last name is required</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[#03353a] mb-2">
-                      Province <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={businessRegion}
+
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="mb-2">
+                      Email <span className="text-red-500">*</span>
+                    </Label>
+                    <p className="text-xs text-gray-600 mb-2 break-words">
+                      You'll receive email notifications when new jobs are posted that match your services and area
+                    </p>
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
                       onChange={(e) => {
-                        setBusinessRegion(e.target.value)
-                        if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
-                        if (e.target.value) {
-                          handleFieldBlur("business_region", e.target.value)
+                        setEmail(e.target.value)
+                        if (touched.email) {
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            email: !validateField("email", e.target.value),
+                          }))
                         }
-                      }}
-                      className="w-full px-4 py-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#03353a]"
-                      required
-                    >
-                      <option value="">Select a province</option>
-                      <option value="Alberta">Alberta</option>
-                      <option value="British Columbia">British Columbia</option>
-                      <option value="Manitoba">Manitoba</option>
-                      <option value="New Brunswick">New Brunswick</option>
-                      <option value="Newfoundland and Labrador">Newfoundland and Labrador</option>
-                      <option value="Northwest Territories">Northwest Territories</option>
-                      <option value="Nova Scotia">Nova Scotia</option>
-                      <option value="Nunavut">Nunavut</option>
-                      <option value="Ontario">Ontario</option>
-                      <option value="Prince Edward Island">Prince Edward Island</option>
-                      <option value="Quebec">Quebec</option>
-                      <option value="Saskatchewan">Saskatchewan</option>
-                      <option value="Yukon">Yukon</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[#03353a] mb-2">
-                      Postal Code <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={businessPostalCode}
-                      onChange={(e) => {
-                        setBusinessPostalCode(formatPostalCode(e.target.value))
-                        if (sameAsPersonalAddress) setSameAsPersonalAddress(false)
                       }}
                       onBlur={() => {
-                        setBusinessPostalCodeTouched(true)
-                        handleFieldBlur("business_postal_code", businessPostalCode)
-                        if (businessPostalCode && !isValidPostalCode(businessPostalCode)) {
-                          trackFormError("business_postal_code", "invalid_format", data.role || "unknown")
-                        }
+                        setTouched((prev) => ({ ...prev, email: true }))
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          email: !validateField("email", email),
+                        }))
                       }}
-                      placeholder="A1A 1A1"
-                      maxLength={7}
-                      minLength={7}
-                      pattern="[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]"
-                      title="Please enter a valid Canadian postal code (e.g., A1A 1A1)"
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] ${
-                        businessPostalCodeTouched && !isValidPostalCode(businessPostalCode)
-                          ? "border-red-500 focus:ring-red-500"
-                          : ""
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        fieldErrors.email ? "border-red-500 bg-red-50" : "border-gray-300"
                       }`}
+                      placeholder="Enter your email"
                       required
                     />
-                    {businessPostalCodeTouched && !isValidPostalCode(businessPostalCode) && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {sameAsPersonalAddress
-                          ? "Personal postal code is invalid. Please fix it above."
-                          : "Please enter a valid postal code (e.g., A1A 1A1)"}
-                      </p>
+                    {fieldErrors.email && touched.email && (
+                      <p className="text-red-500 text-xs mt-1">Please enter a valid email address</p>
                     )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Service Radius (km) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={radiusKm}
-                      onChange={(e) => setRadiusKm(e.target.value)}
-                      onBlur={() => handleFieldBlur("radius_km", radiusKm)}
-                      min="1"
-                      max="500"
-                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a]"
-                      required
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Services Offered <span className="text-red-500">*</span>
-                  </label>
-                  <p className="text-xs text-[#03353a]/60 mb-2">
-                    Select at least one service from the dropdown list. Only services from our list can be selected.
-                  </p>
-                  <ServicesSelector
-                    value={services}
-                    onChange={(newServices) => {
-                      setServices(newServices)
-                      if (newServices.length > 0) {
-                        setServicesError(null)
-                        if (!trackedFields.current.has("services")) {
-                          trackedFields.current.add("services")
-                          trackFormField("services", data.role || "unknown")
-                        }
-                      }
-                    }}
-                    error={servicesError || undefined}
-                    onInvalidInput={setHasInvalidServiceInput}
-                  />
+                  {/* Phone Number */}
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber" className="mb-2">
+                      Phone Number <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="flex gap-2">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="w-20 sm:w-24 px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent outline-none transition-all bg-white text-sm cursor-pointer"
+                      >
+                        <option value="+1-CA">🇨🇦 +1</option>
+                      </select>
+                      <input
+                        id="phoneNumber"
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={phoneNumber}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "")
+                          setPhoneNumber(digits)
+                          if (touched.phoneNumber) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              phoneNumber: !validateField("phoneNumber", digits),
+                            }))
+                          }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, phoneNumber: true }))
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            phoneNumber: !validateField("phoneNumber", phoneNumber),
+                          }))
+                        }}
+                        placeholder="5197601022"
+                        maxLength={10}
+                        className={`flex-1 min-w-0 px-3 sm:px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent outline-none transition-all ${
+                          fieldErrors.phoneNumber ? "border-red-500 bg-red-50" : "border-gray-300"
+                        }`}
+                        required
+                      />
+                    </div>
+                    {fieldErrors.phoneNumber && touched.phoneNumber && (
+                      <p className="text-red-500 text-xs mt-1">Please enter a valid 10-digit phone number</p>
+                    )}
+                  </div>
+
+                  {/* Password fields */}
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="mb-2">
+                      Create Password <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value)
+                          if (touched.password) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              password: !validateField("password", e.target.value),
+                            }))
+                          }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, password: true }))
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            password: !validateField("password", password),
+                          }))
+                        }}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base pr-10 ${
+                          fieldErrors.password ? "border-red-500 bg-red-50" : "border-gray-300"
+                        }`}
+                        placeholder="Enter your password"
+                        required
+                        minLength={6}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    {fieldErrors.password && touched.password ? (
+                      <p className="text-sm text-red-500 max-w-full break-words">Must be at least 6 characters</p>
+                    ) : (
+                      <p className="text-sm text-gray-500 max-w-full break-words">Must be at least 6 characters</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword" className="mb-2">
+                      Confirm Password <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => {
+                          setConfirmPassword(e.target.value)
+                          if (touched.confirmPassword) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              confirmPassword: !validateField("confirmPassword", e.target.value),
+                            }))
+                          }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, confirmPassword: true }))
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            confirmPassword: !validateField("confirmPassword", confirmPassword),
+                          }))
+                        }}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base pr-10 ${
+                          fieldErrors.confirmPassword ? "border-red-500 bg-red-50" : "border-gray-300"
+                        }`}
+                        placeholder="Confirm your password"
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    {fieldErrors.confirmPassword && touched.confirmPassword ? (
+                      <p className="text-sm text-red-500 max-w-full break-words">Passwords must match</p>
+                    ) : (
+                      <p className="text-sm text-gray-500 max-w-full break-words">Re-enter your password</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Terms acceptance */}
-            <div className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                checked={acceptedTerms}
-                onChange={(e) => {
-                  setAcceptedTerms(e.target.checked)
-                  if (e.target.checked) {
-                    handleFieldBlur("terms_accepted", "true")
-                  }
-                }}
-                className="mt-1 h-4 w-4"
-                required
-              />
-              <label className="text-sm text-[#03353a]">
-                <span className="text-red-500">*</span> I agree to the{" "}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setShowTermsModal(true)
-                  }}
-                  className="text-[#03353a] underline font-medium hover:text-[#e2bb12]"
-                >
-                  Terms of Service
-                </button>{" "}
-                for using Bidrr
-              </label>
+            {/* Personal Information - Homeowner View */}
+            {data.role === "homeowner" && (
+              <div>
+                <Label htmlFor="firstName" className="mb-2">
+                  First Name <span className="text-red-500">*</span>
+                </Label>
+                <input
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  onBlur={() => handleFieldBlur("firstName", firstName)}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                    touched.firstName && fieldErrors.firstName ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
+                  required
+                />
+              </div>
+            )}
+
+            {/* Email (Common for both roles, but shown in contractor section for now) */}
+            {/* This section is already included in the contractor block, assuming it's handled there. */}
+
+            {/* Phone Number (Common for both roles, but shown in contractor section for now) */}
+            {/* This section is already included in the contractor block, assuming it's handled there. */}
+
+            {/* Business Information Section (Contractor Only) */}
+            {data.role === "contractor" && (
+              <div className="mb-8">
+                <div className="border-b border-gray-200 pb-3 mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">Business Information</h2>
+                  <p className="text-sm text-gray-600 mt-1">Your company details and service area</p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Company Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="companyName" className="mb-2">
+                      Company Name <span className="text-red-500">*</span>
+                    </Label>
+                    <input
+                      id="companyName"
+                      type="text"
+                      value={companyName}
+                      onChange={(e) => {
+                        setCompanyName(e.target.value)
+                        if (touched.companyName) {
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            companyName: !validateField("companyName", e.target.value),
+                          }))
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, companyName: true }))
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          companyName: !validateField("companyName", companyName),
+                        }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        fieldErrors.companyName && touched.companyName ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                      placeholder="Enter company name"
+                      required
+                    />
+                    {fieldErrors.companyName && touched.companyName && (
+                      <p className="text-red-500 text-xs mt-1">Company name is required</p>
+                    )}
+                  </div>
+
+                  {/* Company Size */}
+                  <div className="space-y-2">
+                    <Label htmlFor="companySize" className="mb-2">
+                      Company Size
+                    </Label>
+                    <select
+                      id="companySize"
+                      value={companySize}
+                      onChange={(e) => setCompanySize(e.target.value)}
+                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base"
+                    >
+                      <option value="1-5">1-5</option>
+                      <option value="6-10">6-10</option>
+                      <option value="11-20">11-20</option>
+                      <option value="21-50">21-50</option>
+                      <option value="50+">50+</option>
+                    </select>
+                  </div>
+
+                  {/* Business Address */}
+                  <div className="space-y-2">
+                    <Label htmlFor="businessAddress" className="mb-2">
+                      Business Address <span className="text-red-500">*</span>
+                    </Label>
+                    <input
+                      id="businessAddress"
+                      type="text"
+                      value={businessAddress}
+                      onChange={(e) => {
+                        setBusinessAddress(e.target.value)
+                        if (touched.businessAddress) {
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            businessAddress: !validateField("businessAddress", e.target.value),
+                          }))
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, businessAddress: true }))
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          businessAddress: !validateField("businessAddress", businessAddress),
+                        }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        fieldErrors.businessAddress && touched.businessAddress
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="Enter business address"
+                      required
+                    />
+                    {fieldErrors.businessAddress && touched.businessAddress && (
+                      <p className="text-red-500 text-xs mt-1">Business address is required</p>
+                    )}
+                  </div>
+
+                  {/* Business City */}
+                  <div className="space-y-2">
+                    <Label htmlFor="businessCity" className="mb-2">
+                      Business City <span className="text-red-500">*</span>
+                    </Label>
+                    <input
+                      id="businessCity"
+                      type="text"
+                      value={businessCity}
+                      onChange={(e) => {
+                        setBusinessCity(e.target.value)
+                        if (touched.businessCity) {
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            businessCity: !validateField("businessCity", e.target.value),
+                          }))
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, businessCity: true }))
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          businessCity: !validateField("businessCity", businessCity),
+                        }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        fieldErrors.businessCity && touched.businessCity
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="Enter business city"
+                      required
+                    />
+                    {fieldErrors.businessCity && touched.businessCity && (
+                      <p className="text-red-500 text-xs mt-1">Business city is required</p>
+                    )}
+                  </div>
+
+                  {/* Business Region */}
+                  <div className="space-y-2">
+                    <Label htmlFor="businessRegion" className="mb-2">
+                      Business Region <span className="text-red-500">*</span>
+                    </Label>
+                    <select
+                      id="businessRegion"
+                      value={businessRegion}
+                      onChange={(e) => {
+                        setBusinessRegion(e.target.value)
+                        if (touched.businessRegion) {
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            businessRegion: !validateField("businessRegion", e.target.value),
+                          }))
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, businessRegion: true }))
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          businessRegion: !validateField("businessRegion", businessRegion),
+                        }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        fieldErrors.businessRegion && touched.businessRegion
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300"
+                      }`}
+                      required
+                    >
+                      <option value="">Select Province/Territory</option>
+                      {CANADIAN_PROVINCES.map((province) => (
+                        <option key={province.value} value={province.value}>
+                          {province.label}
+                        </option>
+                      ))}
+                    </select>
+                    {fieldErrors.businessRegion && touched.businessRegion && (
+                      <p className="text-red-500 text-xs mt-1">Business region is required</p>
+                    )}
+                  </div>
+
+                  {/* Business Postal Code */}
+                  <div className="space-y-2">
+                    <Label htmlFor="businessPostalCode" className="mb-2">
+                      Business Postal Code <span className="text-red-500">*</span>
+                    </Label>
+                    <input
+                      id="businessPostalCode"
+                      type="text"
+                      value={businessPostalCode}
+                      onChange={(e) => {
+                        const formatted = formatPostalCode(e.target.value)
+                        setBusinessPostalCode(formatted)
+                        if (touched.businessPostalCode) {
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            businessPostalCode: !validateField("businessPostalCode", formatted),
+                          }))
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, businessPostalCode: true }))
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          businessPostalCode: !validateField("businessPostalCode", businessPostalCode),
+                        }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        fieldErrors.businessPostalCode && touched.businessPostalCode
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="Enter business postal code"
+                      required
+                    />
+                    {fieldErrors.businessPostalCode && touched.businessPostalCode && (
+                      <p className="text-red-500 text-xs mt-1">Please enter a valid postal code</p>
+                    )}
+                  </div>
+
+                  {/* Business Country */}
+                  <div className="space-y-2">
+                    <Label htmlFor="businessCountry" className="mb-2">
+                      Business Country <span className="text-red-500">*</span>
+                    </Label>
+                    <input
+                      id="businessCountry"
+                      type="text"
+                      value={businessCountry}
+                      readOnly
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm sm:text-base cursor-not-allowed"
+                    />
+                  </div>
+
+                  {/* Services */}
+                  <div className="space-y-2">
+                    <Label htmlFor="services" className="mb-2">
+                      Services <span className="text-red-500">*</span>
+                    </Label>
+                    <ServicesSelector
+                      value={services}
+                      onChange={setServices}
+                      error={fieldErrors.services}
+                      onInvalidInput={setHasInvalidServiceInput}
+                    />
+                    {servicesError && <p className="text-red-500 text-xs mt-1">{servicesError}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Terms and Conditions */}
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <input
+                  id="acceptedTerms"
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 text-[#03353a] focus:ring-2 focus:ring-[#03353a] focus:border-transparent rounded flex-shrink-0"
+                />
+                <label htmlFor="acceptedTerms" className="text-sm leading-relaxed cursor-pointer">
+                  I agree to the{" "}
+                  <span className="text-blue-500 underline" onClick={() => setShowTermsModal(true)}>
+                    Terms of Service
+                  </span>{" "}
+                  for using Bidrr
+                </label>
+              </div>
+              {fieldErrors.acceptedTerms && touched.acceptedTerms && (
+                <p className="text-red-500 text-xs mt-1">You must accept the terms and conditions</p>
+              )}
             </div>
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#e2bb12] text-[#03353a] font-semibold py-3 px-4 rounded-lg hover:bg-[#d4a810] disabled:opacity-50"
+              className="w-full bg-[#e2bb12] text-white py-3 px-4 rounded-lg hover:bg-[#d4a810] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {isLoading ? "Processing..." : "Create Account & Continue"}
+              {isLoading ? "Loading..." : "Continue"}
             </button>
-
-            <p className="text-center text-sm text-[#03353a]/70 mt-4">
-              Have an account already?{" "}
-              <a href="/login" className="text-[#03353a] underline font-medium">
-                Log in
-              </a>
-            </p>
           </form>
         </div>
       </div>

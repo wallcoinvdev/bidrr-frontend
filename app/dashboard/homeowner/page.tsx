@@ -31,6 +31,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { trackEvent } from "@/lib/analytics"
+import { BidMeter } from "@/components/bid-meter"
 
 // Assume 'user' is available in this scope, e.g., from an auth context or hook.
 // For demonstration, we'll mock it. In a real app, you'd import/use it correctly.
@@ -144,6 +145,8 @@ export default function HomeownerDashboard() {
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null)
   const [showReviewDialog, setShowReviewDialog] = useState(false)
   const [hiredContractorInfo, setHiredContractorInfo] = useState<HiredContractorInfo | null>(null)
+
+  console.log("[v0] HomeownerDashboard render")
 
   // Full list of services from the schema
   const services = [
@@ -318,6 +321,7 @@ export default function HomeownerDashboard() {
   const filteredServices = services.filter((service) => service.toLowerCase().includes(serviceSearch.toLowerCase()))
 
   useEffect(() => {
+    console.log("[v0] Dashboard fetchDashboardData effect triggered")
     fetchDashboardData()
   }, [])
 
@@ -442,19 +446,30 @@ export default function HomeownerDashboard() {
         requiresAuth: true,
       })
 
+      console.log("[v0] Fetched mission data for editing:", {
+        id: fullMission.id,
+        region: fullMission.region,
+        images: fullMission.images,
+        hasImages: fullMission.images?.length > 0,
+      })
+
       setEditingMission(fullMission)
       setSelectedService(fullMission.service || "")
-      setJobDescription(fullMission.job_details || "") // Initialize job description state
+      setJobDescription(fullMission.job_details || "")
 
       if (fullMission.images && Array.isArray(fullMission.images)) {
+        console.log("[v0] Setting image previews:", fullMission.images)
         setImagePreviews(fullMission.images)
-        // Note: imageFiles will remain empty since we're showing URLs, not File objects
-        // The backend will keep existing images unless new ones are uploaded
+        setImageFiles([]) // Reset to empty since we're showing URLs from database
+      } else {
+        console.log("[v0] No images found in mission data")
+        setImagePreviews([])
+        setImageFiles([])
       }
 
       setShowPostJobModal(true)
-    } catch (error: any) {
-      console.error("Error fetching mission details:", error)
+    } catch (err: any) {
+      console.error("Error fetching mission details:", err)
       toast({
         title: "Error",
         description: "Failed to load job details",
@@ -822,10 +837,8 @@ export default function HomeownerDashboard() {
                   </div>
 
                   {Number(mission.bid_count) > 0 && (
-                    <div className="mt-4 sm:absolute sm:bottom-4 sm:right-4 px-3 py-2 text-sm">
-                      <p className="font-bold text-gray-500 text-xs sm:text-sm">
-                        {mission.bid_count} {Number(mission.bid_count) === 1 ? "bid" : "bids"} received
-                      </p>
+                    <div className="mt-4 sm:absolute sm:bottom-4 sm:right-4">
+                      <BidMeter currentBids={mission.bid_count} maxBids={5} className="min-w-[140px]" />
                     </div>
                   )}
                 </div>
@@ -963,50 +976,34 @@ export default function HomeownerDashboard() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Upload Images (Max 3)</label>
-
-              {imagePreviews.length > 0 && (
-                <div className="flex gap-2 mb-2 flex-wrap">
-                  {imagePreviews.map((preview, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={preview || "/placeholder.svg"}
-                        alt={`Preview ${index + 1}`}
-                        className="w-20 h-20 object-cover rounded-lg border border-gray-300"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors"
-                      >
-                        ×
-                      </button>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Upload Images (Max 3)</label>
+              <div className="flex flex-wrap gap-3 items-start">
+                {imagePreviews.map((preview, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={preview || "/placeholder.svg"}
+                      alt={`Preview ${index + 1}`}
+                      className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {imagePreviews.length < 3 && (
+                  <label className="cursor-pointer flex items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#0F766E] hover:bg-gray-50 transition-colors">
+                    <div className="text-center">
+                      <span className="text-3xl text-gray-400 block">+</span>
+                      <span className="text-xs text-gray-600">Select Image</span>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {imageFiles.length < 3 && (
-                <div className="relative">
-                  <input
-                    type="file"
-                    id="image-upload"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className="flex items-center justify-center gap-2 w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#0F766E] transition-colors"
-                  >
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span className="text-sm text-gray-600">Choose Files</span>
+                    <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
                   </label>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             <div>
@@ -1037,19 +1034,7 @@ export default function HomeownerDashboard() {
               </p>
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Street Address <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    defaultValue={(editingMission as any)?.address || ""}
-                    placeholder="e.g., 123 Main Street"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
-                  />
-                </div>
+                <input type="hidden" name="address" value="" />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -1072,24 +1057,29 @@ export default function HomeownerDashboard() {
                     </label>
                     <select
                       name="region"
-                      defaultValue={(editingMission as any)?.region || ""}
+                      value={editingMission?.region || ""}
+                      onChange={(e) => {
+                        if (editingMission) {
+                          setEditingMission({ ...editingMission, region: e.target.value })
+                        }
+                      }}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
                     >
                       <option value="">Select Province/Territory</option>
-                      <option value="Alberta">Alberta</option>
-                      <option value="British Columbia">British Columbia</option>
-                      <option value="Manitoba">Manitoba</option>
-                      <option value="New Brunswick">New Brunswick</option>
-                      <option value="Newfoundland and Labrador">Newfoundland and Labrador</option>
-                      <option value="Northwest Territories">Northwest Territories</option>
-                      <option value="Nova Scotia">Nova Scotia</option>
-                      <option value="Nunavut">Nunavut</option>
-                      <option value="Ontario">Ontario</option>
-                      <option value="Prince Edward Island">Prince Edward Island</option>
-                      <option value="Quebec">Quebec</option>
-                      <option value="Saskatchewan">Saskatchewan</option>
-                      <option value="Yukon">Yukon</option>
+                      <option value="AB">Alberta</option>
+                      <option value="BC">British Columbia</option>
+                      <option value="MB">Manitoba</option>
+                      <option value="NB">New Brunswick</option>
+                      <option value="NL">Newfoundland and Labrador</option>
+                      <option value="NT">Northwest Territories</option>
+                      <option value="NS">Nova Scotia</option>
+                      <option value="NU">Nunavut</option>
+                      <option value="ON">Ontario</option>
+                      <option value="PE">Prince Edward Island</option>
+                      <option value="QC">Quebec</option>
+                      <option value="SK">Saskatchewan</option>
+                      <option value="YT">Yukon</option>
                     </select>
                   </div>
                 </div>

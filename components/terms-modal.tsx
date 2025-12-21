@@ -6,7 +6,7 @@ interface TermsModalProps {
   onClose: () => void
 }
 
-export default function TermsModal({ onClose }: TermsModalProps) {
+export function TermsModal({ onClose }: TermsModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">

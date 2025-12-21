@@ -35,7 +35,7 @@ export default function HomeownerProfilePage() {
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
   const [region, setRegion] = useState("")
-  const [country, setCountry] = useState("")
+  const [country, setCountry] = useState("Canada")
   const [postalCode, setPostalCode] = useState("")
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("")
 
@@ -60,7 +60,7 @@ export default function HomeownerProfilePage() {
         setAddress(profile.address || "")
         setCity(profile.city || "")
         setRegion(profile.region || "")
-        setCountry(profile.country || "")
+        setCountry(profile.country || "Canada")
         setPostalCode(profile.postal_code || "")
         setProfilePhotoUrl(profile.profile_photo_url || "")
       } catch (err) {
@@ -138,6 +138,9 @@ export default function HomeownerProfilePage() {
       setProfilePhotoUrl(data.profile_photo_url)
       setSuccess("Profile photo updated successfully!")
       await refreshUser()
+
+      window.dispatchEvent(new Event("profilePhotoUpdated"))
+
       toast({
         title: "Success",
         description: "Profile photo updated successfully!",
@@ -404,13 +407,27 @@ export default function HomeownerProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">State/Province</label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                  <select
                     value={region}
                     onChange={(e) => setRegion(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
-                  />
+                  >
+                    <option value="">Select Province/Territory</option>
+                    <option value="AB">Alberta</option>
+                    <option value="BC">British Columbia</option>
+                    <option value="MB">Manitoba</option>
+                    <option value="NB">New Brunswick</option>
+                    <option value="NL">Newfoundland and Labrador</option>
+                    <option value="NS">Nova Scotia</option>
+                    <option value="ON">Ontario</option>
+                    <option value="PE">Prince Edward Island</option>
+                    <option value="QC">Quebec</option>
+                    <option value="SK">Saskatchewan</option>
+                    <option value="NT">Northwest Territories</option>
+                    <option value="NU">Nunavut</option>
+                    <option value="YT">Yukon</option>
+                  </select>
                 </div>
               </div>
 
@@ -419,9 +436,9 @@ export default function HomeownerProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
                   <input
                     type="text"
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87] focus:border-transparent"
+                    value="Canada"
+                    readOnly
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                   />
                 </div>
 

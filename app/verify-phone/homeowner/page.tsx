@@ -12,7 +12,7 @@ import { trackEvent } from "@/lib/analytics"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 
-export default function HomeownerPhoneVerification() {
+export default function VerifyPhoneHomeowner() {
   const router = useRouter()
   const { data, updateData } = useOnboarding()
 
@@ -40,15 +40,17 @@ export default function HomeownerPhoneVerification() {
     return ""
   }
 
-  const [countryCode, setCountryCode] = useState(data.countryCode || "+1-CA")
+  const [countryCode, setCountryCode] = useState(data.countryCode || "+1")
   const [phoneNumber, setPhoneNumber] = useState(getInitialPhoneNumber())
   const [verificationCode, setVerificationCode] = useState("")
   const [step, setStep] = useState<"phone" | "code">("phone")
   const [isLoading, setIsLoading] = useState(false)
   const [isSkipping, setIsSkipping] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentOrigin, setCurrentOrigin] = useState<string>("")
   const [showTermsModal, setShowTermsModal] = useState(false)
+  const [phoneFieldInvalid, setPhoneFieldInvalid] = useState(false)
 
   const codeInputRef = useRef<HTMLInputElement>(null)
 
@@ -74,27 +76,48 @@ export default function HomeownerPhoneVerification() {
     return country || "CA"
   }
 
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSendCode = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault()
+    }
+
+    if (!phoneNumber || phoneNumber.length < 10) {
+      setError("Please enter a valid phone number")
+      setPhoneFieldInvalid(true) // Mark field as invalid
+      return
+    }
+
+    setPhoneFieldInvalid(false) // Clear invalid state on valid input
     setIsLoading(true)
     setError(null)
 
     trackEvent("verification_code_requested", { role: "homeowner" })
 
     try {
-      const actualCountryCode = getCountryCodeOnly(countryCode)
-      const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
-      const country = getCountryFromCode(countryCode)
-
-      if (phoneNumber.length < 10) {
-        setError("Please enter a valid 10-digit phone number")
-        trackEvent("verification_code_failed", { role: "homeowner", error: "invalid_phone_length" })
-        setIsLoading(false)
-        return
+      const savedFormData = sessionStorage.getItem("onboarding_form_data")
+      if (!savedFormData) {
+        throw new Error("Form data not found")
       }
 
-      const savedFormData = sessionStorage.getItem("onboarding_form_data")
-      const formData = savedFormData ? JSON.parse(savedFormData) : {}
+      const formData = JSON.parse(savedFormData)
+
+      const actualCountryCode = countryCode.split("-")[0]
+      const fullPhoneNumber = `${actualCountryCode}${phoneNumber}`
+
+      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
+
+      const signupPayload: any = {
+        password: formData.password,
+        role: "homeowner",
+        first_name: formData.first_name,
+        email: formData.email,
+        phone_number: fullPhoneNumber,
+        terms_accepted: true,
+        terms_accepted_at: new Date().toISOString(),
+        hero_heading_variation: heroHeadingVariation,
+      }
+
+      console.log("[v0] Signup request payload:", signupPayload)
 
       const response = await apiClient.post(
         "/api/users/request-verification",
@@ -107,12 +130,12 @@ export default function HomeownerPhoneVerification() {
       )
 
       sessionStorage.setItem("pending_phone_number", fullPhoneNumber)
-      sessionStorage.setItem("pending_country", country)
+      sessionStorage.setItem("pending_country", getCountryFromCode(countryCode))
 
       updateData({
         phone: fullPhoneNumber,
         countryCode: countryCode,
-        country: country,
+        country: getCountryFromCode(countryCode),
         role: "homeowner",
         address: "",
         city: "",
@@ -157,6 +180,12 @@ export default function HomeownerPhoneVerification() {
 
       const formData = JSON.parse(savedFormData)
 
+      const jobDataString = sessionStorage.getItem("onboarding_job_data")
+      const jobData = jobDataString ? JSON.parse(jobDataString) : null
+
+      console.log("[v0] Form data from session:", formData)
+      console.log("[v0] Job data from session:", jobData)
+
       const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
 
       const signupPayload: any = {
@@ -165,17 +194,13 @@ export default function HomeownerPhoneVerification() {
         password: formData.password,
         role: "homeowner",
         first_name: formData.first_name,
-        last_name: formData.last_name,
         email: formData.email,
-        address: formData.address,
-        city: formData.city,
-        region: formData.region,
-        country: formData.country,
-        postal_code: formData.postal_code,
         terms_accepted: true,
         terms_accepted_at: sessionStorage.getItem("terms_accepted_at") || new Date().toISOString(),
         hero_heading_variation: heroHeadingVariation,
       }
+
+      console.log("[v0] Signup payload:", signupPayload)
 
       const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
         method: "POST",
@@ -200,6 +225,80 @@ export default function HomeownerPhoneVerification() {
 
       trackEvent("signup_complete", { role: "homeowner", verification_status: "verified" })
 
+      localStorage.setItem("auth_token", result.token)
+      if (result.user) {
+        localStorage.setItem("user", JSON.stringify(result.user))
+      }
+
+      if (jobData && jobData.jobTitle && jobData.jobService) {
+        try {
+          console.log("[v0] Creating mission from signup flow (verified)")
+          console.log("[v0] Job data images:", jobData.jobImageDataUrls)
+
+          const missionFormData = new FormData()
+          missionFormData.append("title", jobData.jobTitle)
+          missionFormData.append("service", jobData.jobService)
+          missionFormData.append("job_details", jobData.jobDescription || "")
+          missionFormData.append("completion_timeline", jobData.jobTimeline || "within_1_month")
+          missionFormData.append("city", jobData.jobCity || "")
+          missionFormData.append("region", jobData.jobRegion || "")
+          missionFormData.append("postal_code", jobData.jobPostalCode || "")
+          missionFormData.append("country", "Canada")
+
+          if (
+            jobData.jobImageDataUrls &&
+            Array.isArray(jobData.jobImageDataUrls) &&
+            jobData.jobImageDataUrls.length > 0
+          ) {
+            console.log("[v0] Processing images, count:", jobData.jobImageDataUrls.length)
+            for (let i = 0; i < jobData.jobImageDataUrls.length; i++) {
+              const dataUrl = jobData.jobImageDataUrls[i]
+              try {
+                console.log("[v0] Converting image", i, "data URL length:", dataUrl?.length || 0)
+                const response = await fetch(dataUrl)
+                const blob = await response.blob()
+                const file = new File([blob], `image-${i}.jpg`, { type: "image/jpeg" })
+                missionFormData.append("images", file)
+                console.log("[v0] Image", i, "added to FormData, size:", blob.size)
+              } catch (err) {
+                console.error("[v0] Failed to convert image data URL:", err)
+              }
+            }
+          } else {
+            console.log("[v0] No images to process:", {
+              hasJobImageDataUrls: !!jobData.jobImageDataUrls,
+              isArray: Array.isArray(jobData.jobImageDataUrls),
+              length: jobData.jobImageDataUrls?.length || 0,
+            })
+          }
+
+          console.log("[v0] Mission FormData entries:")
+          for (const [key, value] of missionFormData.entries()) {
+            console.log(`[v0]   ${key}: ${value}`)
+          }
+
+          await apiClient.uploadFormData("/api/missions", missionFormData, "POST", true)
+
+          console.log("[v0] Mission created successfully")
+
+          sessionStorage.removeItem("onboarding_job_data")
+
+          updateData({
+            jobTitle: undefined,
+            jobService: undefined,
+            jobDescription: undefined,
+            jobImages: undefined,
+            jobTimeline: undefined,
+            jobAddress: undefined,
+            jobCity: undefined,
+            jobRegion: undefined,
+            jobPostalCode: undefined,
+          })
+        } catch (missionError) {
+          console.error("[v0] Failed to create mission:", missionError)
+        }
+      }
+
       sessionStorage.setItem("account_created_at", new Date().toISOString())
       sessionStorage.setItem("account_user_id", result.user?.id || result.id || "unknown")
       sessionStorage.setItem("account_email", formData.email)
@@ -215,20 +314,6 @@ export default function HomeownerPhoneVerification() {
       sessionStorage.removeItem("pending_role")
       sessionStorage.removeItem("terms_accepted")
       sessionStorage.removeItem("terms_accepted_at")
-
-      localStorage.setItem("auth_token", result.token)
-      if (result.user) {
-        localStorage.setItem("user", JSON.stringify(result.user))
-      }
-
-      updateData({
-        phone: fullPhoneNumber,
-        countryCode: countryCode,
-        country: getCountryFromCode(countryCode),
-        role: "homeowner",
-        token: result.token,
-        userId: result.user?.id,
-      })
 
       const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
       window.location.href = targetDashboard
@@ -247,37 +332,181 @@ export default function HomeownerPhoneVerification() {
   }
 
   const handleSkip = async () => {
-    setIsSkipping(true)
-    setError(null)
-
-    trackEvent("verification_skipped", { role: "homeowner" })
-
     try {
-      const savedFormData = sessionStorage.getItem("onboarding_form_data")
-      if (!savedFormData) {
-        throw new Error("Form data not found. Please complete the personal information form first.")
+      console.log("[v0] handleSkip called")
+      setError(null)
+
+      const formDataString = sessionStorage.getItem("onboarding_form_data")
+      const jobDataString = sessionStorage.getItem("onboarding_job_data")
+
+      if (!formDataString) {
+        throw new Error("No form data found. Please complete the form again.")
       }
 
-      const formData = JSON.parse(savedFormData)
+      const formData = JSON.parse(formDataString)
+      const jobData = jobDataString ? JSON.parse(jobDataString) : null
+
+      console.log("[v0] Form data from session:", formData)
+      console.log("[v0] Job data from session:", jobData)
 
       const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
 
       const signupPayload: any = {
-        phone_number: formData.phone_number,
         password: formData.password,
         role: "homeowner",
         first_name: formData.first_name,
-        last_name: formData.last_name,
         email: formData.email,
-        address: formData.address,
-        city: formData.city,
-        region: formData.region,
-        country: formData.country,
-        postal_code: formData.postal_code,
         terms_accepted: true,
         terms_accepted_at: new Date().toISOString(),
         hero_heading_variation: heroHeadingVariation,
       }
+
+      console.log("[v0] Signup payload:", signupPayload)
+
+      const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify(signupPayload),
+      })
+
+      const result = await response.json()
+      console.log("[v0] Signup response:", result)
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || "Failed to create account")
+      }
+
+      if (!result.token) {
+        throw new Error("No authentication token received from signup")
+      }
+
+      trackEvent("signup_complete", { role: "homeowner", verification_status: "skipped" })
+
+      localStorage.setItem("auth_token", result.token)
+      if (result.user) {
+        localStorage.setItem("user", JSON.stringify(result.user))
+      }
+
+      updateData({
+        token: result.token,
+        userId: result.user?.id,
+      })
+
+      if (jobData && jobData.jobTitle && jobData.jobService) {
+        try {
+          console.log("[v0] Creating mission from signup flow (skipped verification)")
+          console.log("[v0] Job data images:", jobData.jobImageDataUrls)
+
+          const missionFormData = new FormData()
+          missionFormData.append("title", jobData.jobTitle)
+          missionFormData.append("service", jobData.jobService)
+          missionFormData.append("job_details", jobData.jobDescription || "")
+          missionFormData.append("completion_timeline", jobData.jobTimeline || "within_1_month")
+          missionFormData.append("city", jobData.jobCity || "")
+          missionFormData.append("region", jobData.jobRegion || "")
+          missionFormData.append("postal_code", jobData.jobPostalCode || "")
+          missionFormData.append("country", "Canada")
+
+          if (
+            jobData.jobImageDataUrls &&
+            Array.isArray(jobData.jobImageDataUrls) &&
+            jobData.jobImageDataUrls.length > 0
+          ) {
+            console.log("[v0] Processing images, count:", jobData.jobImageDataUrls.length)
+            for (let i = 0; i < jobData.jobImageDataUrls.length; i++) {
+              const dataUrl = jobData.jobImageDataUrls[i]
+              try {
+                console.log("[v0] Converting image", i, "data URL length:", dataUrl?.length || 0)
+                const response = await fetch(dataUrl)
+                const blob = await response.blob()
+                const file = new File([blob], `image-${i}.jpg`, { type: "image/jpeg" })
+                missionFormData.append("images", file)
+                console.log("[v0] Image", i, "added to FormData, size:", blob.size)
+              } catch (err) {
+                console.error("[v0] Failed to convert image data URL:", err)
+              }
+            }
+          } else {
+            console.log("[v0] No images to process:", {
+              hasJobImageDataUrls: !!jobData.jobImageDataUrls,
+              isArray: Array.isArray(jobData.jobImageDataUrls),
+              length: jobData.jobImageDataUrls?.length || 0,
+            })
+          }
+
+          console.log("[v0] Mission FormData entries:")
+          for (const [key, value] of missionFormData.entries()) {
+            console.log(`[v0]   ${key}: ${value}`)
+          }
+
+          await apiClient.uploadFormData("/api/missions", missionFormData, "POST", true)
+
+          console.log("[v0] Mission created successfully")
+
+          sessionStorage.removeItem("onboarding_job_data")
+        } catch (missionError) {
+          console.error("[v0] Failed to create mission:", missionError)
+        }
+      }
+
+      sessionStorage.removeItem("onboarding_form_data")
+
+      const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
+      window.location.href = targetDashboard
+    } catch (err) {
+      console.error("[v0] handleSkip error:", err)
+      const errorMessage = err instanceof Error ? err.message : "Failed to create account. Please try again."
+      if (errorMessage.toLowerCase().includes("email already registered")) {
+        setError("EMAIL_REGISTERED")
+        trackEvent("form_submission_error", { role: "homeowner", error: "email_already_registered" })
+      } else {
+        trackEvent("form_submission_error", { role: "homeowner", error: errorMessage })
+        setError(errorMessage)
+      }
+    } finally {
+      setIsSkipping(false)
+    }
+  }
+
+  const handleVerifyAndSignup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsVerifying(true)
+    setError(null)
+
+    trackEvent("verification_attempted", { role: "homeowner" })
+
+    try {
+      const savedFormData = sessionStorage.getItem("onboarding_form_data")
+      if (!savedFormData) {
+        throw new Error("Form data not found")
+      }
+
+      const formData = JSON.parse(savedFormData)
+
+      const jobDataString = sessionStorage.getItem("onboarding_job_data")
+      const jobData = jobDataString ? JSON.parse(jobDataString) : null
+
+      console.log("[v0] Form data from session:", formData)
+      console.log("[v0] Job data from session:", jobData)
+
+      const heroHeadingVariation = localStorage.getItem("hero_heading_variation") || null
+
+      const signupPayload: any = {
+        phone_number: `${countryCode}${phoneNumber}`,
+        verification_code: verificationCode,
+        password: formData.password,
+        role: "homeowner",
+        first_name: formData.first_name,
+        email: formData.email,
+        terms_accepted: true,
+        terms_accepted_at: sessionStorage.getItem("terms_accepted_at") || new Date().toISOString(),
+        hero_heading_variation: heroHeadingVariation,
+      }
+
+      console.log("[v0] Signup payload:", signupPayload)
 
       const response = await fetch(`${API_BASE_URL}/api/users/signup`, {
         method: "POST",
@@ -298,39 +527,120 @@ export default function HomeownerPhoneVerification() {
         throw new Error("No authentication token received from signup")
       }
 
-      trackEvent("signup_complete", { role: "homeowner", verification_status: "skipped" })
+      trackEvent("verification_success", { role: "homeowner" })
+
+      trackEvent("signup_complete", { role: "homeowner", verification_status: "verified" })
 
       localStorage.setItem("auth_token", result.token)
       if (result.user) {
         localStorage.setItem("user", JSON.stringify(result.user))
       }
 
-      sessionStorage.removeItem("onboarding_form_data")
+      if (jobData && jobData.jobTitle && jobData.jobService) {
+        try {
+          console.log("[v0] Creating mission from signup flow (verified)")
+          console.log("[v0] Job data images:", jobData.jobImageDataUrls)
 
-      updateData({
-        token: result.token,
-        userId: result.user?.id,
-      })
+          const missionFormData = new FormData()
+          missionFormData.append("title", jobData.jobTitle)
+          missionFormData.append("service", jobData.jobService)
+          missionFormData.append("job_details", jobData.jobDescription || "")
+          missionFormData.append("completion_timeline", jobData.jobTimeline || "within_1_month")
+          missionFormData.append("city", jobData.jobCity || "")
+          missionFormData.append("region", jobData.jobRegion || "")
+          missionFormData.append("postal_code", jobData.jobPostalCode || "")
+          missionFormData.append("country", "Canada")
+
+          if (
+            jobData.jobImageDataUrls &&
+            Array.isArray(jobData.jobImageDataUrls) &&
+            jobData.jobImageDataUrls.length > 0
+          ) {
+            console.log("[v0] Processing images, count:", jobData.jobImageDataUrls.length)
+            for (let i = 0; i < jobData.jobImageDataUrls.length; i++) {
+              const dataUrl = jobData.jobImageDataUrls[i]
+              try {
+                console.log("[v0] Converting image", i, "data URL length:", dataUrl?.length || 0)
+                const response = await fetch(dataUrl)
+                const blob = await response.blob()
+                const file = new File([blob], `image-${i}.jpg`, { type: "image/jpeg" })
+                missionFormData.append("images", file)
+                console.log("[v0] Image", i, "added to FormData, size:", blob.size)
+              } catch (err) {
+                console.error("[v0] Failed to convert image data URL:", err)
+              }
+            }
+          } else {
+            console.log("[v0] No images to process:", {
+              hasJobImageDataUrls: !!jobData.jobImageDataUrls,
+              isArray: Array.isArray(jobData.jobImageDataUrls),
+              length: jobData.jobImageDataUrls?.length || 0,
+            })
+          }
+
+          console.log("[v0] Mission FormData entries:")
+          for (const [key, value] of missionFormData.entries()) {
+            console.log(`[v0]   ${key}: ${value}`)
+          }
+
+          await apiClient.uploadFormData("/api/missions", missionFormData, "POST", true)
+
+          console.log("[v0] Mission created successfully")
+
+          sessionStorage.removeItem("onboarding_job_data")
+
+          updateData({
+            jobTitle: undefined,
+            jobService: undefined,
+            jobDescription: undefined,
+            jobImages: undefined,
+            jobTimeline: undefined,
+            jobAddress: undefined,
+            jobCity: undefined,
+            jobRegion: undefined,
+            jobPostalCode: undefined,
+          })
+        } catch (missionError) {
+          console.error("[v0] Failed to create mission:", missionError)
+        }
+      }
+
+      sessionStorage.setItem("account_created_at", new Date().toISOString())
+      sessionStorage.setItem("account_user_id", result.user?.id || result.id || "unknown")
+      sessionStorage.setItem("account_email", formData.email)
+      sessionStorage.setItem("account_role", "homeowner")
+
+      sessionStorage.removeItem("onboarding_form_data")
+      sessionStorage.removeItem("verification_code")
+      sessionStorage.removeItem("verification_token")
+      sessionStorage.removeItem("verified_phone_number")
+      sessionStorage.removeItem("phone_verified")
+      sessionStorage.removeItem("pending_phone_number")
+      sessionStorage.removeItem("pending_country")
+      sessionStorage.removeItem("pending_role")
+      sessionStorage.removeItem("terms_accepted")
+      sessionStorage.removeItem("terms_accepted_at")
 
       const targetDashboard = result.user?.is_admin ? "/dashboard/admin" : "/dashboard/homeowner"
       window.location.href = targetDashboard
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to create account. Please try again."
+      const errorMessage = err instanceof Error ? err.message : "Invalid verification code."
       if (errorMessage.toLowerCase().includes("email already registered")) {
         setError("EMAIL_REGISTERED")
-        trackEvent("form_submission_error", { role: "homeowner", error: "email_already_registered" })
+        trackEvent("verification_failed", { role: "homeowner", error: "email_already_registered" })
       } else {
-        trackEvent("form_submission_error", { role: "homeowner", error: errorMessage })
+        trackEvent("verification_failed", { role: "homeowner", error: errorMessage })
         setError(errorMessage)
       }
-      setIsSkipping(false)
+    } finally {
+      setIsVerifying(false)
     }
   }
 
   useEffect(() => {
     if (verificationCode.length === 6 && step === "code") {
       const timer = setTimeout(() => {
-        handleVerifyCode(new Event("submit") as any)
+        handleVerifyAndSignup(new Event("submit") as any)
       }, 500)
       return () => clearTimeout(timer)
     }
@@ -422,16 +732,16 @@ export default function HomeownerPhoneVerification() {
                       This email is already associated with an account. Please go back and use a different email or log
                       in instead.
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Link
-                        href="/onboarding/personal-info?role=homeowner"
-                        className="inline-block px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                        href={`/onboarding/personal-info?role=homeowner&email=${encodeURIComponent(data.email || "")}`}
+                        className="inline-block px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium text-center"
                       >
                         Go Back & Change Email
                       </Link>
                       <Link
                         href="/login"
-                        className="inline-block px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                        className="inline-block px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium text-center"
                       >
                         Log In
                       </Link>
@@ -457,7 +767,7 @@ export default function HomeownerPhoneVerification() {
                       onChange={(e) => setCountryCode(e.target.value)}
                       className="w-20 sm:w-24 px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-[#03353a]/100 bg-white text-sm"
                     >
-                      <option value="+1-CA">🇨🇦 +1</option>
+                      <option value="+1">🇨🇦 +1</option>
                     </select>
                     <input
                       type="tel"
@@ -465,8 +775,13 @@ export default function HomeownerPhoneVerification() {
                       pattern="[0-9]*"
                       id="phoneNumber"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                      className="flex-1 min-w-0 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-[#03353a]/100"
+                      onChange={(e) => {
+                        setPhoneNumber(e.target.value.replace(/\D/g, ""))
+                        if (phoneFieldInvalid) setPhoneFieldInvalid(false)
+                      }}
+                      className={`flex-1 min-w-0 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-[#03353a]/100 ${
+                        phoneFieldInvalid ? "border-red-500" : "border-gray-300"
+                      }`}
                       placeholder="Enter phone"
                       maxLength={10}
                     />
@@ -483,7 +798,12 @@ export default function HomeownerPhoneVerification() {
 
                 <button
                   type="button"
-                  onClick={handleSkip}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setError(null)
+                    handleSkip()
+                  }}
                   disabled={isLoading || isSkipping}
                   className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
@@ -491,7 +811,7 @@ export default function HomeownerPhoneVerification() {
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleVerifyCode} className="space-y-6">
+              <form onSubmit={handleVerifyAndSignup} className="space-y-6">
                 <div>
                   <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-2">
                     Verification Code
@@ -515,16 +835,21 @@ export default function HomeownerPhoneVerification() {
 
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || isVerifying}
                   className="w-full bg-[#03353a] text-white py-3 px-4 rounded-lg hover:bg-[#02292d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
-                  {isLoading ? "Processing..." : "Verify Code"}
+                  {isLoading || isVerifying ? "Processing..." : "Verify Code"}
                 </button>
 
                 <button
                   type="button"
-                  onClick={handleSkip}
-                  disabled={isLoading || isSkipping}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setError(null)
+                    handleSkip()
+                  }}
+                  disabled={isLoading || isSkipping || isVerifying}
                   className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {isSkipping ? "Processing..." : "Skip Verification"}
