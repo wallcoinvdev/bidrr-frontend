@@ -59,9 +59,9 @@ export default function ClaimAccountPage() {
       }
 
       setSuccess(true)
-      // Redirect to dashboard after 2 seconds
+      // Redirect to homeowner dashboard after 2 seconds
       setTimeout(() => {
-        router.push("/dashboard")
+        router.push("/dashboard/homeowner")
       }, 2000)
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.")
@@ -103,7 +103,7 @@ export default function ClaimAccountPage() {
                 <h1 className="text-2xl font-bold text-[#1a3b4c] mb-2">Account claimed successfully!</h1>
                 <p className="text-gray-600 mb-6">Your password has been set. Redirecting you to your dashboard...</p>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard/homeowner"
                   className="inline-block w-full py-3 px-4 bg-[#e2bb12] hover:bg-[#c9a610] text-[#1a3b4c] font-semibold rounded-lg transition-colors text-center"
                 >
                   Go to dashboard
