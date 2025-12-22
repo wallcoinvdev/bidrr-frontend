@@ -532,87 +532,85 @@ export default function PersonalInfoPage() {
           )}
 
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
-            {/* Personal Information - Contractor View */}
+            {/* Personal Information Section (Contractor) */}
             {data.role === "contractor" && (
               <div className="mb-8">
                 <div className="border-b border-gray-200 pb-3 mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">Account Information</h2>
-                  <p className="text-sm text-gray-600 mt-1">Your personal contact details</p>
+                  <h2 className="text-xl font-semibold text-gray-900">Personal Information</h2>
+                  <p className="text-sm text-gray-600 mt-1">Your contact details</p>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* First Name */}
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName" className="mb-2">
-                        First Name <span className="text-red-500">*</span>
-                      </Label>
-                      <input
-                        id="firstName"
-                        type="text"
-                        value={firstName}
-                        onChange={(e) => {
-                          setFirstName(e.target.value)
-                          if (touched.firstName) {
-                            setFieldErrors((prev) => ({
-                              ...prev,
-                              firstName: !validateField("firstName", e.target.value),
-                            }))
-                          }
-                        }}
-                        onBlur={() => {
-                          setTouched((prev) => ({ ...prev, firstName: true }))
+                  {/* First Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="mb-2">
+                      First Name <span className="text-red-500">*</span>
+                    </Label>
+                    <input
+                      id="firstName"
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => {
+                        setFirstName(e.target.value)
+                        if (touched.firstName) {
                           setFieldErrors((prev) => ({
                             ...prev,
-                            firstName: !validateField("firstName", firstName),
+                            firstName: !validateField("firstName", e.target.value),
                           }))
-                        }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
-                          fieldErrors.firstName ? "border-red-500 bg-red-50" : "border-gray-300"
-                        }`}
-                        placeholder="Enter first name"
-                        required
-                      />
-                      {fieldErrors.firstName && touched.firstName && (
-                        <p className="text-red-500 text-xs mt-1">First name is required</p>
-                      )}
-                    </div>
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, firstName: true }))
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          firstName: !validateField("firstName", firstName),
+                        }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        fieldErrors.firstName ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                      placeholder="Enter first name"
+                      required
+                    />
+                    {fieldErrors.firstName && touched.firstName && (
+                      <p className="text-red-500 text-xs mt-1">First name is required</p>
+                    )}
+                  </div>
 
-                    {/* Last Name */}
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName" className="mb-2">
-                        Last Name {data.role === "contractor" && <span className="text-red-500">*</span>}
-                      </Label>
-                      <input
-                        id="lastName"
-                        type="text"
-                        value={lastName}
-                        onChange={(e) => {
-                          setLastName(e.target.value)
-                          if (touched.lastName) {
-                            setFieldErrors((prev) => ({
-                              ...prev,
-                              lastName: !validateField("lastName", e.target.value),
-                            }))
-                          }
-                        }}
-                        onBlur={() => {
-                          setTouched((prev) => ({ ...prev, lastName: true }))
+                  {/* Last Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="mb-2">
+                      Last Name <span className="text-red-500">*</span>
+                    </Label>
+                    <input
+                      id="lastName"
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => {
+                        setLastName(e.target.value)
+                        if (touched.lastName) {
                           setFieldErrors((prev) => ({
                             ...prev,
-                            lastName: !validateField("lastName", lastName),
+                            lastName: !validateField("lastName", e.target.value),
                           }))
-                        }}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
-                          fieldErrors.lastName ? "border-red-500 bg-red-50" : "border-gray-300"
-                        }`}
-                        placeholder={data.role === "contractor" ? "Enter last name" : "Enter last name (optional)"}
-                        required={data.role === "contractor"}
-                      />
-                      {fieldErrors.lastName && touched.lastName && (
-                        <p className="text-red-500 text-xs mt-1">Last name is required</p>
-                      )}
-                    </div>
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, lastName: true }))
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          lastName: !validateField("lastName", lastName),
+                        }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        fieldErrors.lastName ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                      placeholder="Enter last name"
+                      required
+                    />
+                    {fieldErrors.lastName && touched.lastName && (
+                      <p className="text-red-500 text-xs mt-1">Last name is required</p>
+                    )}
                   </div>
 
                   {/* Email */}
@@ -808,29 +806,206 @@ export default function PersonalInfoPage() {
 
             {/* Personal Information - Homeowner View */}
             {data.role === "homeowner" && (
-              <div>
-                <Label htmlFor="firstName" className="mb-2">
-                  First Name <span className="text-red-500">*</span>
-                </Label>
-                <input
-                  id="firstName"
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  onBlur={() => handleFieldBlur("firstName", firstName)}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
-                    touched.firstName && fieldErrors.firstName ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
-                  required
-                />
+              <div className="mb-8">
+                <div className="border-b border-gray-200 pb-3 mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">Personal Information</h2>
+                  <p className="text-sm text-gray-600 mt-1">Your contact details</p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* First Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="mb-2">
+                      First Name <span className="text-red-500">*</span>
+                    </Label>
+                    <input
+                      id="firstName"
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      onBlur={() => handleFieldBlur("firstName", firstName)}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        touched.firstName && fieldErrors.firstName ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                      placeholder="Enter first name"
+                      required
+                    />
+                    {touched.firstName && fieldErrors.firstName && (
+                      <p className="text-red-500 text-xs mt-1">First name is required</p>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <Label htmlFor="emailHomeowner" className="mb-2">
+                      Email <span className="text-red-500">*</span>
+                    </Label>
+                    <p className="text-xs text-gray-600 mb-2 break-words">
+                      You'll receive notifications when contractors bid on your projects
+                    </p>
+                    <input
+                      id="emailHomeowner"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value)
+                        if (touched.email) {
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            email: !validateField("email", e.target.value),
+                          }))
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, email: true }))
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          email: !validateField("email", email),
+                        }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base ${
+                        fieldErrors.email ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                      placeholder="Enter your email"
+                      required
+                    />
+                    {fieldErrors.email && touched.email && (
+                      <p className="text-red-500 text-xs mt-1">Please enter a valid email address</p>
+                    )}
+                  </div>
+
+                  {/* Phone Number */}
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumberHomeowner" className="mb-2">
+                      Phone Number <span className="text-sm text-gray-500">(optional)</span>
+                    </Label>
+                    <div className="flex gap-2">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="w-20 sm:w-24 px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent outline-none transition-all bg-white text-sm cursor-pointer"
+                      >
+                        <option value="+1-CA">🇨🇦 +1</option>
+                      </select>
+                      <input
+                        id="phoneNumberHomeowner"
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={phoneNumber}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "")
+                          setPhoneNumber(digits)
+                        }}
+                        placeholder="5197601022"
+                        maxLength={10}
+                        className="flex-1 min-w-0 px-3 sm:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password fields */}
+                  <div className="space-y-2">
+                    <Label htmlFor="passwordHomeowner" className="mb-2">
+                      Create Password <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <input
+                        id="passwordHomeowner"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value)
+                          if (touched.password) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              password: !validateField("password", e.target.value),
+                            }))
+                          }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, password: true }))
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            password: !validateField("password", password),
+                          }))
+                        }}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base pr-10 ${
+                          fieldErrors.password ? "border-red-500 bg-red-50" : "border-gray-300"
+                        }`}
+                        placeholder="Enter your password"
+                        required
+                        minLength={6}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    {fieldErrors.password && touched.password ? (
+                      <p className="text-sm text-red-500 max-w-full break-words">Must be at least 6 characters</p>
+                    ) : (
+                      <p className="text-sm text-gray-500 max-w-full break-words">Must be at least 6 characters</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPasswordHomeowner" className="mb-2">
+                      Confirm Password <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <input
+                        id="confirmPasswordHomeowner"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => {
+                          setConfirmPassword(e.target.value)
+                          if (touched.confirmPassword) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              confirmPassword: !validateField("confirmPassword", e.target.value),
+                            }))
+                          }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, confirmPassword: true }))
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            confirmPassword: !validateField("confirmPassword", confirmPassword),
+                          }))
+                        }}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#03353a] focus:border-transparent text-sm sm:text-base pr-10 ${
+                          fieldErrors.confirmPassword ? "border-red-500 bg-red-50" : "border-gray-300"
+                        }`}
+                        placeholder="Confirm your password"
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    {fieldErrors.confirmPassword && touched.confirmPassword ? (
+                      <p className="text-sm text-red-500 max-w-full break-words">Passwords must match</p>
+                    ) : (
+                      <p className="text-sm text-gray-500 max-w-full break-words">Re-enter your password</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
-
-            {/* Email (Common for both roles, but shown in contractor section for now) */}
-            {/* This section is already included in the contractor block, assuming it's handled there. */}
-
-            {/* Phone Number (Common for both roles, but shown in contractor section for now) */}
-            {/* This section is already included in the contractor block, assuming it's handled there. */}
 
             {/* Business Information Section (Contractor Only) */}
             {data.role === "contractor" && (
@@ -1112,7 +1287,7 @@ export default function PersonalInfoPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#e2bb12] text-white py-3 px-4 rounded-lg hover:bg-[#d4a810] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              className="w-full bg-[#03353a] text-white py-3 px-4 rounded-lg hover:bg-[#03353a]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
               {isLoading ? "Loading..." : "Continue"}
             </button>
