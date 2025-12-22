@@ -59,9 +59,8 @@ export default function ClaimAccountPage() {
       }
 
       setSuccess(true)
-      // Redirect to homeowner dashboard after 2 seconds
       setTimeout(() => {
-        router.push("/dashboard/homeowner")
+        router.push("/login?claimed=true")
       }, 2000)
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.")
@@ -101,12 +100,12 @@ export default function ClaimAccountPage() {
                   <CheckCircle className="h-16 w-16 text-[#328d87]" />
                 </div>
                 <h1 className="text-2xl font-bold text-[#1a3b4c] mb-2">Account claimed successfully!</h1>
-                <p className="text-gray-600 mb-6">Your password has been set. Redirecting you to your dashboard...</p>
+                <p className="text-gray-600 mb-6">Your password has been set. Redirecting you to login...</p>
                 <Link
-                  href="/dashboard/homeowner"
+                  href="/login?claimed=true"
                   className="inline-block w-full py-3 px-4 bg-[#e2bb12] hover:bg-[#c9a610] text-[#1a3b4c] font-semibold rounded-lg transition-colors text-center"
                 >
-                  Go to dashboard
+                  Go to login
                 </Link>
               </div>
             ) : (

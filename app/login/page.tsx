@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [code, setCode] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [claimEmailSent, setClaimEmailSent] = useState(false)
+  const [accountClaimed, setAccountClaimed] = useState(false)
   const { login, user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -34,6 +35,13 @@ export default function LoginPage() {
     const errorParam = searchParams.get("error")
     if (errorParam === "session_expired") {
       setError("Your session has expired. Please log in again.")
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    const claimedParam = searchParams.get("claimed")
+    if (claimedParam === "true") {
+      setAccountClaimed(true)
     }
   }, [searchParams])
 
@@ -265,6 +273,15 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <h1 className="text-3xl font-bold text-center text-[#03353a] mb-2">Welcome back</h1>
             <p className="text-center text-[#03353a]/70 mb-8">Sign in to your Bidrr account</p>
+
+            {accountClaimed && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h3 className="font-semibold text-green-900 mb-1">Account claimed successfully!</h3>
+                <p className="text-sm text-green-800">
+                  Your password has been set. Please log in with your new password.
+                </p>
+              </div>
+            )}
 
             {claimEmailSent && (
               <div className="mb-6 p-4 bg-teal-50 border border-teal-200 rounded-lg">

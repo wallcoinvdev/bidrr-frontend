@@ -312,7 +312,11 @@ export default function ContractorPhoneVerification() {
 
       const result = await response.json()
 
+      console.log("[v0] Signup response status:", response.status)
+      console.log("[v0] Signup response body:", result)
+
       if (!response.ok) {
+        console.error("[v0] Signup failed with error:", result)
         throw new Error(result.error || result.message || "Failed to create account")
       }
 
