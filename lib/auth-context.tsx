@@ -48,7 +48,11 @@ interface AuthContextType {
     email: string,
     password: string,
     rememberMe?: boolean,
-  ) => Promise<User | { requires_2fa: boolean; temp_token: string; phone_number: string }>
+  ) => Promise<
+    | User
+    | { requires_2fa: boolean; temp_token: string; phone_number: string }
+    | { requirePasswordReset: boolean; message: string }
+  >
   logout: () => void
   setUser: (user: User | null) => void
   refreshUser: () => Promise<void>
@@ -172,7 +176,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     rememberMe = false,
-  ): Promise<User | { requires_2fa: boolean; temp_token: string; phone_number: string }> => {
+  ): Promise<
+    | User
+    | { requires_2fa: boolean; temp_token: string; phone_number: string }
+    | { requirePasswordReset: boolean; message: string }
+  > => {
     try {
       const response = await apiClient.request<{
         user?: User
@@ -180,11 +188,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         requires_2fa?: boolean
         temp_token?: string
         phone_number?: string
+        requirePasswordReset?: boolean
+        message?: string
       }>("/api/users/login", {
         method: "POST",
         body: JSON.stringify({ email, password, remember_me: rememberMe }),
         requiresAuth: false,
       })
+
+      if (response.requirePasswordReset) {
+        return {
+          requirePasswordReset: true,
+          message: response.message || "Please check your email to claim your account.",
+        }
+      }
 
       if (response.requires_2fa && response.temp_token) {
         return {

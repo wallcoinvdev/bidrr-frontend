@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [tempToken, setTempToken] = useState("")
   const [code, setCode] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
+  const [claimEmailSent, setClaimEmailSent] = useState(false)
   const { login, user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -41,9 +42,17 @@ export default function LoginPage() {
 
     setError("")
     setLoading(true)
+    setClaimEmailSent(false)
 
     try {
       const result = await login(email, password, rememberMe)
+
+      if ("requirePasswordReset" in result && result.requirePasswordReset) {
+        trackEvent("login_claim_account_required")
+        setClaimEmailSent(true)
+        setLoading(false)
+        return
+      }
 
       if ("requires_2fa" in result && result.requires_2fa) {
         trackEvent("login_2fa_required")
@@ -256,6 +265,18 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <h1 className="text-3xl font-bold text-center text-[#03353a] mb-2">Welcome back</h1>
             <p className="text-center text-[#03353a]/70 mb-8">Sign in to your Bidrr account</p>
+
+            {claimEmailSent && (
+              <div className="mb-6 p-4 bg-teal-50 border border-teal-200 rounded-lg">
+                <h3 className="font-semibold text-teal-900 mb-2">Check your email!</h3>
+                <p className="text-sm text-teal-800 mb-3">
+                  We've sent a link to <strong>{email}</strong> to claim your account and set a new password.
+                </p>
+                <p className="text-xs text-teal-700">
+                  The link expires in 1 hour. If you don't receive the email, you can login again to request a new one.
+                </p>
+              </div>
+            )}
 
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
