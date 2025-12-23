@@ -6,6 +6,7 @@ import { Loader2, DollarSign, Calendar, TrendingUp, RefreshCw, Info } from "luci
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface Service {
   name: string
@@ -28,6 +29,8 @@ interface BillingResponse {
 }
 
 export default function BillingPage() {
+  usePageTitle("Billing & Costs")
+
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<BillingResponse | null>(null)
   const [activeTab, setActiveTab] = useState<"daily" | "monthly" | "annual">("monthly")

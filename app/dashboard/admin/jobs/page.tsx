@@ -5,6 +5,7 @@ import { apiClient } from "@/lib/api-client"
 import { Loader2, Search, Eye, Flag, Trash2, X } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface Job {
   id: number
@@ -109,6 +110,8 @@ function getStatusColor(status: string) {
 }
 
 export default function AdminJobsPage() {
+  usePageTitle("Job Management")
+
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<Job[]>([])
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([])

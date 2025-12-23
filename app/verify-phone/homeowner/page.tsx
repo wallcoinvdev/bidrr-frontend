@@ -7,6 +7,7 @@ import Link from "next/link"
 import { ArrowLeft, BadgeCheck, AlertCircle, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
+import { usePageTitle } from "@/hooks/use-page-title"
 import { apiClient } from "@/lib/api-client"
 import { trackEvent } from "@/lib/analytics"
 
@@ -15,6 +16,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.bidrr.ca"
 export default function VerifyPhoneHomeowner() {
   const router = useRouter()
   const { data, updateData } = useOnboarding()
+
+  usePageTitle("Verify Phone")
 
   const getInitialPhoneNumber = () => {
     // First try to get from onboarding context

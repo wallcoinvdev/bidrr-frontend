@@ -5,8 +5,11 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { AlertCircle, Loader2, ArrowLeft, CheckCircle, Eye, EyeOff } from "lucide-react"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 export default function ResetPasswordPage() {
+  usePageTitle("Reset Password")
+
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)

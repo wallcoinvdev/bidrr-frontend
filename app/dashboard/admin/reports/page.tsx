@@ -2,8 +2,11 @@
 
 import { useState } from "react"
 import { AlertCircle } from "lucide-react"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 export default function UserReportsPage() {
+  usePageTitle("User Reports")
+
   const [filter, setFilter] = useState("all")
 
   return (

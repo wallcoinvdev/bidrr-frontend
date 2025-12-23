@@ -4,13 +4,14 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
+import { usePageTitle } from "@/hooks/use-page-title"
 import { Eye, EyeOff } from "lucide-react"
 import { trackFormError, trackFormField } from "@/lib/analytics-client"
 import { ServicesSelector } from "@/components/services-selector"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, User } from "lucide-react" // Added imports
-import { TermsModal } from "@/components/terms-modal" // Added imports
+import { ArrowLeft, User } from "lucide-react"
+import { TermsModal } from "@/components/terms-modal"
 
 const trackEvent = (eventName: string, eventData: any) => {
   console.log(`Event tracked: ${eventName}`, eventData)
@@ -41,6 +42,8 @@ export default function PersonalInfoPage() {
   const roleFromUrl = searchParams.get("role")
   const emailFromUrl = searchParams.get("email")
   const tempEmailFromUrl = searchParams.get("temp_email")
+
+  usePageTitle(data.role === "contractor" ? "Contractor Signup" : "Homeowner Signup")
 
   const hasTrackedStart = useRef(false)
 

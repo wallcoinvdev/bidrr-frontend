@@ -1,8 +1,12 @@
+"use client"
 import Link from "next/link"
 import { SiteFooter } from "@/components/site-footer"
 import { Check } from "lucide-react"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 export default function PricingPage() {
+  usePageTitle("Pricing")
+
   return (
     <div className="min-h-screen relative">
       {/* Background Image with Teal Overlay */}

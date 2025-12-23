@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { trackEvent } from "@/lib/analytics"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface Bid {
   id: number
@@ -56,6 +57,8 @@ interface Mission {
 }
 
 export default function MyBidsPage() {
+  usePageTitle("My Bids")
+
   const [selectedBid, setSelectedBid] = useState<Bid | null>(null)
   const [bids, setBids] = useState<Bid[]>([])
   const [loading, setLoading] = useState(true)

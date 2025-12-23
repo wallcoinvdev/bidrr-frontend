@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { usePageTitle } from "@/hooks/use-page-title"
 import { AlertCircle, Loader2, ArrowLeft, CheckCircle, Eye, EyeOff } from "lucide-react"
 
 export default function ClaimAccountPage() {
@@ -18,6 +19,8 @@ export default function ClaimAccountPage() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  usePageTitle(success ? "Account Claimed" : "Claim Account")
 
   useEffect(() => {
     const tokenParam = searchParams.get("token")

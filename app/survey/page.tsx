@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { usePageTitle } from "@/hooks/use-page-title"
 import { Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -19,6 +20,8 @@ const surveyOptions = [
 ]
 
 export default function SurveyPage() {
+  usePageTitle("Survey")
+
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [otherText, setOtherText] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)

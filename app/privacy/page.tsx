@@ -1,8 +1,12 @@
+"use client"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import Image from "next/image"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 export default function PrivacyPage() {
+  usePageTitle("Privacy Policy")
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Header */}

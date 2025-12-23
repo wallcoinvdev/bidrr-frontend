@@ -11,6 +11,7 @@ import { ServicesSelector } from "@/components/services-selector"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 const CANADIAN_PROVINCES = [
   "Alberta",
@@ -29,6 +30,8 @@ const CANADIAN_PROVINCES = [
 ]
 
 export default function ContractorProfilePage() {
+  usePageTitle("Profile")
+
   const router = useRouter()
   const { toast } = useToast()
   const { user, refreshUser } = useAuth()

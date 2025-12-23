@@ -17,6 +17,7 @@ import {
 import { useState, useEffect, useRef } from "react"
 import { apiClient } from "@/lib/api-client"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { usePageTitle } from "@/hooks/use-page-title"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
@@ -78,6 +79,8 @@ interface Mission {
 }
 
 export default function ContractorDashboard() {
+  usePageTitle("Dashboard")
+
   const [stats, setStats] = useState<Stats | null>(null)
   const [recentBids, setRecentBids] = useState<RecentBid[]>([])
   const [missions, setMissions] = useState<Mission[]>([])

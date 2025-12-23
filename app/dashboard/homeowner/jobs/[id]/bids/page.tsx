@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { trackEvent } from "@/lib/analytics"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface Bid {
   id: number
@@ -55,6 +56,8 @@ interface Mission {
 }
 
 export default function ViewBidsPage() {
+  usePageTitle("Job Bids")
+
   const router = useRouter()
   const params = useParams()
   const missionId = params.id as string

@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface Conversation {
   id: number
@@ -47,6 +48,8 @@ interface MessagesResponse {
 }
 
 export default function MessagesPage() {
+  usePageTitle("Messages")
+
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messageText, setMessageText] = useState("")
   const [showFilters, setShowFilters] = useState(false)

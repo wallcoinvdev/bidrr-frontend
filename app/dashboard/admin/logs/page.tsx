@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Search, RefreshCw, Trash2, Loader2 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface ErrorLog {
   log_id: number
@@ -22,6 +23,8 @@ interface ErrorLog {
 }
 
 export default function ErrorLogsPage() {
+  usePageTitle("Error Logs")
+
   const [loading, setLoading] = useState(true)
   const [logs, setLogs] = useState<ErrorLog[]>([])
   const [searchQuery, setSearchQuery] = useState("")

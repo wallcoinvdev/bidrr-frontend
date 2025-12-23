@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useOnboarding } from "@/contexts/onboarding-context"
+import { usePageTitle } from "@/hooks/use-page-title"
 import { SERVICES } from "@/lib/services"
 import { Briefcase } from "lucide-react"
 
@@ -27,6 +28,8 @@ const CANADIAN_PROVINCES = [
 export default function JobDetailsPage() {
   const router = useRouter()
   const { data, updateData } = useOnboarding()
+
+  usePageTitle("Post Your First Job")
 
   // Form state
   const [jobTitle, setJobTitle] = useState(data.jobTitle || "")

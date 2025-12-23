@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface Message {
   id: number
@@ -40,6 +41,8 @@ interface Conversation {
 }
 
 export default function MessagesPage() {
+  usePageTitle("Messages")
+
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])

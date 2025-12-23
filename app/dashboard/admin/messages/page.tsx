@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
 import { Loader2, Send, Search, AlertCircle } from "lucide-react"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface Conversation {
   id: number
@@ -23,6 +24,8 @@ interface Message {
 }
 
 export default function AdminMessagesPage() {
+  usePageTitle("Admin Messages")
+
   const [loading, setLoading] = useState(true)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null)

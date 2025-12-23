@@ -4,8 +4,11 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { AlertCircle, Loader2, ArrowLeft, CheckCircle } from "lucide-react"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 export default function ForgotPasswordPage() {
+  usePageTitle("Forgot Password")
+
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)

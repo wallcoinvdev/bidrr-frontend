@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Mail, Send, Plus, Users, BarChart3 } from "lucide-react"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 const EMAIL_TEMPLATES = [
   {
@@ -87,6 +88,8 @@ const EMAIL_TEMPLATES = [
 ]
 
 export default function EmailCampaignsPage() {
+  usePageTitle("Email Campaigns")
+
   const [activeTab, setActiveTab] = useState("all")
 
   const filteredTemplates =

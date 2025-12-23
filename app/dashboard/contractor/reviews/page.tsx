@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Star, X } from 'lucide-react'
+import { Star, X } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 function GoogleReviewsModal({
   isOpen,
@@ -66,6 +67,8 @@ function GoogleReviewsModal({
 }
 
 export default function ReviewsPage() {
+  usePageTitle("Reviews")
+
   const { toast } = useToast()
 
   const [reviewStats, setReviewStats] = useState({
@@ -92,9 +95,11 @@ export default function ReviewsPage() {
           return
         }
 
-        window.dispatchEvent(new CustomEvent("reviewsPageViewed", { 
-          detail: { count: unreadReviewNotifications.length } 
-        }))
+        window.dispatchEvent(
+          new CustomEvent("reviewsPageViewed", {
+            detail: { count: unreadReviewNotifications.length },
+          }),
+        )
 
         await Promise.allSettled(
           unreadReviewNotifications.map(async (notification) => {
@@ -106,7 +111,7 @@ export default function ReviewsPage() {
             } catch (error: any) {
               // Silently ignore errors - user has viewed the page
             }
-          })
+          }),
         )
       } catch (error) {
         // Silently fail - don't disrupt user experience

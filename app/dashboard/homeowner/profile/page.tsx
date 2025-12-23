@@ -7,8 +7,11 @@ import { User, Upload, BadgeCheck } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { apiClient } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 export default function HomeownerProfilePage() {
+  usePageTitle("Profile")
+
   const { toast } = useToast()
   const { user, refreshUser } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
@@ -553,7 +556,7 @@ export default function HomeownerProfilePage() {
                       inputMode="tel"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                      placeholder="6394705572"
+                      placeholder="3065551234"
                       maxLength={10}
                       className="flex-1 min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#328d87]"
                       disabled={isCodeSent}

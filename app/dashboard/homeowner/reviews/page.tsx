@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface AcceptedBid {
   id: number
@@ -53,6 +54,8 @@ interface AcceptedBid {
 }
 
 export default function ReviewsPage() {
+  usePageTitle("Reviews")
+
   const [acceptedBids, setAcceptedBids] = useState<AcceptedBid[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)

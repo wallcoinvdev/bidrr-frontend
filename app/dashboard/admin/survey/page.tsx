@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ClipboardList, Loader2, MessageSquare } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface SurveyResultItem {
   option_key: string
@@ -47,6 +48,8 @@ const COLORS = [
 ]
 
 export default function AdminSurveyPage() {
+  usePageTitle("Survey Results")
+
   const [data, setData] = useState<SurveyResults | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Search, Loader2 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface AuditLog {
   id: number
@@ -16,6 +17,8 @@ interface AuditLog {
 }
 
 export default function AuditLogsPage() {
+  usePageTitle("Audit Logs")
+
   const [loading, setLoading] = useState(true)
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [searchQuery, setSearchQuery] = useState("")

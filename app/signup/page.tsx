@@ -5,8 +5,11 @@ import Link from "next/link"
 import Image from "next/image"
 import { ArrowLeft, Briefcase, Home, X } from "lucide-react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 export default function SignupPage() {
+  usePageTitle("Sign Up")
+
   const router = useRouter()
   const searchParams = useSearchParams()
   const role = searchParams.get("role")

@@ -5,6 +5,7 @@ import { apiClient } from "@/lib/api-client"
 import { Loader2, TrendingUp, Target, MessageSquare, BarChart3 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface AnalyticsData {
   heroHeadingStats: Array<{
@@ -25,6 +26,8 @@ interface AnalyticsData {
 }
 
 export default function AnalyticsPage() {
+  usePageTitle("Analytics")
+
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<AnalyticsData | null>(null)
 

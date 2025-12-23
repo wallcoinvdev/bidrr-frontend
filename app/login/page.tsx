@@ -9,8 +9,11 @@ import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
 import { AlertCircle, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react"
 import { trackEvent } from "@/lib/analytics"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 export default function LoginPage() {
+  usePageTitle("Login")
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)

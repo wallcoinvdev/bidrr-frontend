@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { apiClient } from "@/lib/api-client"
+import { usePageTitle } from "@/hooks/use-page-title"
 import {
   Loader2,
   Briefcase,
@@ -111,6 +112,8 @@ interface HiredContractorInfo {
 }
 
 export default function HomeownerDashboard() {
+  usePageTitle("Dashboard")
+
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)

@@ -17,8 +17,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 export default function UniversalSettings() {
+  usePageTitle("Settings")
+
   const router = useRouter()
   const { user } = useAuth()
   const userRole = user?.role || "homeowner"

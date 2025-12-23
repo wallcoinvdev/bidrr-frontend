@@ -6,6 +6,7 @@ import { apiClient } from "@/lib/api-client"
 import { Loader2, Search, Ban, UserCog } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface User {
   id: number
@@ -30,6 +31,8 @@ interface Stats {
 }
 
 export default function UsersPage() {
+  usePageTitle("User Management")
+
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])

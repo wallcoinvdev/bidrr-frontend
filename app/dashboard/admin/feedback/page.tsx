@@ -6,6 +6,7 @@ import { Loader2, MessageSquare, Star, Check, X } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 interface Feedback {
   id: number
@@ -18,6 +19,8 @@ interface Feedback {
 }
 
 export default function FeedbackPage() {
+  usePageTitle("User Feedback")
+
   const [loading, setLoading] = useState(true)
   const [feedback, setFeedback] = useState<Feedback[]>([])
   const [statusFilter, setStatusFilter] = useState<string>("pending")

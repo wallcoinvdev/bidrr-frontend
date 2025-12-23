@@ -9,10 +9,13 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Settings, Bell, Flag, Shield, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
+import { usePageTitle } from "@/hooks/use-page-title"
 
 type TabType = "general" | "announcements" | "features" | "security"
 
 export default function SettingsPage() {
+  usePageTitle("System Settings")
+
   const [activeTab, setActiveTab] = useState<TabType>("general")
   const [loading, setLoading] = useState(false)
   const [settings, setSettings] = useState({

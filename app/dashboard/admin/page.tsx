@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { apiClient } from "@/lib/api-client"
+import { usePageTitle } from "@/hooks/use-page-title"
 import { Loader2, Users, Home, Briefcase, TrendingUp, MapPin } from "lucide-react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
@@ -33,6 +34,8 @@ interface DashboardData {
 }
 
 export default function AdminDashboard() {
+  usePageTitle("Admin Dashboard")
+
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
 
