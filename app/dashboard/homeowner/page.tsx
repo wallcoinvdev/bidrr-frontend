@@ -144,6 +144,7 @@ export default function HomeownerDashboard() {
   const [jobDescription, setJobDescription] = useState("")
   const [descriptionTouched, setDescriptionTouched] = useState(false)
   const [serviceTouched, setServiceTouched] = useState(false)
+  const [selectedRegion, setSelectedRegion] = useState("")
 
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null)
   const [showReviewDialog, setShowReviewDialog] = useState(false)
@@ -459,6 +460,7 @@ export default function HomeownerDashboard() {
       setEditingMission(fullMission)
       setSelectedService(fullMission.service || "")
       setJobDescription(fullMission.job_details || "")
+      setSelectedRegion(fullMission.region || "") // Set the region for editing
 
       if (fullMission.images && Array.isArray(fullMission.images)) {
         console.log("[v0] Setting image previews:", fullMission.images)
@@ -609,7 +611,8 @@ export default function HomeownerDashboard() {
       const formData = new FormData(e.currentTarget)
 
       formData.set("service", selectedService)
-      formData.set("job_details", jobDescription) // Use state for job_details
+      formData.set("job_details", jobDescription)
+      formData.set("region", editingMission ? editingMission.region : selectedRegion)
 
       const completionTimeline = formData.get("completion_timeline") as string
       let priority = "medium" // default
@@ -661,6 +664,7 @@ export default function HomeownerDashboard() {
       setJobDescription("") // Reset job description state
       setDescriptionTouched(false) // Reset touched state
       setServiceTouched(false) // Reset touched state
+      setSelectedRegion("")
       await fetchDashboardData()
     } catch (error: any) {
       console.error("Error posting job:", error)
@@ -864,6 +868,7 @@ export default function HomeownerDashboard() {
             setJobDescription("") // Reset job description state
             setDescriptionTouched(false) // Reset touched state
             setServiceTouched(false) // Reset touched state
+            setSelectedRegion("")
           }
         }}
       >
@@ -1060,10 +1065,12 @@ export default function HomeownerDashboard() {
                     </label>
                     <select
                       name="region"
-                      value={editingMission?.region || ""}
+                      value={editingMission ? editingMission.region : selectedRegion}
                       onChange={(e) => {
                         if (editingMission) {
                           setEditingMission({ ...editingMission, region: e.target.value })
+                        } else {
+                          setSelectedRegion(e.target.value)
                         }
                       }}
                       required
