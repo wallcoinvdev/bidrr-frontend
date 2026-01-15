@@ -43,7 +43,6 @@ export default function PricingPage() {
             <p className="text-xl md:text-2xl text-[#e2bb12] font-semibold mb-4">
               Job Postings for Customers — Always Free
             </p>
-            <p className="text-base text-gray-300">1 credit = 1 bid</p>
           </div>
         </section>
 

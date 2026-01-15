@@ -116,13 +116,13 @@ export default function AdminSurveyPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Survey Results</h1>
-        <p className="text-gray-600 mt-1">Customer feedback on what makes them choose Bidrr</p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Survey Results</h1>
+        <p className="text-sm md:text-base text-gray-600 mt-1">Customer feedback on what makes them choose Bidrr</p>
       </div>
 
       {/* Total responses */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 md:p-6">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-[#0F3D3E]/10 rounded-full flex items-center justify-center">
               <ClipboardList className="w-6 h-6 text-[#0F3D3E]" />
@@ -137,11 +137,11 @@ export default function AdminSurveyPage() {
 
       {/* Option breakdown */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Response Breakdown</CardTitle>
+        <CardHeader className="p-4 md:p-6">
+          <CardTitle className="text-base md:text-lg">Response Breakdown</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <CardContent className="p-4 md:p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             {/* Left column - bars */}
             <div className="space-y-4">
               {Object.entries(optionLabels).map(([key, label], index) => {
@@ -151,15 +151,15 @@ export default function AdminSurveyPage() {
 
                 return (
                   <div key={key} className="space-y-2">
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="flex items-center gap-2 flex-1">
+                    <div className="flex justify-between items-start gap-2 md:gap-4">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div
                           className="w-3 h-3 rounded-full flex-shrink-0"
                           style={{ backgroundColor: COLORS[index % COLORS.length] }}
                         />
-                        <span className="text-sm text-gray-700">{label}</span>
+                        <span className="text-xs md:text-sm text-gray-700 break-words">{label}</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                      <span className="text-xs md:text-sm font-medium text-gray-900 whitespace-nowrap">
                         {count} ({percentage}%)
                       </span>
                     </div>
@@ -178,16 +178,16 @@ export default function AdminSurveyPage() {
             </div>
 
             {/* Right column - pie chart */}
-            <div className="flex items-center justify-center min-h-[300px]">
+            <div className="flex items-center justify-center min-h-[250px] md:min-h-[300px]">
               {pieChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={350}>
+                <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
                       data={pieChartData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={120}
+                      innerRadius={50}
+                      outerRadius={100}
                       paddingAngle={2}
                       dataKey="value"
                     >
@@ -211,7 +211,7 @@ export default function AdminSurveyPage() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-gray-500">No responses yet</p>
+                <p className="text-gray-500 text-sm">No responses yet</p>
               )}
             </div>
           </div>
@@ -221,17 +221,17 @@ export default function AdminSurveyPage() {
       {/* Other responses */}
       {data?.other_responses && data.other_responses.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="text-base md:text-lg flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
               "Other" Responses ({data.other_responses.length})
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 md:p-6">
             <div className="space-y-4">
               {displayedOtherResponses.map((response) => (
-                <div key={response.id} className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-800">{response.text}</p>
+                <div key={response.id} className="p-3 md:p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm md:text-base text-gray-800 break-words">{response.text}</p>
                   <p className="text-xs text-gray-500 mt-2">{new Date(response.created_at).toLocaleString()}</p>
                 </div>
               ))}
@@ -241,7 +241,7 @@ export default function AdminSurveyPage() {
                   <Button
                     variant="outline"
                     onClick={() => setVisibleOtherResponses((prev) => prev + 10)}
-                    className="border-[#0F3D3E] text-[#0F3D3E] hover:bg-[#0F3D3E]/5"
+                    className="w-full sm:w-auto border-[#0F3D3E] text-[#0F3D3E] hover:bg-[#0F3D3E]/5"
                   >
                     Load More ({sortedOtherResponses.length - visibleOtherResponses} remaining)
                   </Button>
@@ -255,14 +255,14 @@ export default function AdminSurveyPage() {
       {/* Empty state for other responses */}
       {(!data?.other_responses || data.other_responses.length === 0) && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="text-base md:text-lg flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
               "Other" Responses
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-gray-500 text-center py-8">No "Other" responses yet</p>
+          <CardContent className="p-4 md:p-6">
+            <p className="text-sm md:text-base text-gray-500 text-center py-8">No "Other" responses yet</p>
           </CardContent>
         </Card>
       )}

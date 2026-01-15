@@ -7,15 +7,11 @@ import { useAuth } from "@/lib/auth-context"
 import { useEffect, useState } from "react"
 import {
   Home,
-  BarChart3,
-  DollarSign,
   Users,
   Briefcase,
   MessageSquare,
-  Mail,
   FileText,
   AlertTriangle,
-  ScrollText,
   Settings,
   LogOut,
   Loader2,
@@ -26,18 +22,13 @@ import {
 } from "lucide-react"
 
 const adminNavItems = [
-  { href: "/dashboard/admin", label: "Overview", icon: Home },
-  { href: "/dashboard/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/dashboard/admin/billing", label: "Billing", icon: DollarSign },
+  { href: "/dashboard/admin", label: "Analytics", icon: Home },
   { href: "/dashboard/admin/users", label: "Users", icon: Users },
   { href: "/dashboard/admin/jobs", label: "Jobs", icon: Briefcase },
   { href: "/dashboard/admin/survey", label: "Survey", icon: ClipboardList },
   { href: "/dashboard/admin/feedback", label: "Feedback", icon: MessageSquare },
-  { href: "/dashboard/admin/messages", label: "Messages", icon: Mail },
-  { href: "/dashboard/admin/emails", label: "Email Campaigns", icon: Mail },
   { href: "/dashboard/admin/reports", label: "User Reports", icon: FileText },
   { href: "/dashboard/admin/logs", label: "Error Logs", icon: AlertTriangle },
-  { href: "/dashboard/admin/audit", label: "Audit Logs", icon: ScrollText },
   { href: "/dashboard/admin/settings", label: "Settings", icon: Settings },
 ]
 
@@ -46,13 +37,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter()
   const { user, loading, logout } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [badges, setBadges] = useState<Record<string, number>>({
-    users: 3,
-    jobs: 1,
-    logs: 72,
-    audit: 0,
-    survey: 5, // Added badge for survey
-  })
 
   useEffect(() => {
     if (!loading && (!user || !user.is_admin)) {
@@ -100,7 +84,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const Icon = item.icon
             const isActive =
               pathname === item.href || (item.href !== "/dashboard/admin" && pathname.startsWith(item.href))
-            const badge = badges[item.href.split("/").pop() || ""]
 
             return (
               <Link
@@ -113,11 +96,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               >
                 <Icon className="w-5 h-5" />
                 <span className="font-medium text-sm">{item.label}</span>
-                {badge > 0 && (
-                  <span className="ml-auto bg-yellow-500 text-gray-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {badge > 99 ? "99" : badge}
-                  </span>
-                )}
               </Link>
             )
           })}

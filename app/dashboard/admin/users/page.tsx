@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { Loader2, Search, Ban, UserCog } from "lucide-react"
@@ -10,7 +10,7 @@ import { usePageTitle } from "@/hooks/use-page-title"
 
 interface User {
   id: number
-  name: string // renamed from 'full_name' to 'name' to match backend response
+  name: string
   email: string
   phone_number: string
   postal_code?: string
@@ -34,48 +34,103 @@ export default function UsersPage() {
   usePageTitle("User Management")
 
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [roleFilter, setRoleFilter] = useState<string>("all")
+  const [selectedFilter, setSelectedFilter] = useState<string>("all")
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, homeowners: 0, contractors: 0 })
+  const [offset, setOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [totalUsers, setTotalUsers] = useState(0)
+  const USERS_PER_PAGE = 10
   const router = useRouter()
 
+  const topScrollRef = useRef<HTMLDivElement>(null)
+  const bottomScrollRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
-    fetchUsers()
+    fetchUsers(true)
   }, [])
 
   useEffect(() => {
     filterUsers()
-  }, [users, searchTerm, roleFilter])
+  }, [users, searchTerm])
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (reset = false, filter?: string) => {
     try {
-      setLoading(true)
+      if (reset) {
+        setLoading(true)
+        setOffset(0)
+      } else {
+        setLoadingMore(true)
+      }
 
-      const data = await apiClient.request<{ users: User[] }>("/api/admin/users", {
+      const currentOffset = reset ? 0 : offset
+      const filterValue = filter !== undefined ? filter : selectedFilter
+
+      let accountType = "active"
+      let role = ""
+
+      if (filterValue === "all") {
+        accountType = "active"
+        role = ""
+      } else if (filterValue === "homeowner") {
+        accountType = "active"
+        role = "homeowner"
+      } else if (filterValue === "contractor") {
+        accountType = "active"
+        role = "contractor"
+      } else if (filterValue === "contractor-temp") {
+        accountType = "temp"
+        role = "contractor"
+      }
+
+      const roleParam = role ? `&role=${role}` : ""
+      const url = `/api/admin/users?limit=${USERS_PER_PAGE}&offset=${currentOffset}&accountType=${accountType}${roleParam}`
+
+      const data = await apiClient.request<{
+        users: User[]
+        total: number
+        totalHomeowners: number
+        totalContractors: number
+        hasMore: boolean
+      }>(url, {
         requiresAuth: true,
       })
 
-      console.log("[v0] Fetched users from API:", data.users.length)
-      const tempUsers = data.users.filter((u) => (u as any).is_temp_account)
-      if (tempUsers.length > 0) {
-        console.log(
-          "[v0] Temp users found:",
-          tempUsers.map((u) => ({ id: u.id, services: u.services })),
-        )
+      console.log("[v0] Fetched users from API:", data.users.length, "of", data.total, "total")
+      console.log("[v0] Sample user data:", data.users[0])
+      console.log(
+        "[v0] Postal codes:",
+        data.users.map((u) => ({ id: u.id, role: u.role, postal_code: u.postal_code })),
+      )
+
+      if (reset) {
+        setUsers(data.users)
+      } else {
+        setUsers((prev) => [...prev, ...data.users])
       }
 
-      setUsers(data.users)
+      setTotalUsers(data.total)
+      setHasMore(data.hasMore)
 
-      const totalUsers = data.users.length
-      const homeowners = data.users.filter((u) => u.role === "homeowner").length
-      const contractorsCount = data.users.filter((u) => u.role === "contractor").length
-      setStats({ totalUsers, homeowners, contractors: contractorsCount })
+      if (!reset) {
+        setOffset(currentOffset + USERS_PER_PAGE)
+      } else {
+        setOffset(USERS_PER_PAGE)
+      }
+
+      setStats({
+        totalUsers: data.total,
+        homeowners: data.totalHomeowners,
+        contractors: data.totalContractors,
+      })
     } catch (error: any) {
       console.error("Error in fetchUsers:", error)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
@@ -91,10 +146,6 @@ export default function UsersPage() {
           user.postal_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.id.toString().includes(searchTerm),
       )
-    }
-
-    if (roleFilter !== "all") {
-      filtered = filtered.filter((user) => user.role === roleFilter)
     }
 
     setFilteredUsers(filtered)
@@ -115,7 +166,7 @@ export default function UsersPage() {
           reason: currentlyBanned ? null : "Banned by admin",
         }),
       })
-      fetchUsers()
+      fetchUsers(true)
     } catch (error) {
       console.error(`Error ${action}ning user:`, error)
       alert(`Failed to ${action} user`)
@@ -157,6 +208,24 @@ export default function UsersPage() {
     }
   }
 
+  const handleFilterChange = (newFilter: string) => {
+    setSelectedFilter(newFilter)
+    setSearchTerm("") // Clear search when changing filter
+    fetchUsers(true, newFilter)
+  }
+
+  const handleTopScroll = () => {
+    if (topScrollRef.current && bottomScrollRef.current) {
+      bottomScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft
+    }
+  }
+
+  const handleBottomScroll = () => {
+    if (topScrollRef.current && bottomScrollRef.current) {
+      topScrollRef.current.scrollLeft = bottomScrollRef.current.scrollLeft
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -175,7 +244,7 @@ export default function UsersPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 bg-white border border-gray-200 shadow-sm">
           <p className="text-sm text-gray-600 mb-2">Total Users</p>
-          <p className="text-4xl font-bold text-gray-900">{stats.totalUsers}</p>
+          <p className="text-4xl font-bold text-gray-900">{totalUsers}</p>
         </Card>
 
         <Card className="p-6 bg-white border border-gray-200 shadow-sm">
@@ -189,12 +258,12 @@ export default function UsersPage() {
         </Card>
       </div>
 
-      <div className="flex gap-4">
-        <div className="flex-1 relative">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative order-1 sm:order-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name, email, phone, postal code, or user ID..."
+            placeholder="Search for users"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent"
@@ -202,18 +271,31 @@ export default function UsersPage() {
         </div>
 
         <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent bg-white min-w-[140px]"
+          value={selectedFilter}
+          onChange={(e) => handleFilterChange(e.target.value)}
+          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F3D3E] focus:border-transparent bg-white min-w-[180px] order-2 sm:order-2"
         >
           <option value="all">All Roles</option>
-          <option value="homeowner">Customer</option>
-          <option value="contractor">Contractor</option>
+          <option value="homeowner">Customers</option>
+          <option value="contractor">Contractors (Active)</option>
+          <option value="contractor-temp">Contractors (Temp)</option>
         </select>
       </div>
 
       <Card className="bg-white border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div
+          ref={topScrollRef}
+          onScroll={handleTopScroll}
+          className="overflow-x-auto overflow-y-hidden border-b border-gray-200"
+          style={{ height: "16px" }}
+        >
+          <div style={{ width: "max-content", height: "1px" }}>
+            {/* This div matches the table width to create the scrollbar */}
+            <div style={{ width: "1800px" }}></div>
+          </div>
+        </div>
+
+        <div ref={bottomScrollRef} onScroll={handleBottomScroll} className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -308,6 +390,24 @@ export default function UsersPage() {
             </tbody>
           </table>
         </div>
+        {hasMore && filteredUsers.length > 0 && (
+          <div className="p-6 border-t border-gray-200 flex justify-center">
+            <button
+              onClick={() => fetchUsers(false)}
+              disabled={loadingMore}
+              className="px-6 py-2.5 bg-[#0F3D3E] text-white rounded-lg hover:bg-[#0a2d2e] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Load More"
+              )}
+            </button>
+          </div>
+        )}
       </Card>
     </div>
   )

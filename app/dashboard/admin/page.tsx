@@ -22,9 +22,11 @@ interface DashboardData {
     total_users: number
     total_homeowners: number
     total_contractors: number
+    total_active_contractors: number
+    total_temp_contractors: number
   }
-  locationStats: Array<{ city: string; state: string; user_count: number }>
-  recentSignups: Array<{ signup_date: string; signups: number; homeowner_signups: number; contractor_signups: number }>
+  locationStats: Array<{ postal_code: string; user_count: number }>
+  recentSignups: Array<{ signup_date: string; homeowner_signups: number; contractor_signups: number }>
   activityStats: {
     total_missions: number
     open_missions: number
@@ -38,6 +40,7 @@ export default function AdminDashboard() {
 
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
+  const [visibleLocations, setVisibleLocations] = useState(5)
 
   useEffect(() => {
     fetchDashboardData()
@@ -57,61 +60,9 @@ export default function AdminDashboard() {
     }
   }
 
-  const getTopLocations = (locationStats: Array<{ city: string; state: string; user_count: number }> | undefined) => {
+  const getTopLocations = (locationStats: Array<{ postal_code: string; user_count: number }> | undefined) => {
     if (!locationStats || locationStats.length === 0) return []
-
-    // Normalize state abbreviations
-    const stateAbbreviations: { [key: string]: string } = {
-      alberta: "AB",
-      "british columbia": "BC",
-      manitoba: "MB",
-      "new brunswick": "NB",
-      "newfoundland and labrador": "NL",
-      "northwest territories": "NT",
-      "nova scotia": "NS",
-      nunavut: "NU",
-      ontario: "ON",
-      "prince edward island": "PE",
-      quebec: "QC",
-      saskatchewan: "SK",
-      yukon: "YT",
-    }
-
-    // Merge duplicates with case-insensitive and abbreviation handling
-    const locationMap = new Map<string, number>()
-
-    locationStats.forEach((location) => {
-      const normalizedCity = location.city.trim().toLowerCase()
-      const normalizedState = location.state.trim().toLowerCase()
-
-      // Convert full state names to abbreviations
-      const stateAbbr = stateAbbreviations[normalizedState] || location.state.trim().toUpperCase()
-
-      // Create a unique key for each location
-      const locationKey = `${normalizedCity}|${stateAbbr}`
-
-      const currentCount = locationMap.get(locationKey) || 0
-      locationMap.set(locationKey, currentCount + Number(location.user_count))
-    })
-
-    // Convert back to array and format properly
-    const mergedLocations = Array.from(locationMap.entries()).map(([key, count]) => {
-      const [city, state] = key.split("|")
-      // Capitalize first letter of each word in city name
-      const formattedCity = city
-        .split(" ")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ")
-
-      return {
-        city: formattedCity,
-        state: state,
-        user_count: count,
-      }
-    })
-
-    // Sort by user count descending and take top 10
-    return mergedLocations.sort((a, b) => b.user_count - a.user_count).slice(0, 10)
+    return locationStats
   }
 
   if (loading) {
@@ -131,7 +82,7 @@ export default function AdminDashboard() {
         <p className="text-gray-500 mt-2">Platform overview and user management</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Card className="p-6 bg-white border border-gray-200 shadow-sm">
           <div className="flex items-center gap-4 mb-4">
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -172,19 +123,37 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="space-y-2">
-            <p className="text-sm text-gray-600">Contractors</p>
-            <p className="text-4xl font-bold text-gray-900">{data?.userStats?.total_contractors || 0}</p>
+            <p className="text-sm text-gray-600">Contractors (Active)</p>
+            <p className="text-4xl font-bold text-gray-900">{data?.userStats?.total_active_contractors || 0}</p>
             <Link
-              href="/dashboard/admin/users?role=contractor"
+              href="/dashboard/admin/users?role=contractor&temp=false"
               className="text-sm text-purple-600 hover:underline inline-block mt-2"
             >
-              Click to view contractors →
+              Click to view active contractors →
+            </Link>
+          </div>
+        </Card>
+
+        <Card className="p-6 bg-white border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <Briefcase className="w-6 h-6 text-orange-600" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600">Contractors (Temp)</p>
+            <p className="text-4xl font-bold text-gray-900">{data?.userStats?.total_temp_contractors || 0}</p>
+            <Link
+              href="/dashboard/admin/users?role=contractor&temp=true"
+              className="text-sm text-orange-600 hover:underline inline-block mt-2"
+            >
+              Click to view temp contractors →
             </Link>
           </div>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card className="p-6 bg-white border border-gray-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <TrendingUp className="w-5 h-5 text-blue-600" />
@@ -200,12 +169,12 @@ export default function AdminDashboard() {
               <span className="text-2xl font-bold text-green-600">{data?.activityStats?.open_missions || 0}</span>
             </div>
             <div className="flex justify-between items-center py-3 border-b border-gray-100">
-              <span className="text-gray-600">Completed Missions</span>
-              <span className="text-2xl font-bold text-blue-600">{data?.activityStats?.completed_missions || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-3">
               <span className="text-gray-600">Total Bids</span>
               <span className="text-2xl font-bold text-gray-900">{data?.activityStats?.total_bids || 0}</span>
+            </div>
+            <div className="flex justify-between items-center py-3">
+              <span className="text-gray-600">Hires</span>
+              <span className="text-2xl font-bold text-blue-600">{data?.activityStats?.completed_missions || 0}</span>
             </div>
           </div>
         </Card>
@@ -214,23 +183,46 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-3 mb-6">
             <MapPin className="w-5 h-5 text-green-600" />
             <h2 className="text-xl font-bold text-gray-900">Top Locations</h2>
+            {topLocations.length > 0 && <span className="text-sm text-gray-500">({topLocations.length})</span>}
           </div>
-          <div className="space-y-4">
-            {topLocations.map((location, index) => (
-              <div key={index} className="flex justify-between items-center py-3">
-                <span className="text-gray-700">
-                  {location.city}, {location.state}
-                </span>
+          <div className="space-y-2">
+            {topLocations.slice(0, visibleLocations).map((location, index) => (
+              <div
+                key={index}
+                className="flex justify-between items-center py-3 border-b border-gray-100 last:border-0"
+              >
+                <span className="text-gray-700">{location.postal_code}</span>
                 <span className="text-2xl font-bold text-gray-900">{location.user_count}</span>
               </div>
             ))}
             {topLocations.length === 0 && <p className="text-gray-500 text-center py-8">No location data available</p>}
+            {topLocations.length > visibleLocations && (
+              <button
+                onClick={() => setVisibleLocations((prev) => prev + 5)}
+                className="w-full mt-4 px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors text-sm font-medium"
+              >
+                Load More
+              </button>
+            )}
           </div>
         </Card>
       </div>
 
-      <Card className="p-6 bg-white border border-gray-200 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Recent Signups (Last 30 Days)</h2>
+      <Card className="p-4 md:p-6 bg-white border border-gray-200 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+          <h2 className="text-lg md:text-xl font-bold text-gray-900">Recent Signups (Last 30 Days)</h2>
+          {data?.recentSignups && data.recentSignups.length > 0 && (
+            <div className="text-left sm:text-right">
+              <p className="text-sm text-gray-600">30-Day Total</p>
+              <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                {data.recentSignups.reduce(
+                  (sum, signup) => sum + signup.homeowner_signups + signup.contractor_signups,
+                  0,
+                )}
+              </p>
+            </div>
+          )}
+        </div>
         <div className="space-y-4">
           {data?.recentSignups?.map((signup, index) => {
             const total = signup.homeowner_signups + signup.contractor_signups
@@ -240,18 +232,20 @@ export default function AdminDashboard() {
             return (
               <div key={index} className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">{new Date(signup.signup_date).toLocaleDateString()}</span>
-                  <span className="text-sm font-semibold text-gray-900">{total}</span>
+                  <span className="text-xs sm:text-sm text-gray-600">
+                    {new Date(signup.signup_date).toLocaleDateString()}
+                  </span>
+                  <span className="text-xs sm:text-sm font-semibold text-gray-900">{total}</span>
                 </div>
-                <div className="h-8 flex rounded-lg overflow-hidden">
+                <div className="h-6 sm:h-8 flex rounded-lg overflow-hidden">
                   <div
-                    className="bg-green-500 flex items-center justify-center text-white text-sm font-semibold"
+                    className="bg-green-500 flex items-center justify-center text-white text-xs sm:text-sm font-semibold"
                     style={{ width: `${homeownerPercent}%` }}
                   >
                     {signup.homeowner_signups > 0 && signup.homeowner_signups}
                   </div>
                   <div
-                    className="bg-purple-500 flex items-center justify-center text-white text-sm font-semibold"
+                    className="bg-purple-500 flex items-center justify-center text-white text-xs sm:text-sm font-semibold"
                     style={{ width: `${contractorPercent}%` }}
                   >
                     {signup.contractor_signups > 0 && signup.contractor_signups}

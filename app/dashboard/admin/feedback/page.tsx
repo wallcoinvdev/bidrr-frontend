@@ -180,7 +180,7 @@ export default function FeedbackPage() {
             <div className="w-16 h-16 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
               <MessageSquare className="w-8 h-8 text-gray-400" />
             </div>
-            <p className="text-gray-500 font-medium text-lg">No feedback submissions yet</p>
+            <p className="text-gray-500 font-medium text-lg text-center">No feedback submissions yet</p>
           </div>
         )}
 

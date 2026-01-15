@@ -174,6 +174,9 @@ export default function ContractorDashboard() {
 
       try {
         const statsData = await apiClient.request<Stats>("/api/contractor/stats", { requiresAuth: true })
+        console.log("[v0] Stats data from API:", statsData)
+        console.log("[v0] available_bids value:", statsData.available_bids)
+        console.log("[v0] available_bids type:", typeof statsData.available_bids)
         setStats(statsData)
       } catch (error: any) {
         console.error("Error fetching stats:", error.message)
@@ -244,6 +247,18 @@ export default function ContractorDashboard() {
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
     return date.toLocaleDateString()
+  }
+
+  const getDaysSincePosted = (createdAt: string): number => {
+    const now = new Date()
+    const posted = new Date(createdAt)
+    const diffTime = Math.abs(now.getTime() - posted.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
+  }
+
+  const isAgedJob = (createdAt: string): boolean => {
+    return getDaysSincePosted(createdAt) > 30
   }
 
   const markMissionAsViewed = async (missionId: number) => {
@@ -463,10 +478,10 @@ export default function ContractorDashboard() {
               <div className="rounded-lg bg-blue-50 p-2">
                 <Coins className="h-5 w-5 text-blue-600" />
               </div>
-              <p className="text-xl font-bold text-gray-900 sm:hidden">{bidsRemaining}</p>
+              <p className="text-xl font-bold text-gray-900 sm:hidden">{Number(bidsRemaining).toFixed(2)}</p>
               <div className="hidden sm:block">
                 <p className="text-xs text-gray-600">Credits Available</p>
-                <p className="text-xl font-bold text-gray-900">{bidsRemaining}</p>
+                <p className="text-xl font-bold text-gray-900">{Number(bidsRemaining).toFixed(2)}</p>
               </div>
             </div>
             <p className="text-xs text-gray-600 text-center mt-1 sm:hidden">Credits Available</p>
@@ -587,12 +602,30 @@ export default function ContractorDashboard() {
                 const isFull = spotsRemaining <= 0
                 const isAlmostFull = spotsRemaining <= 2 && spotsRemaining > 0
 
+                const calculateBidCost = () => {
+                  const urgency = mission.hiring_likelihood || "within_4_weeks"
+                  const phoneVerified = mission.homeowner_phone_verified || false
+
+                  const costMatrix: Record<string, { verified: number; basic: number }> = {
+                    immediate: { verified: 1.0, basic: 0.75 },
+                    within_4_weeks: { verified: 0.75, basic: 0.5 },
+                    inquiring: { verified: 0.5, basic: 0.25 },
+                  }
+
+                  const costs = costMatrix[urgency] || { verified: 0.5, basic: 0.5 }
+                  return phoneVerified ? costs.verified : costs.basic
+                }
+
+                const bidCost = calculateBidCost()
+                const aged = isAgedJob(mission.created_at)
+                const daysSincePosted = getDaysSincePosted(mission.created_at)
+
                 return (
                   <div
                     key={mission.id}
                     className={`cursor-pointer rounded-lg border border-gray-200 border-l-4 ${
                       mission.has_bid ? "border-l-[#e2bb12]" : "border-l-gray-300"
-                    } p-4 transition-all hover:shadow-md`}
+                    } p-4 transition-all hover:shadow-md ${aged ? "opacity-60 bg-gray-50" : ""}`}
                     onClick={() => openMissionModal(mission)}
                   >
                     <div className="flex items-start justify-between">
@@ -601,6 +634,10 @@ export default function ContractorDashboard() {
                           <h3 className="font-semibold text-gray-900">{mission.title}</h3>
                           <span className={`rounded-full px-2 py-1 text-xs font-medium ${label.color}`}>
                             {label.text}
+                          </span>
+                          <span className="rounded-full px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 flex items-center gap-1">
+                            <Coins className="h-3 w-3" />
+                            {bidCost} {bidCost === 1 ? "credit" : "credits"}
                           </span>
                           {mission.priority && (mission.priority === "urgent" || mission.priority === "high") && (
                             <span className="rounded-full px-2 py-1 text-[9px] font-medium bg-red-100 text-red-700">
@@ -628,6 +665,12 @@ export default function ContractorDashboard() {
                             </span>
                           )}
                         </div>
+                        {aged && (
+                          <div className="flex items-center gap-1 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 px-2 py-1 rounded mt-2 w-fit">
+                            <AlertCircle className="h-3 w-3" />
+                            Posted {daysSincePosted}d ago - May be inactive
+                          </div>
+                        )}
                         <p className="mt-1 text-sm text-gray-600">{mission.service}</p>
 
                         <div className="mt-2 flex flex-col gap-2 text-sm text-gray-500 sm:flex-row sm:items-center sm:gap-4">

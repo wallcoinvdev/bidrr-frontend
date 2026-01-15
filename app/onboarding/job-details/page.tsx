@@ -25,6 +25,21 @@ const CANADIAN_PROVINCES = [
   { value: "YT", label: "Yukon" },
 ]
 
+// Map old completion_timeline values to new hiring_likelihood values
+const mapOldTimelineToUrgency = (oldTimeline: string | undefined): string => {
+  if (!oldTimeline) return "within_4_weeks"
+
+  const mapping: Record<string, string> = {
+    immediately: "immediate",
+    within_1_week: "immediate",
+    within_1_month: "within_4_weeks",
+    within_3_months: "within_4_weeks",
+    inquiring_only: "inquiring",
+  }
+
+  return mapping[oldTimeline] || "within_4_weeks"
+}
+
 export default function JobDetailsPage() {
   const router = useRouter()
   const { data, updateData } = useOnboarding()
@@ -37,9 +52,9 @@ export default function JobDetailsPage() {
   const [serviceSearch, setServiceSearch] = useState("")
   const [showServiceDropdown, setShowServiceDropdown] = useState(false)
   const [jobDescription, setJobDescription] = useState(data.jobDescription || "")
-  const [jobTimeline, setJobTimeline] = useState(data.jobTimeline || "within_1_month")
-  const [timelineSearch, setTimelineSearch] = useState("")
-  const [showTimelineDropdown, setShowTimelineDropdown] = useState(false)
+  const [hiringLikelihood, setHiringLikelihood] = useState(data.hiringLikelihood || "")
+  const [urgencySearch, setUrgencySearch] = useState("")
+  const [showUrgencyDropdown, setShowUrgencyDropdown] = useState(false)
   const [jobCity, setJobCity] = useState(data.jobCity || "")
   const [jobRegion, setJobRegion] = useState(data.jobRegion || "")
   const [jobPostalCode, setJobPostalCode] = useState(data.jobPostalCode || "")
@@ -51,13 +66,12 @@ export default function JobDetailsPage() {
   const [serviceTouched, setServiceTouched] = useState(false)
   const [descriptionTouched, setDescriptionTouched] = useState(false)
   const [titleTouched, setTitleTouched] = useState(false)
+  const [urgencyTouched, setUrgencyTouched] = useState(false)
 
-  const timelineOptions = [
-    { value: "immediately", label: "Immediately" },
-    { value: "within_1_week", label: "Within 1 week" },
-    { value: "within_1_month", label: "Within 1 month" },
-    { value: "within_3_months", label: "Within 3 months" },
-    { value: "inquiring_only", label: "Inquiring only" },
+  const urgencyOptions = [
+    { value: "immediate", label: "Need it done immediately" },
+    { value: "within_4_weeks", label: "Need it done in 1-4 weeks" },
+    { value: "inquiring", label: "Just inquiring and comparing options" },
   ]
 
   const filteredServices = SERVICES.filter((service) => service.toLowerCase().includes(serviceSearch.toLowerCase()))
@@ -70,8 +84,8 @@ export default function JobDetailsPage() {
     return cleaned
   }
 
-  const getTimelineLabel = () => {
-    const option = timelineOptions.find((opt) => opt.value === jobTimeline)
+  const getUrgencyLabel = () => {
+    const option = urgencyOptions.find((opt) => opt.value === hiringLikelihood)
     return option ? option.label : ""
   }
 
@@ -121,16 +135,20 @@ export default function JobDetailsPage() {
       return
     }
 
+    if (!hiringLikelihood) {
+      setUrgencyTouched(true)
+      return
+    }
+
     try {
       const jobDataToSave = {
         jobTitle,
         jobService: selectedService,
         jobDescription,
-        jobTimeline,
+        hiringLikelihood,
         jobCity,
         jobRegion,
         jobPostalCode,
-        // Store image data URLs (base64) instead of File objects
         jobImageDataUrls: imagePreviews,
       }
 
@@ -157,19 +175,17 @@ export default function JobDetailsPage() {
       return
     }
 
-    // Save to context
     updateData({
       jobTitle,
       jobService: selectedService,
       jobDescription,
       jobImages: imageFiles,
-      jobTimeline,
+      hiringLikelihood,
       jobCity,
       jobRegion,
       jobPostalCode,
     })
 
-    // Navigate to account creation
     router.push("/onboarding/personal-info?role=homeowner")
   }
 
@@ -356,31 +372,38 @@ export default function JobDetailsPage() {
               </div>
             </div>
 
-            {/* Timeline */}
+            {/* Urgency Level */}
             <div className="relative">
               <label className="block text-sm font-medium text-[#03353a] mb-2">
-                When do you need this done? <span className="text-red-500">*</span>
+                How urgent is your job posting? <span className="text-red-500">*</span>
               </label>
+              <p className="text-xs text-gray-500 mb-2">
+                This helps contractors understand your timeline and affects bid visibility
+              </p>
               <input
                 type="text"
-                value={getTimelineLabel()}
-                onFocus={() => setShowTimelineDropdown(true)}
+                value={getUrgencyLabel()}
+                onFocus={() => setShowUrgencyDropdown(true)}
                 readOnly
-                placeholder="Select timeline..."
+                placeholder="Select urgency"
                 required
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent text-sm sm:text-base cursor-pointer"
               />
+              {urgencyTouched && !hiringLikelihood && (
+                <p className="text-red-500 text-xs mt-1">Please select an urgency level</p>
+              )}
 
-              {showTimelineDropdown && (
+              {showUrgencyDropdown && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {timelineOptions.map((option) => (
+                  {urgencyOptions.map((option) => (
                     <button
                       key={option.value}
                       type="button"
                       onMouseDown={(e) => {
                         e.preventDefault()
-                        setJobTimeline(option.value)
-                        setShowTimelineDropdown(false)
+                        setHiringLikelihood(option.value)
+                        setShowUrgencyDropdown(false)
+                        setUrgencyTouched(false)
                       }}
                       className="w-full text-left px-4 py-3 hover:bg-gray-100 text-xs sm:text-sm"
                     >

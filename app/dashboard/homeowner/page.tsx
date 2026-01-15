@@ -71,6 +71,7 @@ interface Mission {
   city?: string
   region?: string
   completion_timeline?: string
+  hiring_likelihood?: string // Added for new field
   images?: string[] // Added for editing
   // Nested types for API responses
   bids?: Bid[]
@@ -614,14 +615,14 @@ export default function HomeownerDashboard() {
       formData.set("job_details", jobDescription)
       formData.set("region", editingMission ? editingMission.region : selectedRegion)
 
-      const completionTimeline = formData.get("completion_timeline") as string
+      const hiringLikelihood = formData.get("hiring_likelihood") as string
       let priority = "medium" // default
 
-      if (completionTimeline === "immediately" || completionTimeline === "within_1_week") {
+      if (hiringLikelihood === "immediate") {
         priority = "high"
-      } else if (completionTimeline === "within_1_month") {
+      } else if (hiringLikelihood === "within_4_weeks") {
         priority = "medium"
-      } else if (completionTimeline === "within_3_months" || completionTimeline === "inquiring_only") {
+      } else if (hiringLikelihood === "inquiring") {
         priority = "low"
       }
 
@@ -680,16 +681,16 @@ export default function HomeownerDashboard() {
   }
 
   const getPriorityBadge = (mission: Mission) => {
-    if (mission.priority === "high") {
-      return <span className="text-[9px] bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">High Priority</span>
-    } else if (mission.priority === "medium") {
+    const urgency = mission.hiring_likelihood || mission.priority
+
+    if (urgency === "immediate" || mission.priority === "high") {
+      return <span className="text-[9px] bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">Urgent</span>
+    } else if (urgency === "within_4_weeks" || mission.priority === "medium") {
       return (
-        <span className="text-[9px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-semibold">
-          Medium Priority
-        </span>
+        <span className="text-[9px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-semibold">Within 4 weeks</span>
       )
-    } else if (mission.priority === "low") {
-      return <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">Low Priority</span>
+    } else if (urgency === "inquiring" || mission.priority === "low") {
+      return <span className="text-[9px] bg-gray-600 text-white px-2 py-1 rounded font-semibold">Inquiring Only</span>
     }
     return null
   }
@@ -1016,20 +1017,23 @@ export default function HomeownerDashboard() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                When do you need this done? <span className="text-red-500">*</span>
+                How urgent is your job posting? <span className="text-red-500">*</span>
               </label>
+              <p className="text-xs text-gray-500 mb-2">
+                This helps contractors understand your timeline and affects bid cost
+              </p>
               <select
-                name="completion_timeline"
-                defaultValue={editingMission?.completion_timeline || ""}
+                name="hiring_likelihood"
+                defaultValue={editingMission?.hiring_likelihood || ""}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F766E] focus:border-transparent"
               >
-                <option value="">Select one</option>
-                <option value="immediately">Immediately</option>
-                <option value="within_1_week">Within 1 week</option>
-                <option value="within_1_month">Within 1 month</option>
-                <option value="within_3_months">Within 3 months</option>
-                <option value="inquiring_only">Inquiring only</option>
+                <option value="" disabled>
+                  Select urgency
+                </option>
+                <option value="immediate">Need it done immediately</option>
+                <option value="within_4_weeks">Need it done in 1-4 weeks</option>
+                <option value="inquiring">Just inquiring and comparing options</option>
               </select>
             </div>
 

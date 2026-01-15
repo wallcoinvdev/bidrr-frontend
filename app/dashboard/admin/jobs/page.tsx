@@ -6,13 +6,14 @@ import { Loader2, Search, Eye, Flag, Trash2, X } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { usePageTitle } from "@/hooks/use-page-title"
+import { BidMeter } from "@/components/bid-meter"
 
 interface Job {
   id: number
   title: string
   description?: string
   job_details?: string
-  service: string // Changed from service_type to service (matches backend)
+  service: string
   status: string
   city: string
   region: string
@@ -21,7 +22,7 @@ interface Job {
   postal_code?: string
   latitude?: number
   longitude?: number
-  bids_count?: number // Made optional since backend may not include it
+  bid_count?: number
   homeowner_name?: string
   user_id: number
   created_at: string
@@ -46,9 +47,7 @@ function JobDetailsModal({ job, onClose }: { job: Job | null; onClose: () => voi
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <h3 className="text-lg sm:text-xl font-semibold text-gray-900 break-words">{job.title}</h3>
-              <Badge className={getStatusColor(job.status)}>
-                {job.status === "in_progress" ? "in progress" : job.status}
-              </Badge>
+              <Badge className={getStatusColor(job.status)}>{job.status === "completed" ? "hired" : job.status}</Badge>
               {job.is_flagged && <Badge className="bg-red-100 text-red-700">Flagged</Badge>}
             </div>
             <p className="text-gray-600 break-words">{job.description || job.job_details || "No description"}</p>
@@ -61,7 +60,7 @@ function JobDetailsModal({ job, onClose }: { job: Job | null; onClose: () => voi
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Status</label>
-              <p className="text-gray-900 capitalize">{job.status.replace("_", " ")}</p>
+              <p className="text-gray-900 capitalize">{job.status === "completed" ? "hired" : job.status}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Location</label>
@@ -75,7 +74,7 @@ function JobDetailsModal({ job, onClose }: { job: Job | null; onClose: () => voi
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Number of Bids</label>
-              <p className="text-gray-900">{job.bids_count || 0}</p>
+              <p className="text-gray-900">{job.bid_count || 0}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Posted Date</label>
@@ -99,9 +98,6 @@ function getStatusColor(status: string) {
   switch (status.toLowerCase()) {
     case "open":
       return "bg-blue-100 text-blue-700"
-    case "in_progress":
-    case "in progress":
-      return "bg-yellow-100 text-yellow-700"
     case "completed":
       return "bg-green-100 text-green-700"
     default:
@@ -113,68 +109,96 @@ export default function AdminJobsPage() {
   usePageTitle("Job Management")
 
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
-  const [filteredJobs, setFilteredJobs] = useState<Job[]>([])
+  const [displayedJobs, setDisplayedJobs] = useState<Job[]>([])
+  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [page, setPage] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
 
-  const fetchJobs = async () => {
+  const fetchJobs = async (reset = false) => {
     try {
-      setLoading(true)
-      const data = await apiClient.request<{ jobs: Job[] }>("/api/admin/jobs", {
-        requiresAuth: true,
+      if (reset) {
+        setLoading(true)
+        setPage(0)
+      } else {
+        setLoadingMore(true)
+      }
+
+      const currentPage = reset ? 0 : page
+      const params = new URLSearchParams({
+        limit: "10",
+        offset: (currentPage * 10).toString(),
       })
-      setJobs(data.jobs || [])
+
+      if (statusFilter !== "all" && statusFilter !== "flagged") {
+        params.append("status", statusFilter)
+      }
+
+      const data = await apiClient.request<{ jobs: Job[]; total: number; hasMore: boolean }>(
+        `/api/admin/jobs?${params.toString()}`,
+        {
+          requiresAuth: true,
+        },
+      )
+
+      if (reset) {
+        setDisplayedJobs(data.jobs || [])
+        setJobs(data.jobs || [])
+      } else {
+        setDisplayedJobs((prev) => [...prev, ...(data.jobs || [])])
+        setJobs((prev) => [...prev, ...(data.jobs || [])])
+      }
+
+      setTotal(data.total || 0)
+      setHasMore(data.hasMore || false)
+      setPage(currentPage + 1)
     } catch (error: any) {
       console.error("Error fetching jobs:", error)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
   useEffect(() => {
-    fetchJobs()
+    fetchJobs(true)
   }, [])
 
   useEffect(() => {
-    filterJobs()
-  }, [searchTerm, statusFilter, jobs])
+    fetchJobs(true)
+  }, [statusFilter])
 
-  const filterJobs = () => {
-    let filtered = jobs
-
+  const filteredJobs = displayedJobs.filter((job) => {
+    // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(
-        (job) =>
-          job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          job.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          job.job_details?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          job.homeowner_name?.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
+      const matchesSearch =
+        job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.job_details?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.homeowner_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      if (!matchesSearch) return false
     }
 
-    if (statusFilter !== "all") {
-      if (statusFilter === "flagged") {
-        filtered = filtered.filter((job) => job.is_flagged)
-      } else {
-        filtered = filtered.filter((job) => job.status === statusFilter)
-      }
+    // Apply flagged filter
+    if (statusFilter === "flagged" && !job.is_flagged) {
+      return false
     }
 
-    setFilteredJobs(filtered)
-  }
+    return true
+  })
 
   const handleToggleFlag = async (jobId: number, isFlagged: boolean) => {
     try {
       if (isFlagged) {
-        // Unflag
         await apiClient.request(`/api/admin/jobs/${jobId}/unflag`, {
           method: "POST",
           requiresAuth: true,
         })
       } else {
-        // Flag with reason
         const reason = prompt("Enter reason for flagging this job:")
         if (!reason) return
 
@@ -185,8 +209,7 @@ export default function AdminJobsPage() {
         })
       }
 
-      // Refresh jobs list
-      await fetchJobs()
+      await fetchJobs(true)
     } catch (error: any) {
       console.error("Error toggling flag:", error)
       alert(error.message || "Failed to update flag status")
@@ -204,51 +227,16 @@ export default function AdminJobsPage() {
         requiresAuth: true,
       })
 
-      // Refresh jobs list
-      await fetchJobs()
+      await fetchJobs(true)
     } catch (error: any) {
       console.error("Error deleting job:", error)
       alert(error.message || "Failed to delete job")
     }
   }
 
-  const groupJobsByLocation = () => {
-    const grouped: { [key: string]: Job[] } = {}
-
-    jobs.forEach((job) => {
-      if (job.latitude && job.longitude) {
-        const key = `${job.latitude},${job.longitude}`
-        if (!grouped[key]) {
-          grouped[key] = []
-        }
-        grouped[key].push(job)
-      }
-    })
-
-    Object.keys(grouped).forEach((key) => {
-      grouped[key].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    })
-
-    return grouped
-  }
-
-  const getMapCenter = (): [number, number] => {
-    const jobsWithCoords = jobs.filter((j) => j.latitude && j.longitude)
-    if (jobsWithCoords.length === 0) return [52.1491, -106.6505] // Default Saskatoon
-
-    const avgLat = jobsWithCoords.reduce((sum, j) => sum + (j.latitude || 0), 0) / jobsWithCoords.length
-    const avgLng = jobsWithCoords.reduce((sum, j) => sum + (j.longitude || 0), 0) / jobsWithCoords.length
-
-    return [avgLat, avgLng]
-  }
-
   const openCount = jobs.filter((j) => j.status === "open").length
-  const inProgressCount = jobs.filter((j) => j.status === "in_progress").length
   const completedCount = jobs.filter((j) => j.status === "completed").length
   const flaggedCount = jobs.filter((j) => j.is_flagged).length
-
-  const jobsWithLocation = jobs.filter((j) => j.latitude && j.longitude).length
-  const groupedJobs = groupJobsByLocation()
 
   if (loading) {
     return (
@@ -285,7 +273,7 @@ export default function AdminJobsPage() {
           </div>
         </div>
 
-        {/* Status Tabs */}
+        {/* Status Tabs - Removed "In Progress" tab, renamed "Completed" to "Hired" */}
         <div className="mb-6 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
           <div className="flex gap-2 border-b border-gray-200 min-w-max">
             <button
@@ -296,7 +284,7 @@ export default function AdminJobsPage() {
                   : "border-transparent text-gray-600 hover:text-gray-900"
               }`}
             >
-              All Jobs ({jobs.length})
+              All Jobs ({total})
             </button>
             <button
               onClick={() => setStatusFilter("open")}
@@ -309,16 +297,6 @@ export default function AdminJobsPage() {
               Open ({openCount})
             </button>
             <button
-              onClick={() => setStatusFilter("in_progress")}
-              className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                statusFilter === "in_progress"
-                  ? "border-gray-900 text-gray-900"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              In Progress ({inProgressCount})
-            </button>
-            <button
               onClick={() => setStatusFilter("completed")}
               className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 statusFilter === "completed"
@@ -326,7 +304,7 @@ export default function AdminJobsPage() {
                   : "border-transparent text-gray-600 hover:text-gray-900"
               }`}
             >
-              Completed ({completedCount})
+              Hired ({completedCount})
             </button>
             <button
               onClick={() => setStatusFilter("flagged")}
@@ -353,14 +331,14 @@ export default function AdminJobsPage() {
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{job.title}</h3>
                     <Badge className={getStatusColor(job.status)}>
-                      {job.status === "in_progress" ? "in progress" : job.status}
+                      {job.status === "completed" ? "hired" : job.status}
                     </Badge>
                     {job.is_flagged && <Badge className="bg-red-100 text-red-700">Flagged</Badge>}
                   </div>
                   <p className="text-gray-600 text-sm mb-3 break-words">
                     {job.description || job.job_details || "No description"}
                   </p>
-                  <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
+                  <div className="flex flex-col gap-2 text-sm text-gray-600">
                     <span className="break-words">
                       <strong>Service:</strong> {job.service || "N/A"}
                     </span>
@@ -368,15 +346,15 @@ export default function AdminJobsPage() {
                       <strong>Location:</strong>{" "}
                       {job.city && job.region && job.country ? `${job.city}, ${job.region}, ${job.country}` : "N/A"}
                     </span>
-                    <span>
-                      <strong>{job.bids_count || 0} bids</strong>
-                    </span>
                     <span className="break-words">
                       <strong>Posted by:</strong> {job.homeowner_name || "Unknown"}
                     </span>
                     <span>
                       <strong>Posted:</strong> {new Date(job.created_at).toLocaleDateString()}
                     </span>
+                    <div className="mt-1">
+                      <BidMeter currentBids={job.bid_count || 0} maxBids={5} showLabel={true} />
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-2 sm:ml-4 justify-end sm:justify-start">
@@ -416,6 +394,25 @@ export default function AdminJobsPage() {
             </div>
           )}
         </div>
+
+        {hasMore && !searchTerm && statusFilter !== "flagged" && (
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => fetchJobs(false)}
+              disabled={loadingMore}
+              className="px-6 py-2.5 bg-[#0F3D3E] text-white rounded-lg hover:bg-[#0a2c2d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Load More"
+              )}
+            </button>
+          </div>
+        )}
       </Card>
 
       <JobDetailsModal job={selectedJob} onClose={() => setSelectedJob(null)} />

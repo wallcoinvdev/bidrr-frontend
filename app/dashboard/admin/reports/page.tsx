@@ -10,15 +10,15 @@ export default function UserReportsPage() {
   const [filter, setFilter] = useState("all")
 
   return (
-    <div>
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">User Reports</h1>
-          <p className="text-gray-600 mt-2">
-            Review reports submitted by users about inappropriate behavior or policy violations
-          </p>
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900">User Reports</h1>
+        <p className="text-gray-600 mt-2">
+          Review reports submitted by users about inappropriate behavior or policy violations
+        </p>
+      </div>
 
+      <div className="flex justify-end">
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}

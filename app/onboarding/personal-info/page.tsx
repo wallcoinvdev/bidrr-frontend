@@ -35,6 +35,25 @@ const CANADIAN_PROVINCES = [
 
 const IS_CANADA_ONLY_FORM = true
 
+// Helper function for backwards compatibility with jobTimeline
+const mapOldTimelineToUrgency = (timeline: string | undefined): string => {
+  if (!timeline) return "ASAP"
+  switch (timeline) {
+    case "Immediately":
+      return "ASAP"
+    case "1-2 weeks":
+      return "SOON"
+    case "2-4 weeks":
+      return "SHORT_TERM"
+    case "1-3 months":
+      return "MEDIUM_TERM"
+    case "3+ months":
+      return "LONG_TERM"
+    default:
+      return "ASAP"
+  }
+}
+
 export default function PersonalInfoPage() {
   const router = useRouter()
   const { data, updateData } = useOnboarding()
@@ -441,7 +460,7 @@ export default function PersonalInfoPage() {
           jobTitle: data.jobTitle,
           jobService: data.jobService,
           jobDescription: data.jobDescription,
-          jobTimeline: data.jobTimeline,
+          hiringLikelihood: data.hiringLikelihood || mapOldTimelineToUrgency(data.jobTimeline),
           jobCity: data.jobCity,
           jobRegion: data.jobRegion,
           jobPostalCode: data.jobPostalCode,
