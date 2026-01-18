@@ -72,7 +72,7 @@ export default function FindContractorsTorontoPage() {
             </p>
             <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Button asChild size="lg" className="w-full sm:w-auto">
-                <Link href="/signup/homeowner">
+                <Link href="/signup?role=homeowner">
                   Post Your Project Free
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
@@ -362,7 +362,7 @@ export default function FindContractorsTorontoPage() {
           </p>
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
-              <Link href="/signup/homeowner">
+              <Link href="/signup?role=homeowner">
                 Post Your Project Free
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>

@@ -67,14 +67,14 @@ export default function ContractorLeadsTorontoPage() {
         <div className="container mx-auto max-w-6xl px-4 py-16 md:py-24">
           <div className="mx-auto max-w-3xl text-center">
             <h1 className="text-balance font-serif text-4xl font-bold leading-tight text-foreground md:text-5xl lg:text-6xl">
-              Get High-Quality Contractor Leads in Toronto for $2.45-$9.80 Per Bid
+              Get High-Quality Contractor Leads in Toronto Starting at $2.45 Per Bid
             </h1>
             <p className="mt-6 text-pretty text-lg text-muted-foreground md:text-xl">
               No Monthly Fees. No Contracts. Only Pay When You Bid on Jobs You Want.
             </p>
             <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Button asChild size="lg" className="w-full sm:w-auto">
-                <Link href="/signup/contractor">
+                <Link href="/signup?role=contractor">
                   Start Getting Leads Today
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
@@ -110,24 +110,19 @@ export default function ContractorLeadsTorontoPage() {
                   <th className="border-b p-4 text-left font-semibold text-primary">Bidrr</th>
                   <th className="border-b p-4 text-left font-semibold">Thumbtack</th>
                   <th className="border-b p-4 text-left font-semibold">Bark.com</th>
-                  <th className="border-b p-4 text-left font-semibold">TaskRabbit</th>
                   <th className="border-b p-4 text-left font-semibold">HomeStars</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td className="border-b p-4">Cost model</td>
-                  <td className="border-b p-4 font-semibold text-primary">$2.45-$9.80/bid</td>
+                  <td className="border-b p-4 font-semibold text-primary">Starting at $2.45/bid</td>
                   <td className="border-b p-4">$10-50/lead</td>
                   <td className="border-b p-4">$12-15/lead</td>
-                  <td className="border-b p-4">$25 one-time</td>
                   <td className="border-b p-4">15% commission</td>
                 </tr>
                 <tr>
                   <td className="border-b p-4">Monthly fees</td>
-                  <td className="border-b p-4">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  </td>
                   <td className="border-b p-4">
                     <CheckCircle2 className="h-5 w-5 text-green-600" />
                   </td>
@@ -152,9 +147,6 @@ export default function ContractorLeadsTorontoPage() {
                   <td className="border-b p-4">
                     <X className="h-5 w-5 text-red-600" />
                   </td>
-                  <td className="border-b p-4">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  </td>
                   <td className="border-b p-4 text-muted-foreground">Limited</td>
                 </tr>
                 <tr>
@@ -164,14 +156,10 @@ export default function ContractorLeadsTorontoPage() {
                   </td>
                   <td className="border-b p-4 text-muted-foreground">Pay for leads</td>
                   <td className="border-b p-4 text-muted-foreground">Pay for leads</td>
-                  <td className="border-b p-4 text-muted-foreground">Task jobs only</td>
                   <td className="border-b p-4 text-muted-foreground">Pay after job</td>
                 </tr>
                 <tr>
                   <td className="p-4">Credits/fees never expire</td>
-                  <td className="p-4">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  </td>
                   <td className="p-4">
                     <CheckCircle2 className="h-5 w-5 text-green-600" />
                   </td>
@@ -194,7 +182,7 @@ export default function ContractorLeadsTorontoPage() {
               Pay up to 80% less per lead compared to Thumbtack and Bark.com
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Example: 20 bids at $9.80 each = $196 vs. Thumbtack at $30/lead average = $600
+              Example: 20 bids at $2.45 each = $49 vs. Thumbtack at $30/lead average = $600
             </p>
           </div>
         </div>
@@ -431,7 +419,7 @@ export default function ContractorLeadsTorontoPage() {
           </p>
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
-              <Link href="/signup/contractor">
+              <Link href="/signup?role=contractor">
                 Create Free Account
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
